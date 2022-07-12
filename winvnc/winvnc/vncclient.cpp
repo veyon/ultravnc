@@ -1253,14 +1253,13 @@ BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth)
 #ifdef AUTH_SESSION_SELECT_SUPPORT
 	bool bSessionSelectActive = std::find(current_auth.begin(), current_auth.end(), rfbUltraVNC_SessionSelect) != current_auth.end();
 #endif
-
 #ifdef AUTH_ULTRA_SUPPORT
+	bool brfbClientInitExtraMsgSupport = std::find(current_auth.begin(), current_auth.end(), rfbClientInitExtraMsgSupport) != current_auth.end();
+
 	if (current_auth.empty()) {
 		// send the UltraVNC auth type to identify ourselves as an UltraVNC server, but only initially
 		auth_types.push_back(rfbUltraVNC);
 	}
-	//Just tell the viewer we support ClientInitExtraMsg
-	auth_types.push_back(rfbClientInitExtraMsgSupport);
 #endif
 
 #ifdef DSM_SUPPORT
@@ -1288,6 +1287,11 @@ BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth)
 		// adzm 2010-10 - Add the SessionSelect pseudo-auth
 		auth_types.push_back(rfbUltraVNC_SessionSelect);
 	}
+#endif
+#ifdef AUTH_ULTRA_SUPPORT
+	else if (!brfbClientInitExtraMsgSupport)
+		//Just tell the viewer we support ClientInitExtraMsg
+		auth_types.push_back(rfbClientInitExtraMsgSupport);
 #endif
 	else
 	{			
