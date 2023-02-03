@@ -21,7 +21,6 @@
 // which you received this file, check 
 // http://www.uvnc.com
 // /macine-vnc Greg Wood (wood@agressiv.com)
-#include <algorithm>
 
 #include "authSSP.h"
 

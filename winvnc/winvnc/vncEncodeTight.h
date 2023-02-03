@@ -40,14 +40,10 @@ class vncEncodeTight;
 
 extern "C"
 {
-#ifdef _INTERNALLIB
-#include <jpeglib.h>
-#else
 #ifdef ULTRAVNC_VEYON_SUPPORT
 #include <jpeglib.h>
 #else
 #include "libjpeg-turbo-win/jpeglib.h"
-#endif
 #endif
 }
 #include <math.h>

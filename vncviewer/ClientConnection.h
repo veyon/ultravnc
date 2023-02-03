@@ -70,7 +70,7 @@ extern "C"
 #include <algorithm>
 #include "./directx/directxviewer.h"
 #include "FpsCounter.h"
-#include "ShellScalingApi.h"
+#include "shellscalingapi.h"
 
 #ifdef _Gii
 #include "vnctouch.h"
@@ -108,6 +108,7 @@ extern const UINT FileTransferSendPacketMessage;
 #define TIGHT_ZLIB_BUFFER_SIZE 512 // Tight encoding
 class ClientConnection;
 class CDSMPlugin;
+class CloudThread;
 typedef void (ClientConnection:: *tightFilterFunc)(int);
 
 struct mybool {
@@ -199,6 +200,7 @@ public:
 	void ResizeToolbar(RECT& rect);
 
 private:
+	bool brfbClientInitExtraMsgSupportNew = false;
 	CRITICAL_SECTION crit;
 	UltraVncZ *ultraVncZlib;
 	UltraVncZ ultraVncZTight[4];
@@ -245,7 +247,7 @@ private:
 	void LoadDSMPlugin(bool fForceReload); // sf@2002 - DSM Plugin
 	void SetDSMPluginStuff();
 	void GetConnectDetails();
-	void Connect();
+	void Connect(bool cloud);
 	void ConnectProxy();
 	void SetSocketOptions();
 	///////////////////////////////////////////////
@@ -845,8 +847,10 @@ private:
 	HMODULE hUser32;
 	PFN_GetDpiForMonitor getDpiForMonitor;
 	PFN_AdjustWindowRectExForDpi adjustWindowRectExForDpi;
+
 public:
 	// RFB settings
+	CloudThread* cloudThread = NULL;
 	VNCOptions *m_opts;
 	bool m_FullScreenNotDone;
 	int m_autoReconnect;
@@ -861,7 +865,9 @@ public:
 	void Save_Latest_Connection();	
 	bool tbWM_Set;
 	RECT tbWM_rect;
-
+	TCHAR c_proxyhost[MAX_HOST_NAME_LEN]{};
+	TCHAR c_Cloudhost[MAX_HOST_NAME_LEN]{};
+	bool c_fUseCloud = false;
 };
 
 // Some handy classes for temporary GDI object selection

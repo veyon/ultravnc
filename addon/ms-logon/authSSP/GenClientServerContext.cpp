@@ -22,8 +22,6 @@
 // http://www.uvnc.com
 // /macine-vnc Greg Wood (wood@agressiv.com)
 
-#include <algorithm>
-
 #include "GenClientServerContext.h"
 extern Fn fn;
 

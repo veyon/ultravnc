@@ -23,7 +23,7 @@
 ////////////////////////////////////////////////////////////////////////////
 #include "stdhdrs.h"
 #define WIN32_LEAN_AND_MEAN
-#include <shlwapi.h>
+//#include <shlwapi.h>
 #include <tchar.h>
 #include <windows.h>
 #include <wininet.h> // Shell object uses INTERNET_MAX_URL_LENGTH (go figure)
@@ -36,6 +36,9 @@
 #define _ATL_APARTMENT_THREADED
 #define _USING_V110_SDK71_
 #define _ATL_XP_TARGETING
+#if !defined(__MINGW32__)
+#include <atlbase.h> // ATL smart pointers
+#endif
 #include <shlguid.h> // shell GUIDs
 #include <shlobj.h>  // IActiveDesktop
 #include <shlwapi.h> // DLLVERSIONINFO
@@ -119,7 +122,7 @@ BOOL SHDesktopHTML()
 static 
 HRESULT EnableActiveDesktop(bool enable)
 {
-#ifndef ULTRAVNC_VEYON_SUPPORT
+#if !defined(__MINGW32__)
 	CoInitialize(NULL);
 	CComQIPtr<IActiveDesktop, &IID_IActiveDesktop>	pIActiveDesktop;
 	
@@ -144,8 +147,8 @@ HRESULT EnableActiveDesktop(bool enable)
 	CoUninitialize();
 	return hr;
 #else
-	return 0;
-#endif
+	return E_NOTIMPL;
+#endif //__MINGW32__
 }
 
 bool HideActiveDesktop()
@@ -166,7 +169,6 @@ void ShowActiveDesktop()
 }
 		
 // OK, so this doesn't work in multiple threads or nest...
-static TCHAR	DesktopPattern[40];
 static BOOL		ADWasEnabled = false;
 static BOOL		ISWallPaperHided = false;
 static TCHAR SCREENNAME[1024];
@@ -377,7 +379,7 @@ void DisableFontSmoothing()
 		if (g_bGotOldFontSmoothingValue && g_bOldFontSmoothingValue != FALSE) {
 			
 			if (g_bGotClearType && g_bOldClearTypeValue != FALSE) {
-				if (!SystemParametersInfo(0x1049 /*SPI_SETCLEARTYPE*/, 0, reinterpret_cast<PVOID>(FALSE), SPIF_SENDCHANGE)) {
+				if (!SystemParametersInfo(0x1049 /*SPI_SETCLEARTYPE*/, 0, (PVOID)FALSE, SPIF_SENDCHANGE)) {				
 					vnclog.Print(LL_INTWARN, VNCLOG("Failed to set SPI value for SPI_SETCLEARTYPE (0x%08x)\n"), GetLastError());
 				} else {
 					g_bDisabledFontSmoothing = true; // ensure we reset even if SPI_SETFONTSMOOTHING fails for some reason

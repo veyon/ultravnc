@@ -58,11 +58,12 @@ extern "C" {
 #include "common/win32_helpers.h"
 #include "display.h"
 #include "Snapshot.h"
-#include <CommCtrl.h>
+#include <commctrl.h>
 #include <shellapi.h>
-#include <LMaccess.h>
-#include <LMat.h>
-#include <LMalert.h>
+#include <lmaccess.h>
+#include <lmat.h>
+#include <lmalert.h>
+#include "../UdtCloudlib/proxy/Cloudthread.h"
 
 // [v1.0.2-jp1 fix]
 #pragma comment(lib, "imm32.lib")
@@ -85,7 +86,10 @@ const UINT RebuildToolbarMessage = RegisterWindowMessage("UltraVNC.Viewer.Rebuil
 extern bool g_ConnectionLossAlreadyReported;
 extern bool paintbuzy;
 extern HWND hFTWnd;
+
+#if !defined(FAILED)
 #define FAILED(hr) (((HRESULT)(hr)) < 0)
+#endif
 
 /*
  * Macro to compare pixel formats.
@@ -337,6 +341,9 @@ ClientConnection::ClientConnection(VNCviewerApp *pApp, LPTSTR host, int port)
 
 void ClientConnection::Init(VNCviewerApp *pApp)
 {
+	if (cloudThread)
+		delete cloudThread;
+	cloudThread = new CloudThread();
 	InitializeCriticalSection(&crit);
 	m_hSessionDialog = NULL;
 	new_ultra_server=false;
@@ -717,17 +724,17 @@ void ClientConnection::DoConnection(bool reconnect)
 	havetobekilled=true;
 	// Connect if we're not already connected
 	if (m_sock == INVALID_SOCKET)
-		if (strcmp(m_proxyhost,"") !=NULL && m_fUseProxy)
+		if (strcmp(m_proxyhost, "") != 0 && m_fUseProxy)
 			ConnectProxy();
 		else
-			Connect();
+			Connect(false);
 
 	SetSocketOptions();
 
 	SetDSMPluginStuff(); // The Plugin is now activated BEFORE the protocol negociation
 						 // so ALL the communication data travel through the DSMPlugin
 
-	if (strcmp(m_proxyhost,"")!=NULL && m_fUseProxy)
+	if (strcmp(m_proxyhost,"")!=0 && m_fUseProxy)
 		NegotiateProxy();
 
 	NegotiateProtocolVersion();
@@ -879,7 +886,7 @@ void ClientConnection::CreateButtons(BOOL mini,BOOL ultra)
 						,IDR_TOOLBAR
 						,nr_buttons
 						,NULL
-						,(UINT)hbmToolsmallX
+						,(UINT_PTR)hbmToolsmallX
 						,(LPCTBBUTTON)&tbButtons
 						,nr_buttons
 						,10
@@ -896,7 +903,7 @@ void ClientConnection::CreateButtons(BOOL mini,BOOL ultra)
 						,IDR_TOOLBAR
 						,nr_buttons
 						,NULL
-						,(UINT)hbmToolbigX
+						,(UINT_PTR)hbmToolbigX
 						,(LPCTBBUTTON)&tbButtons
 						,nr_buttons
 						,20
@@ -916,7 +923,7 @@ void ClientConnection::CreateButtons(BOOL mini,BOOL ultra)
 						,IDR_TOOLBAR
 						,nr_buttons
 						,NULL
-						,(UINT)hbmToolsmall
+						,(UINT_PTR)hbmToolsmall
 						,(LPCTBBUTTON)&tbButtons
 						,nr_buttons
 						,10
@@ -933,7 +940,7 @@ void ClientConnection::CreateButtons(BOOL mini,BOOL ultra)
 						,IDR_TOOLBAR
 						,nr_buttons
 						,NULL
-						,(UINT)hbmToolbig
+						,(UINT_PTR)hbmToolbig
 						,(LPCTBBUTTON)&tbButtons
 						,nr_buttons
 						,20
@@ -1830,30 +1837,18 @@ void ClientConnection::GetConnectDetails()
 		LoadConnection(m_opts->m_configFilename, false);
 	}
 	else {
-		if (!command_line && LoadConnection(m_opts->getDefaultOptionsFileName(), true, true)==-1) {
+			if (!command_line)
+				LoadConnection(m_opts->getDefaultOptionsFileName(), true, true);
 			SessionDialog sessdlg(m_opts, this, m_pDSMPlugin); //sf@2002
 			if (!sessdlg.DoDialog())
-					throw QuietException(sz_L42);
+				throw QuietException(sz_L42);
 			_tcsncpy_s(m_host, sessdlg.m_host_dialog, MAX_HOST_NAME_LEN);
 			m_port = sessdlg.m_port;
 			_tcsncpy_s(m_proxyhost, sessdlg.m_proxyhost, MAX_HOST_NAME_LEN);
 			m_proxyport = sessdlg.m_proxyport;
 			m_fUseProxy = sessdlg.m_fUseProxy;
 			if (m_opts->autoDetect)
-					m_opts->m_Use8Bit = rfbPFFullColors;				
-		}
-		else {
-			SessionDialog sessdlg(m_opts, this, m_pDSMPlugin); //sf@2002
-			if (!sessdlg.DoDialog())
-					throw QuietException(sz_L42);
-			_tcsncpy_s(m_host, sessdlg.m_host_dialog, MAX_HOST_NAME_LEN);
-			m_port = sessdlg.m_port;
-			_tcsncpy_s(m_proxyhost, sessdlg.m_proxyhost, MAX_HOST_NAME_LEN);
-			m_proxyport = sessdlg.m_proxyport;
-			m_fUseProxy = sessdlg.m_fUseProxy;
-			if (m_opts->autoDetect)
-				m_opts->m_Use8Bit = rfbPFFullColors;
-		}
+				m_opts->m_Use8Bit = rfbPFFullColors;				
 	}
 	// This is a bit of a hack:
 	// The config file may set various things in the app-level defaults which
@@ -1886,8 +1881,13 @@ DWORD WINAPI SocketTimeout(LPVOID lpParam)
 	}
 	return 0;
 }
-void ClientConnection::Connect()
+void ClientConnection::Connect(bool cloud)
 {
+	if (cloud) {
+		strcpy_s(m_host, "127.0.0.1");
+		m_port = 5953;
+	}
+
 #ifdef IPV6V4
 	bool IsIpv4 = false;
 	bool IsIpv6 = false;
@@ -2111,15 +2111,24 @@ void ClientConnection::Connect()
 #else
 	struct sockaddr_in thataddr;
 	int res;
-	if (!m_opts->m_NoStatus && !m_hwndStatus) GTGBS_ShowConnectWindow();
-	if (m_sock != NULL && m_sock != INVALID_SOCKET) closesocket(m_sock);
+	if (!m_opts->m_NoStatus && !m_hwndStatus) 
+		GTGBS_ShowConnectWindow();
+	if (m_sock != 0 && m_sock != INVALID_SOCKET)
+		closesocket(m_sock);
 	m_sock = socket(PF_INET, SOCK_STREAM, 0);
-	if (m_hwndStatus) SetDlgItemText(m_hwndStatus, IDC_STATUS, sz_L43);
-	if (m_sock == INVALID_SOCKET) { if (m_hwndStatus)SetDlgItemText(m_hwndStatus, IDC_STATUS, sz_L44); throw WarningException(sz_L44); }
+	if (m_hwndStatus) 
+		SetDlgItemText(m_hwndStatus, IDC_STATUS, sz_L43);
+	if (m_sock == INVALID_SOCKET) { 
+		if (m_hwndStatus)
+			SetDlgItemText(m_hwndStatus, IDC_STATUS, sz_L44); 
+		throw WarningException(sz_L44); 
+	}
 
 
-	if (m_hwndStatus) SetDlgItemText(m_hwndStatus, IDC_STATUS, sz_L45);
-	if (m_hwndStatus) UpdateWindow(m_hwndStatus);
+	if (m_hwndStatus) {
+		SetDlgItemText(m_hwndStatus, IDC_STATUS, sz_L45);
+		UpdateWindow(m_hwndStatus);
+	}
 
 	// The host may be specified as a dotted address "a.b.c.d"
 	// Try that first
@@ -2132,24 +2141,25 @@ void ClientConnection::Connect()
 
 		if (lphost == NULL)
 		{
-			//if(myDialog!=0)DestroyWindow(myDialog);
 			SetEvent(KillEvent);
-			if (m_hwndStatus) SetDlgItemText(m_hwndStatus, IDC_STATUS, sz_L46);
+			if (m_hwndStatus) 
+				SetDlgItemText(m_hwndStatus, IDC_STATUS, sz_L46);
 			throw WarningException(sz_L46, IDS_L46);
 		};
 		thataddr.sin_addr.s_addr = ((LPIN_ADDR)lphost->h_addr)->s_addr;
 	};
 
-	if (m_hwndStatus)SetDlgItemText(m_hwndStatus, IDC_STATUS, sz_L47);
-	if (m_hwndStatus)ShowWindow(m_hwndStatus, SW_SHOW);
-	if (m_hwndStatus)UpdateWindow(m_hwndStatus);
-	if (m_hwndStatus)SetDlgItemInt(m_hwndStatus, IDC_PORT, m_port, FALSE);
+	if (m_hwndStatus) {
+		SetDlgItemText(m_hwndStatus, IDC_STATUS, sz_L47);
+		ShowWindow(m_hwndStatus, SW_SHOW);
+		UpdateWindow(m_hwndStatus);
+		SetDlgItemInt(m_hwndStatus, IDC_PORT, m_port, FALSE);
+	}
 	thataddr.sin_family = AF_INET;
 	thataddr.sin_port = htons(m_port);
 	///Force break after timeout
 	DWORD				  threadID;
-	if (ThreadSocketTimeout)
-	{
+	if (ThreadSocketTimeout){
 		havetobekilled = false; //force SocketTimeout thread to quit
 		WaitForSingleObject(ThreadSocketTimeout, 5000);
 		CloseHandle(ThreadSocketTimeout);
@@ -2158,22 +2168,26 @@ void ClientConnection::Connect()
 	ThreadSocketTimeout = CreateThread(NULL, 0, SocketTimeout, (LPVOID)&m_sock, 0, &threadID);
 	res = connect(m_sock, (LPSOCKADDR)&thataddr, sizeof(thataddr));
 
-	if (res == SOCKET_ERROR)
-	{
+	if (res == SOCKET_ERROR){
 		int a = WSAGetLastError();
 		vnclog.Print(0, _T("socket error %i\n"), a);
 		if (a == 6)
 			Sleep(5000);
-		if (m_hwndStatus)SetDlgItemText(m_hwndStatus, IDC_STATUS, sz_L48);
+		if (m_hwndStatus)
+			SetDlgItemText(m_hwndStatus, IDC_STATUS, sz_L48);
 		SetEvent(KillEvent);
-		if (!Pressed_Cancel) throw WarningException(sz_L48, IDS_L48);
-		else throw QuietException(sz_L48);
+		if (!Pressed_Cancel) 
+			throw WarningException(sz_L48, IDS_L48);
+		else 
+			throw QuietException(sz_L48);
 	}
 	vnclog.Print(0, _T("Connected to %s port %d\n"), m_host, m_port);
-	if (m_hwndStatus)SetDlgItemText(m_hwndStatus, IDC_STATUS, sz_L49);
-	if (m_hwndStatus)SetDlgItemText(m_hwndStatus, IDC_VNCSERVER, m_host);
-	if (m_hwndStatus)ShowWindow(m_hwndStatus, SW_SHOW);
-	if (m_hwndStatus)UpdateWindow(m_hwndStatus);
+	if (m_hwndStatus) {
+		SetDlgItemText(m_hwndStatus, IDC_STATUS, sz_L49);
+		SetDlgItemText(m_hwndStatus, IDC_VNCSERVER, m_host);
+		ShowWindow(m_hwndStatus, SW_SHOW);
+		UpdateWindow(m_hwndStatus);
+	}
 #endif
 }
 
@@ -2798,7 +2812,7 @@ void ClientConnection::NegotiateProxy()
 	::ZeroMemory(tmphost, sizeof(tmphost));
 	::ZeroMemory(tmphost2, sizeof(tmphost2));
 	_tcscpy_s(tmphost,m_host);
-	if (strcmp(tmphost,"")!=NULL)
+	if (strcmp(tmphost,"")!=0)
 	{
 	_tcscat_s(tmphost,":");
 	_tcscat_s(tmphost, MAX_HOST_NAME_LEN, _itoa(m_port,tmphost2, 10));
@@ -2845,11 +2859,14 @@ void ClientConnection::Authenticate(std::vector<CARD32>& current_auth)
 				}
 
 				switch (authAllowed[i]) {
+				case rfbClientInitExtraMsgSupportNew:
+					brfbClientInitExtraMsgSupportNew = true;
+					break;
+				case rfbClientInitExtraMsgSupport:
 				case rfbUltraVNC:
 				case rfbUltraVNC_SecureVNCPluginAuth:
 				case rfbUltraVNC_SecureVNCPluginAuth_new:
-				case rfbUltraVNC_SCPrompt: // adzm 2010-10
-				case rfbClientInitExtraMsgSupport:
+				case rfbUltraVNC_SCPrompt: // adzm 2010-10				
 				case rfbUltraVNC_SessionSelect:
 				case rfbUltraVNC_MsLogonIIAuth:
 				case rfbVncAuth:
@@ -2882,7 +2899,6 @@ void ClientConnection::Authenticate(std::vector<CARD32>& current_auth)
 			if (authScheme == rfbInvalidAuth) {
 				throw WarningException("No supported authentication methods!");
 			}
-
 			CARD8 authSchemeMsg = (CARD8)authScheme;
 			WriteExact((char *)&authSchemeMsg, sizeof(authSchemeMsg));
 			if (authScheme == rfbClientInitExtraMsgSupport) {
@@ -3640,8 +3656,20 @@ void ClientConnection::SendClientInit()
 	if (m_opts->m_Shared) {
 		ci.flags |= clientInitShared;
 	}
+	if (brfbClientInitExtraMsgSupportNew) {
+		ci.flags |= clientInitExtraMsgSupport;
+	}
 
     WriteExact((char *)&ci, sz_rfbClientInitMsg); // sf@2002 - RSM Plugin
+	if (brfbClientInitExtraMsgSupportNew) {
+		brfbClientInitExtraMsgSupportNew = false;
+		rfbClientInitExtraMsg msg;
+		msg.textLength = strlen(m_opts->m_InfoMsg);
+		WriteExact((char*)&msg, sz_rfbClientInitExtraMsg);
+		if (strlen(m_opts->m_InfoMsg) > 0) {
+			WriteExact(m_opts->m_InfoMsg, msg.textLength);
+		}
+	}
 }
 
 void ClientConnection::ReadServerInit(bool reconnect)
@@ -3665,19 +3693,20 @@ void ClientConnection::ReadServerInit(bool reconnect)
 	}
 #endif
 
-    m_desktopName = new TCHAR[1024];
-	m_desktopName_viewonly = new TCHAR[1024];
-	if (m_si.nameLength > 256) {
-		int msgboxID = MessageBox(NULL,"Server is trying yo overload a memory buffer.\Possible exploit","Error", MB_OKCANCEL |MB_ICONINFORMATION);
+    m_desktopName = new TCHAR[2024];
+	m_desktopName_viewonly = new TCHAR[2024];
+	if (m_si.nameLength > 2024) {
+		int msgboxID = MessageBox(NULL,"Server is trying yo overload a memory buffer.\nPossible exploit","Error", MB_OKCANCEL |MB_ICONINFORMATION);
 		if (msgboxID == IDCANCEL)
-			exit;
-		m_si.nameLength = 256;
+			exit(0);
+		m_si.nameLength = 2024;
 	}
     ReadString(m_desktopName, m_si.nameLength);
-	strcat_s(m_desktopName, 1024, " ");
+	m_desktopName[256] = '\0';
+	strcat_s(m_desktopName, 2024, " ");
 
-	strcpy_s(m_desktopName_viewonly, 1024, m_desktopName);
-	strcat_s(m_desktopName_viewonly, 1024, "viewonly");
+	strcpy_s(m_desktopName_viewonly, 2024, m_desktopName);
+	strcat_s(m_desktopName_viewonly, 2024, "viewonly");
 
 	if (m_opts->m_ViewOnly) SetWindowText(m_hwndMain, m_desktopName_viewonly);
 	else SetWindowText(m_hwndMain, m_desktopName);
@@ -3696,10 +3725,10 @@ void ClientConnection::ReadServerInit(bool reconnect)
 					m_pDSMPlugin->GetPluginName(),
 					m_pDSMPlugin->GetPluginVersion()
 					);
-			strcat_s(m_desktopName, 1024, szMess);
+			strcat_s(m_desktopName, 2024, szMess);
 	}
-	strcpy_s(m_desktopName_viewonly, 1024, m_desktopName);
-	strcat_s(m_desktopName_viewonly, 1024, "viewonly");
+	strcpy_s(m_desktopName_viewonly, 2024, m_desktopName);
+	strcat_s(m_desktopName_viewonly, 2024, "viewonly");
 
 	if (m_opts->m_ViewOnly) SetWindowText(m_hwndMain, m_desktopName_viewonly);
 	else SetWindowText(m_hwndMain, m_desktopName);
@@ -4568,6 +4597,8 @@ ClientConnection::~ClientConnection()
 	delete directx_output;
 	delete ultraVncZlib;
 	DeleteCriticalSection(&crit);
+	if (cloudThread)
+		delete cloudThread;
 }
 
 // You can specify a dx & dy outside the limits; the return value will
@@ -5422,12 +5453,12 @@ void* ClientConnection::run_undetached(void* arg) {
 			// m_pFileTransfer->m_fFileTransferRunning = false;
 			// m_pTextChat->m_fTextChatRunning = false;
 			// throw QuietException(e.str());
-			if ((strcmp(e.str(),"rdr::EndOfStream: read")==NULL) && !m_bClosedByUser)
+			if ((strcmp(e.str(),"rdr::EndOfStream: read")==0) && !m_bClosedByUser)
 			{
 				WarningException w(sz_L94,200);
                // w.Report();
 			}
-			else if ((strcmp(e.str(),"rdr::SystemException: read: Unknown error (10054)")==NULL) && !m_bClosedByUser)
+			else if ((strcmp(e.str(),"rdr::SystemException: read: Unknown error (10054)")==0) && !m_bClosedByUser)
 			{
 				//ErrorException w(sz_L94,200);
 
@@ -7535,12 +7566,12 @@ LRESULT CALLBACK ClientConnection::GTGBS_StatusProc(HWND hwnd, UINT iMsg, WPARAM
 				SetWindowText(hwnd,sz_L73);
 			}
 
-			if(_this->m_port != NULL)
+			if(_this->m_port != 0)
 				SetDlgItemInt(hwnd,IDC_PORT,_this->m_port,FALSE);
 			else
 				SetDlgItemText(hwnd,IDC_PORT,_T(""));
 
-			if(_this->m_sock != NULL )
+			if(_this->m_sock != 0 )
 			{
 				if (_this->m_pDSMPlugin->IsEnabled())
 				{
@@ -9478,10 +9509,11 @@ error:
 void
 ClientConnection:: Copybuffer(int width, int height, int xx, int yy,int bytes_per_pixel,BYTE* source,BYTE* dest,int framebufferWidth,int framebufferHeight)
 {
+	int bytesPerOutputRow = framebufferWidth * bytes_per_pixel;
+
 	if ( ((width + xx) * (height + yy)) > (framebufferWidth * framebufferHeight))
 			goto error;
 
-	int bytesPerOutputRow = framebufferWidth * bytes_per_pixel;
 	//8bit pitch need to be taken in account
 	if (bytesPerOutputRow % 4)
 		bytesPerOutputRow += 4 - bytesPerOutputRow % 4;
@@ -9504,9 +9536,11 @@ error:
 void
 ClientConnection:: Copyto0buffer(int width, int height, int xx, int yy,int bytes_per_pixel,BYTE* source,BYTE* dest,int framebufferWidth,int framebufferHeight)
 {
+	int bytesPerOutputRow = framebufferWidth * bytes_per_pixel;
+
 	if ( ((width + xx) * (height + yy)) > (framebufferWidth * framebufferHeight))
 			goto error;
-	int bytesPerOutputRow = framebufferWidth * bytes_per_pixel;
+
 	//8bit pitch need to be taken in account
 	if (bytesPerOutputRow % 4)
 		bytesPerOutputRow += 4 - bytesPerOutputRow % 4;
@@ -9528,9 +9562,11 @@ ClientConnection:: Copyto0buffer(int width, int height, int xx, int yy,int bytes
 void
 ClientConnection:: Copyfrom0buffer(int width, int height, int xx, int yy,int bytes_per_pixel,BYTE* source,BYTE* dest,int framebufferWidth,int framebufferHeight)
 {
+	int bytesPerOutputRow = framebufferWidth * bytes_per_pixel;
+
 	if ( ((width + xx) * (height + yy)) > (framebufferWidth * framebufferHeight))
 		goto error;
-	int bytesPerOutputRow = framebufferWidth * bytes_per_pixel;
+
 	//8bit pitch need to be taken in account
 	if (bytesPerOutputRow % 4)
 		bytesPerOutputRow += 4 - bytesPerOutputRow % 4;

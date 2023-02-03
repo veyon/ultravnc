@@ -27,7 +27,7 @@
 
 // Implementation of the About dialog!
 #include "stdafx.h"
-#include "vncsetAuth.h"
+#include "vncsetauth.h"
 #include "resource.h"
 #define MAXSTRING 254
 extern HINSTANCE hInst;
@@ -186,7 +186,6 @@ vncSetAuth::savelocdom3(LONG value)
 // Constructor/destructor
 vncSetAuth::vncSetAuth()
 {
-	m_fUseRegistry = ((myIniFile.ReadInt("admin", "UseRegistry", 0) == 1) ? TRUE : FALSE);
 	m_dlgvisible = FALSE;
 	locdom1=0;
 	locdom2=0;

@@ -2,11 +2,8 @@
 #define _WINVNC_VNCZ
 #pragma once
 
-#ifdef _INTERNALLIB
+#ifdef ULTRAVNC_VEYON_SUPPORT
 #include <zlib.h>
-#ifndef ULTRAVNC_VEYON_SUPPORT
-#include <zstd.h>
-#endif
 #else
 #include "../zlib/zlib.h"
 #include "../zstd/lib/zstd.h"

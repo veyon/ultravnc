@@ -46,15 +46,13 @@
 #include <rdr/MemInStream.h>
 #include <rdr/ZlibOutStream.h>
 #include <rdr/ZlibInStream.h>
-#ifdef _INTERNALLIB
+#ifdef ULTRAVNC_VEYON_SUPPORT
 #include <zlib.h>
-#ifndef ULTRAVNC_VEYON_SUPPORT
-#include <zstd.h>
-#endif
 #else
 #include "../zlib/zlib.h"
 #include "../zstd/lib/zstd.h"
 #endif
+
 
 
 

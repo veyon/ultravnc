@@ -24,7 +24,7 @@
 #include "stdhdrs.h"
 #include "vncviewer.h"
 #include "SessionDialog.h"
-#include <ShlObj.h>
+#include <shlobj.h>
 #include <direct.h>
 #include <fstream>
 extern char sz_K1[64];
@@ -315,9 +315,9 @@ void SessionDialog::getAppData(char * buffer)
 void SessionDialog::IfHostExistLoadSettings(char *hostname)
 {
 	
-	TCHAR tmphost[256];
+	TCHAR tmphost[MAX_HOST_NAME_LEN];
 	int port;
-	ParseDisplay(hostname, tmphost, 255, &port);
+	ParseDisplay(hostname, tmphost, MAX_HOST_NAME_LEN, &port);
 	char fname[_MAX_PATH];
 	int disp = PORT_TO_DISPLAY(port);
 	sprintf_s(fname, "%.15s-%d.vnc", tmphost, (disp > 0 && disp < 100) ? disp : port);

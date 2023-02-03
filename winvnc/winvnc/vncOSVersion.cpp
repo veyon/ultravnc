@@ -26,6 +26,7 @@
 #include <windows.h>
 #include "vncOSVersion.h"
 #include "stdhdrs.h"
+#include "dwmapi.h"
 #ifndef SUCCEEDED
 #define SUCCEEDED(hr) (((HRESULT)(hr)) >= 0)
 #endif
@@ -56,12 +57,14 @@ RTL_OSVERSIONINFOW GetRealOSVersion() {
 
 VNC_OSVersion::VNC_OSVersion()
 {
+#ifndef ULTRAVNC_VEYON_SUPPORT
 	AeroWasEnabled=false;
 	pfnDwmIsCompositionEnabled=NULL;
 	pfnDwmEnableComposition = NULL;
 	DMdll = NULL; 
 	OS_AERO_ON=false;
 	OS_LAYER_ON=false;
+#endif
 	OS_WIN8=false;
 	OS_WIN7=false;
 	OS_VISTA=false;
@@ -74,7 +77,9 @@ VNC_OSVersion::VNC_OSVersion()
 	OSVERSIONINFO OSversion;	
 	OSversion.dwOSVersionInfoSize=sizeof(OSVERSIONINFO);
 	GetVersionEx(&OSversion);
+#ifndef ULTRAVNC_VEYON_SUPPORT
 	OS_WINPE = isWINPE();
+#endif
 
 	switch(OSversion.dwPlatformId)
 	{
@@ -106,9 +111,12 @@ VNC_OSVersion::VNC_OSVersion()
 				OS_WIN10_TRANS = true;
 		}
 	}
+#ifndef ULTRAVNC_VEYON_SUPPORT
 	LoadDM();
+#endif
 }
 
+#ifndef ULTRAVNC_VEYON_SUPPORT
 VNC_OSVersion::~VNC_OSVersion()
 {
 	ResetAero();
@@ -127,26 +135,27 @@ VNC_OSVersion::SetAeroState()
 	else OS_LAYER_ON=false;
 	//is aero on/off
 	BOOL pfnDwmEnableCompositiond = FALSE;
-	if (pfnDwmIsCompositionEnabled==NULL) OS_AERO_ON=false;
-	else if (SUCCEEDED(pfnDwmIsCompositionEnabled(&pfnDwmEnableCompositiond))) OS_AERO_ON=pfnDwmEnableCompositiond;
-	else OS_AERO_ON=false;	
+	if (SUCCEEDED(DwmIsCompositionEnabled(&pfnDwmEnableCompositiond)))
+		OS_AERO_ON = pfnDwmEnableCompositiond;
+	else
+		OS_AERO_ON = false;
 }
+#endif
 
 #ifdef ULTRAVNC_VEYON_SUPPORT
-extern BOOL ultravnc_veyon_load_int( LPCSTR valname, LONG *out );
+extern BOOL ultravnc_veyon_load_int(LPCSTR valname, int *out );
 #endif
 
 bool
 VNC_OSVersion::CaptureAlphaBlending()
 {
 #ifdef ULTRAVNC_VEYON_SUPPORT
-	LONG out;
+	int out;
 	if( ultravnc_veyon_load_int( "CaptureAlphaBlending", &out ) )
 	{
 		return out != 0;
 	}
-#endif
-
+#else
 	if (OS_WINPE) {
 		return true; //WINPE
 	}
@@ -154,9 +163,11 @@ VNC_OSVersion::CaptureAlphaBlending()
 	if (OS_XP) return true;
 	if ((OS_WIN7 || OS_VISTA) && OS_AERO_ON == false) return true;
 	if (OS_LAYER_ON == true && OS_AERO_ON == false) return true; 
+#endif
 	return false;
 }
 
+#ifndef ULTRAVNC_VEYON_SUPPORT
 void
 VNC_OSVersion::UnloadDM(VOID) 
  {  
@@ -182,9 +193,11 @@ VNC_OSVersion::DisableAero(VOID)
  { 
 
 	     BOOL pfnDwmEnableCompositiond = FALSE;   
-         if (!(pfnDwmIsCompositionEnabled && SUCCEEDED(pfnDwmIsCompositionEnabled(&pfnDwmEnableCompositiond))))  return; 
-         if (!pfnDwmEnableCompositiond) return;   
-		 if (pfnDwmEnableComposition && SUCCEEDED(pfnDwmEnableComposition(FALSE))) {			  
+         if (!(SUCCEEDED(DwmIsCompositionEnabled(&pfnDwmEnableCompositiond))))  
+			 return; 
+         if (!pfnDwmEnableCompositiond) 
+			 return;   
+		 if (SUCCEEDED(DwmEnableComposition(FALSE))) {			  
 			AeroWasEnabled = pfnDwmEnableCompositiond;
 		  }
 
@@ -231,3 +244,4 @@ void VNC_OSVersion::removeAlpha()
 {
 	EnumWindows(speichereFenster, NULL);
 }
+#endif

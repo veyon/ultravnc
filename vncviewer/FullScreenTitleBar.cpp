@@ -21,14 +21,14 @@
 //===========================================================================
 
 #include "stdhdrs.h"
-#include "res\\resource.h"
+#include "res/resource.h"
 #include "FullScreenTitleBar.h"
 #include "Log.h"
 #include "common/win32_helpers.h"
 extern Log vnclog;
 #define COMPILE_MULTIMON_STUBS
 #include "multimon.h"
-#include <CommCtrl.h>
+#include <commctrl.h>
 #include "VNCOptions.h"
 
 //***************************************************************************************

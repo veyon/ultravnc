@@ -29,15 +29,13 @@
 #include "stdhdrs.h"
 #include "vncencoder.h"
 #include "vncbuffer.h"
-#ifdef _INTERNALLIB
+#ifdef ULTRAVNC_VEYON_SUPPORT
 #include <zlib.h>
-#ifndef ULTRAVNC_VEYON_SUPPORT
-#include <zstd.h>
-#endif
 #else
 #include "../zlib/zlib.h"
 #include "../zstd/lib/zstd.h"
 #endif
+
 
 // Pixel format used internally when the client is palette-based & server is truecolour
 

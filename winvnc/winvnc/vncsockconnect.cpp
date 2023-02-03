@@ -31,6 +31,7 @@
 #include "vncsockconnect.h"
 #include "vncserver.h"
 #include <omnithread.h>
+#include "SettingsManager.h"
 
 
 #ifdef HTTP_SUPPORT
@@ -84,7 +85,7 @@ void *vncSockConnectThread::run_undetached(void * arg)
 		else
 		{
 #ifdef HTTP_SUPPORT
-			if( m_server->GetHttpPort()== m_server->GetPort())
+			if(settings->getHttpPortNumber()== settings->getPortNumber())
 			{
 				if (maybeHandleHTTPRequest(new_socket,m_server)) {
  					// HTTP request has been handled and new_socket closed. The client will
@@ -158,7 +159,7 @@ BOOL vncSockConnect::Init(vncServer *server, UINT port)
 	m_port = port;
 
 #ifdef IPV6V4
-	if (!m_socket.CreateBindListen(m_port, server->LoopbackOnly()))
+	if (!m_socket.CreateBindListen(m_port, settings->getLoopbackOnly()))
 		return FALSE;
 #else
 	// Create the listening socket
@@ -166,7 +167,7 @@ BOOL vncSockConnect::Init(vncServer *server, UINT port)
 		return FALSE;
 
 	// Bind it
-	if (!m_socket.Bind(m_port, server->LoopbackOnly()))
+	if (!m_socket.Bind(m_port, settings->getLoopbackOnly()))
 		return FALSE;
 
 	// Set it to listen

@@ -63,7 +63,7 @@ class VSocket;
 
 #include <assert.h>
 #include "vtypes.h"
-extern unsigned int G_SENDBUFFER_EX;
+#include "SettingsManager.h"
 ////////////////////////////////////////////////////////
 // *** Lovely hacks to make Win32 work.  Hurrah!
 
@@ -80,7 +80,6 @@ extern unsigned int G_SENDBUFFER_EX;
 
 // The socket timeout value (currently 5 seconds, for no reason...)
 // *** THIS IS NOT CURRENTLY USED ANYWHERE
-const VInt rfbMaxClientWait = 5000;
 
 ////////////////////////////
 // Socket implementation initialisation
@@ -164,7 +163,7 @@ VSocket::VSocket()
 	m_fPluginStreamingIn = false;
 	m_fPluginStreamingOut = false;	
 #endif
-	G_SENDBUFFER=G_SENDBUFFER_EX;
+	G_SENDBUFFER= settings->getSENDBUFFER_EX();
 }
 
 ////////////////////////////
@@ -798,10 +797,8 @@ VSocket::Accept()
 	int optVal;
 	int optLen = sizeof(int);
 	getsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char *)&optVal, &optLen);
-	DWORD bb = GetLastError();
 	optVal = 32 * 1024;
 	setsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char *)&optVal, optLen);
-	DWORD vv = GetLastError();
 
 	// Accept an incoming connection
 	if ((new_socket_id = accept(sock, NULL, 0)) == INVALID_SOCKET)
@@ -877,8 +874,8 @@ VSocket::GetPeerName6()
 VString
 VSocket::GetPeerName()
 {
-	struct sockaddr_in	sockinfo;
-	struct in_addr		address;
+	struct sockaddr_in	sockinfo{};
+	struct in_addr		address{};
 	int					sockinfosize = sizeof(sockinfo);
 	VString				name;
 
@@ -886,6 +883,11 @@ VSocket::GetPeerName()
 	getpeername(sock, (struct sockaddr *)&sockinfo, &sockinfosize);
 	memcpy(&address, &sockinfo.sin_addr, sizeof(address));
 
+	struct hostent* remoteHost = gethostbyaddr((char*)&address, sizeof(address), AF_INET);
+	if (remoteHost != NULL) {
+		name = remoteHost->h_name;
+		return name;
+	}
 	name = inet_ntoa(address);
 	if (name == NULL)
 		return "<unavailable>";
@@ -1907,7 +1909,6 @@ VInt
 VSocket::Read(char *buff, const VCard bufflen)
 {
 	if (sock==-1) return -1;
-	int counter = 0;
 	int s = 0;
 	s = recv(sock, buff, bufflen, 0);
 	return s;
@@ -2088,7 +2089,7 @@ VSocket::ReadExact(char *buff, const VCard bufflen)
 		int nRestDataLen = 0;
 		nTransDataLen = nTransDataLenSave;
 		//adzm 2009-06-20
-		BYTE* pPipo = RestoreBufferStep2((BYTE*)buff, nTransDataLen, &nRestDataLen);
+		RestoreBufferStep2((BYTE*)buff, nTransDataLen, &nRestDataLen);
 
 		// Check if we actually get the real original data length
 		if ((VCard)nRestDataLen != bufflen)
@@ -2116,8 +2117,6 @@ VSocket::ReadExact(char *buff, const VCard bufflen)
 			} else {
 				if (WSAGetLastError() != WSAEWOULDBLOCK)
 				{
-					int aa=WSAGetLastError();
-					//vnclog.Print(LL_SOCKERR, VNCLOG("socket error 2: %d\n"), aa);
 					return VFalse;
 				}
 			}
@@ -2353,7 +2352,7 @@ int val =0;
 //method to get congestion window
 bool VSocket::GetOptimalSndBuf()
 {
-	G_SENDBUFFER=	G_SENDBUFFER_EX;
+	G_SENDBUFFER= settings->getSENDBUFFER_EX();
 	 return TRUE;
 
 }

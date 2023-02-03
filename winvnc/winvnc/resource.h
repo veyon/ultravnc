@@ -2,10 +2,12 @@
 // Microsoft Visual C++ generated include file.
 // Used by winvnc.rc
 //
+#define IDC_TITLEWINDOW                 101
 #define IDI_WINVNC                      102
 #define IDD_PROPERTIES                  102
 #define IDS_WARNING                     103
 #define IDR_TRAYMENU                    104
+#define IDR_TRAYMENU1                   105
 #define IDR_VNCVIEWER_JAR               116
 #define IDR_BLOCKCIPHER_CLASS           120
 #define IDR_CIPHER_CLASS                121
@@ -33,14 +35,23 @@
 #define IDB_BITMAP1                     144
 #define IDD_MSLOGON                     145
 #define IDD_PROPERTIES1                 146
-#define IDD_ABOUT1                      147
 #define IDR_JAVAARCHIVE1                155
+#if defined(SC_20)
+#define IDR_DLL1                        176
+#define IDR_ENCRYPTIONDLL1              177
+#endif
+#define IDD_DIALOGCLOUD                 178
+#define IDB_RED                         179
+#define IDB_GREEN                       180
+#define IDB_BITMAP3                     181
+#define IDB_YELLOW                      181
 #define IDB_EXPAND                      218
 #define IDB_COLLAPS                     219
 #define IDD_USER_NAME                   604
 #define IDD_PASSWORD                    608
 #define IDR_MESSAGES_PROPERTIES         900
 #define IDR_MESSAGES_CLASS              901
+#define IDC_LIST                        1000
 #define IDD_LOGON                       1002
 #define IDC_CONNECT_BORDER              1003
 #define IDD_AUTH_DIALOG                 1003
@@ -178,10 +189,20 @@
 #define IDC_ALLOWEDITCLIENTS            1108
 #define IDC_NEW_MSLOGON                 1109
 #define IDC_HIDE_B                      1110
+#define IDC_LOGO                        1110
+#define IDC_TEXTTOP                     1112
+#define IDC_TEXTMIDDLE                  1113
+#define IDC_TEXTBOTTOM                  1114
+#define IDC_HELPWEB                     1115
+#define IDC_TEXTRICHTTOP                1116
 #define IDC_FTUSERIMPERSONATION_CHECK   1117
+#define IDC_TEXTRIGHTBOTTOM             1117
 #define IDC_REMOVE_Aero                 1118
+#define IDC_CLOSE                       1118
 #define IDE_CUSTOM1                     1119
+#define IDC_TEXTRIGHTMIDDLE             1119
 #define IDC_WWW2                        1120
+#define IDC_STATICIDCODE                1120
 #define IDC_WWW3                        1121
 #define IDC_CHECK1                      1122
 #define IDC_JAP_INPUTS                  1122
@@ -191,6 +212,7 @@
 #define IDC_VIDEO                       1125
 #define IDC_BUTTON1                     1126
 #define IDC_CLEAR                       1126
+#define IDC_CONNECT                     1126
 #define IDC_CONNECTION_NUMBER_LABEL     1128
 #define IDC_CONNECTION_NUMBER_STATIC    1128
 #define IDC_CAPTION_STATIC              1129
@@ -240,6 +262,14 @@
 #define IDC_EDITQUERYYEXT               1162
 #define IDC_EDITQUERYTEXT               1162
 #define IDC_OSD                         1163
+#define IDC_CHECKCLOUD                  1164
+#define IDC_CLOUDSERVER                 1165
+#define IDC_CLOUDCODE                   1166
+#define IDC_STARTCLOUD                  1167
+#define IDC_EXTERNALIPADDRESS           1168
+#define IDC_CLOUDSTATUS                 1169
+#define IDC_YELLOW                      1170
+#define IDC_SCEXPAND                    1171
 #define IDC_SHOWOPTIONS                 2032
 #define IDC_BUTTON_EXPAND               2048
 #define IDC_FINGER                      9000
@@ -268,6 +298,8 @@
 #define ID_TRAY_DELETESOFTWARECAD       40026
 #define ID_TRAY_FORCEREBOOT             40028
 #define ID_REBOOT_FORCE                 40029
+#define ID_TRAY_CLOUDCONNECT            40030
+#define ID_MENU_CLOUDCONNECT            40031
 #define ID_FAILED_INIT                  41000
 #define ID_WINVNC_USAGE                 41001
 #define ID_ANOTHER_INST                 41002
@@ -329,9 +361,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        176
-#define _APS_NEXT_COMMAND_VALUE         40030
-#define _APS_NEXT_CONTROL_VALUE         1164
+#define _APS_NEXT_RESOURCE_VALUE        182
+#define _APS_NEXT_COMMAND_VALUE         40032
+#define _APS_NEXT_CONTROL_VALUE         1172
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

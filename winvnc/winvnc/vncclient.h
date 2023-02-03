@@ -35,6 +35,7 @@
 // It uses a vncBuffer and is passed the vncDesktop and
 // vncServer to communicate with.
 
+class DesktopUsersToken;
 class vncClient;
 typedef SHORT vncClientId;
 
@@ -67,7 +68,7 @@ typedef std::list<vncClientId> vncClientList;
 #include "TextChat.h" // sf@2002 - TextChat
 #endif
 #ifdef FILETRANSFER_SUPPORT
-#include "ZipUnZip32/zipUnZip32.h"
+#include "ZipUnZip32/ZipUnZip32.h"
 #endif
 //#include "timer.h"
 // adzm - 2010-07 - Extended clipboard
@@ -157,11 +158,7 @@ public:
 	friend class vncClientUpdateThread;
 
 	// Init
-	virtual BOOL Init(vncServer *server,
-						VSocket *socket,
-						BOOL auth,
-						BOOL shared,
-						vncClientId newid);
+	virtual BOOL Init(vncServer *server, VSocket *socket, BOOL auth, BOOL shared, vncClientId newid);
 
 	// Kill
 	// The server uses this to close the client socket, causing the
@@ -184,7 +181,6 @@ public:
 	virtual void UpdateLocalFormat(bool lock);
 	int nr_incr_rgn_empty;
 	char displayname[256] = {};
-
 	// Is the client waiting on an update?
 	// YES IFF there is an incremental update region,
 	//     AND no changed or copied updates intersect it
@@ -207,7 +203,7 @@ public:
 			if (nr_incr_rgn_empty > 300)
 			{
 				nr_incr_rgn_empty=0;				
-				rfbFramebufferUpdateRequestMsg fur;
+				rfbFramebufferUpdateRequestMsg fur{};
 				fur.x = 0;
 				fur.y = 0;
 				fur.w = 10;
@@ -221,11 +217,7 @@ public:
 	};
 
 	// Has the client sent an input event?
-	virtual BOOL RemoteEventReceived() {
-		BOOL result = m_remoteevent;
-		m_remoteevent = FALSE;
-		return result;
-	};
+	virtual BOOL RemoteEventReceived() {BOOL result = m_remoteevent;m_remoteevent = FALSE;return result;};
 
 	// The UpdateLock
 	// This must be held for a number of routines to be successfully invoked...
@@ -269,10 +261,7 @@ public:
 	virtual bool IsUltraViewer() { return m_fUltraViewer;};
 #endif
 	bool singleExtendRequested() { return m_singleExtendMode; }
-
 	virtual void EnableCache(BOOL enabled);
-
-
 	// sf@2002
 	virtual void SetConnectTime(long lTime) {m_lConnectTime = lTime;};
 	virtual long GetConnectTime() {return m_lConnectTime;};
@@ -288,12 +277,8 @@ public:
 	void Clear_Update_Tracker();
 	void TriggerUpdate();
 	void UpdateCursorShape();
-	void setTiming(DWORD value) {
-		m_timing = value;
-	}
-	DWORD getTiming() {
-		return m_timing;
-	}
+	void setTiming(DWORD value) {m_timing = value;}
+	DWORD getTiming() {return m_timing;}
 	bool forceBlacklist;
 
 	// adzm 2009-07-05 - repeater IDs
@@ -347,8 +332,10 @@ public:
 	bool  UnzipPossibleDirectory(LPSTR szFileName);
 	bool MyGetFileSize(char* szFilePath, ULARGE_INTEGER* n2FileSize);
     HANDLE m_hPToken; //used to set FT thread to correct user token
+#ifndef SC_20
 	bool DoFTUserImpersonation();
 	void UndoFTUserImpersonation();
+#endif
 
     // jdp@2008 - File Transfer event hooks
     void FTUploadStartHook();
@@ -391,6 +378,7 @@ public:
 	// Update routines
 	char infoMsg[255] = { 0 };
 protected:
+	DesktopUsersToken* desktopUsersToken;
 	BOOL SendUpdate(rfb::SimpleUpdateTracker &update);
 	BOOL SendRFBMsg(CARD8 type, BYTE *buffer, int buflen);
 	//adzm 2010-09 - minimize packets. SendExact flushes the queue.
@@ -403,28 +391,20 @@ protected:
 	BOOL SendCacheRectangles(const rfb::RectVector &rects);
 	BOOL SendCacheRect(const rfb::Rect &dest);
 	BOOL SendCacheZip(const rfb::RectVector &rects); // sf@2002
-
 	// Tight - CURSOR HANDLING
 	BOOL SendCursorShapeUpdate();
 	// nyama/marscha - PointerPos
 	BOOL SendCursorPosUpdate();
 	BOOL SendLastRect(); // Tight
-
 	void TriggerUpdateThread();
-
-
 	CARD32 m_state;
 	CARD32 m_value;
 	bool m_want_update_state; 
 	int unlockcounter;
-
 	int filetransferrequestPart1(rfbClientToServerMsg msg, bool fUserOk);	
 	// Specialised client-side UpdateTracker
-protected:
-
 	// This update tracker stores updates it receives and
 	// kicks the client update thread every time one is received
-
 	class ClientUpdateTracker : public rfb::SimpleUpdateTracker {
 	public:
 		ClientUpdateTracker() : m_client(0) {};
@@ -707,7 +687,9 @@ public:
 #endif
 	virtual BOOL InitAuthenticate();
 	virtual BOOL AuthenticateClient(std::vector<CARD8>& current_auth);
+#ifndef ULTRAVNC_VEYON_SUPPORT
 	virtual BOOL AuthenticateLegacyClient();
+#endif
 
 #ifdef DSM_SUPPORT
 	BOOL AuthSecureVNCPlugin(std::string& auth_message); // must SetHandshakeComplete after sending auth result!
@@ -725,7 +707,9 @@ public:
 #endif
 
 	BOOL FilterClients_Blacklist();
+#ifndef SC_20
 	BOOL FilterClients_Ask_Permission();
+#endif
 	BOOL CheckEmptyPasswd();
 	BOOL CheckLoopBack();
 	void LogAuthResult(bool success);

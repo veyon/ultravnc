@@ -1,9 +1,9 @@
 #include "stdhdrs.h"
 #include "Snapshot.h"
 #include "vncviewer.h"
-#include <Windows.h>
+#include <windows.h>
 #include <string>
-#include <ShlObj.h>
+#include <shlobj.h>
 #include <iostream>
 #include <sstream>
 #include "common/win32_helpers.h"
@@ -26,7 +26,7 @@ static int CALLBACK BrowseCallbackProc(HWND hwnd,UINT uMsg, LPARAM lParam, LPARA
 
 TCHAR * BrowseFolder(TCHAR * saved_path, HWND hwnd)
 {
-    TCHAR path[MAX_PATH];
+    static TCHAR path[MAX_PATH];
 
     const char * path_param = saved_path;
 
@@ -100,18 +100,18 @@ void Snapshot::SaveJpeg(HBITMAP membit,TCHAR folder[MAX_PATH], TCHAR prefix[56],
 	{		
 		Gdiplus::Bitmap bitmap(membit, NULL);
 		CLSID clsid;
-		if (strcmp(imageFormat, ".jpeg") == NULL)
+		if (strcmp(imageFormat, ".jpeg") == 0)
 			GetEncoderClsid(L"image/jpeg", &clsid);
-		else if (strcmp(imageFormat, ".png") == NULL)
+		else if (strcmp(imageFormat, ".png") == 0)
 			GetEncoderClsid(L"image/png", &clsid);
-		else if (strcmp(imageFormat, ".gif") == NULL)
+		else if (strcmp(imageFormat, ".gif") == 0)
 			GetEncoderClsid(L"image/gif", &clsid);
-		else if (strcmp(imageFormat, ".bmp") == NULL)
+		else if (strcmp(imageFormat, ".bmp") == 0)
 			GetEncoderClsid(L"image/bmp", &clsid);
 
 		WCHAR wc[MAX_PATH];
 		mbstowcs(wc, expanded_filename, MAX_PATH);
-		bitmap.Save(wc, &clsid);
+		bitmap.Save(wc, &clsid, NULL);
 	}
 	GdiplusShutdown(gdiplusToken);
 }

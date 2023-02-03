@@ -1,7 +1,6 @@
 ﻿#include "stdhdrs.h"
 #include "VirtualDisplay.h"
 #include "versionhelpers.h"
-#include "vncservice.h"
 #include <newdev.h>
 #pragma comment(lib, "Newdev.lib")
 #pragma comment(lib, "swdevice.lib")
@@ -42,7 +41,7 @@ BOOL GetVersion2(OSVERSIONINFOEX* os) {
 		os->dwMinorVersion = osw->dwMinorVersion;
 		os->dwPlatformId = osw->dwPlatformId;
 		os->dwOSVersionInfoSize = sizeof(*os);
-		DWORD sz = sizeof(os->szCSDVersion);
+		sizeof(os->szCSDVersion);
 		WCHAR* src = osw->szCSDVersion;
 		unsigned char* dtc = (unsigned char*)os->szCSDVersion;
 		while (*src)
@@ -463,7 +462,7 @@ bool VirtualDisplay::InstallDriver(bool fromCommandline)
 				DWORD errorMessageID = GetLastError();
 				LPSTR messageBuffer = nullptr;
 				if (status == 0) {
-					size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+					FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
 						NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
 					vnclog.Print(LL_INTERR, VNCLOG("InstallDriver failed %s \n"), messageBuffer);
 					if (fromCommandline) {
@@ -493,7 +492,7 @@ bool VirtualDisplay::ContainDisplayName(char naam[256])
 	std::list<NAMES>::iterator displayInfoIter;
 	displayInfoIter = displayList.begin();
 	while (displayInfoIter != displayList.end()) {
-		if (strcmp((*displayInfoIter).naam, naam) == NULL)
+		if (strcmp((*displayInfoIter).naam, naam) == 0)
 			return true;
 		displayInfoIter++;
 	}
@@ -506,8 +505,6 @@ void VirtualDisplay::recordDisplayNames()
 	ZeroMemory(&dd, sizeof(dd));
 	dd.cb = sizeof(dd);
 	displayList.clear();
-	int times = 0;
-	bool found = false;
 
 	DWORD dev = 0;
 	while (EnumDisplayDevices(0, dev, &dd, 0))
@@ -531,7 +528,7 @@ void VirtualDisplay::recordDisplayNames()
 
 			NAMES naam;
 			strcpy_s(naam.naam, 256, dd.DeviceName);
-			if (strcmp(dd.DeviceString, "UVncVirtualDisplay Device") == NULL)
+			if (strcmp(dd.DeviceString, "UVncVirtualDisplay Device") == 0)
 				displayList.push_back(naam);
 		}
 		ZeroMemory(&dd, sizeof(dd));
@@ -575,7 +572,7 @@ void VirtualDisplay::getSetDisplayName(char* gdiDeviceName)
 
 				NAMES naam;
 				strcpy_s(naam.naam, 256, dd.DeviceName);
-				if (strcmp(dd.DeviceString, "UVncVirtualDisplay Device") == NULL) {
+				if (strcmp(dd.DeviceString, "UVncVirtualDisplay Device") == 0) {
 					if (!ContainDisplayName(naam.naam)) {
 						strcpy_s(gdiDeviceName, 256, naam.naam);
 						found = true;
@@ -609,7 +606,6 @@ void VirtualDisplay::changeDisplaySize(int w, int h, char gdiDeviceName[256])
 HRESULT VirtualDisplay::ChangePrimaryMonitor(char gdiDeviceName[256])
 {
 	HRESULT hr;
-	char lastPrimaryDisplay[256] = "";
 	bool shouldRefresh = false;
 
 	DEVMODE newPrimaryDeviceMode;

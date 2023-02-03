@@ -53,9 +53,12 @@ VNCLog::VNCLog()
 	m_path[0] = 0;
 }
 
-#ifndef ULTRAVNC_VEYON_SUPPORT
 void VNCLog::SetMode(int mode)
 {
+#ifndef ULTRAVNC_VEYON_SUPPORT
+#ifdef SC_20
+    return;
+#endif
 	m_mode = mode;
     if (mode & ToDebug)
         m_todebug = true;
@@ -91,8 +94,8 @@ void VNCLog::SetMode(int mode)
     } else {
         m_toconsole = false;
     }
-}
 #endif
+}
 
 
 void VNCLog::SetLevel(int level) {
@@ -102,6 +105,9 @@ void VNCLog::SetLevel(int level) {
 #ifndef ULTRAVNC_VEYON_SUPPORT
 void VNCLog::SetFile() 
 {
+#ifdef SC_20
+    return;
+#endif
 	char temp[512];
 	IniFile myIniFile;
 	myIniFile.ReadString("admin", "path", temp,512);
@@ -116,6 +122,9 @@ void VNCLog::SetFile()
 
 void VNCLog::OpenFile()
 {
+#ifdef SC_20
+    return;
+#endif
 	// Is there a file-name?
 	if (strlen(m_filename) == 0)
 	{
@@ -165,6 +174,9 @@ void VNCLog::OpenFile()
 
 // if a log file is open, close it now.
 void VNCLog::CloseFile() {
+#ifdef SC_20
+    return;
+#endif
     if (hlogfile != NULL) {
         CloseHandle(hlogfile);
         hlogfile = NULL;
@@ -201,6 +213,9 @@ inline void VNCLog::ReallyPrintLine(int level, const char* line)
 #else
 inline void VNCLog::ReallyPrintLine(const char* line) 
 {
+#ifdef SC_20
+    return;
+#endif
     if (m_todebug) OutputDebugString(line);
     if (m_toconsole) {
         DWORD byteswritten;
@@ -216,6 +231,9 @@ inline void VNCLog::ReallyPrintLine(const char* line)
 void VNCLog::ReallyPrint(int level, const char* format, va_list ap) 
 {
 #ifndef ULTRAVNC_VEYON_SUPPORT
+#ifdef SC_20
+    return;
+#endif
 	time_t current = time(0);
 	if (current != m_lastLogTime) {
 		m_lastLogTime = current;

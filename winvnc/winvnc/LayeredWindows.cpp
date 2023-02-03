@@ -11,15 +11,10 @@
 #include <time.h>
 #include "stdhdrs.h"
 #include "resource.h"
-#include "vncservice.h"
 #include "vncdesktop.h"
 #include "vncdesktopthread.h"
 #include "vncOSVersion.h"
 #include "LayeredWindows.h"
-
-#ifndef WDA_EXCLUDEFROMCAPTURE
-#define WDA_EXCLUDEFROMCAPTURE 0x00000011
-#endif
 
 HWND LayeredWindows::hwnd;
 HINSTANCE LayeredWindows::hInst;
@@ -377,7 +372,7 @@ bool LayeredWindows::create_border_window(RECT rect)
 
 bool LayeredWindows::SetBlankMonitor(bool enabled, bool blankMonitorEnabled, bool black_window_active)
 {
-    if (!VNC_OSVersion::getInstance()->OS_WIN10_TRANS && VNC_OSVersion::getInstance()->OS_WIN10
+    if ((!VNC_OSVersion::getInstance()->OS_WIN10_TRANS && VNC_OSVersion::getInstance()->OS_WIN10)
         || VNC_OSVersion::getInstance()->OS_WIN8)
         return false;
 
@@ -385,8 +380,10 @@ bool LayeredWindows::SetBlankMonitor(bool enabled, bool blankMonitorEnabled, boo
     if (blankMonitorEnabled)
     {
         if (enabled) {
+#ifndef ULTRAVNC_VEYON_SUPPORT
             if (VNC_OSVersion::getInstance()->OS_AERO_ON)
                 VNC_OSVersion::getInstance()->DisableAero();
+#endif
 
             HANDLE ThreadHandle2 = NULL;
             DWORD dwTId;
@@ -400,7 +397,9 @@ bool LayeredWindows::SetBlankMonitor(bool enabled, bool blankMonitorEnabled, boo
             if (Blackhnd)
                 PostMessage(Blackhnd, WM_CLOSE, 0, 0);
             black_window_active = false;
+#ifndef ULTRAVNC_VEYON_SUPPORT
             VNC_OSVersion::getInstance()->ResetAero();
+#endif
         }
     }
     return black_window_active;

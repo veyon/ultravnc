@@ -26,8 +26,8 @@
 #include "vncviewer.h"
 #include "TextChat.h"
 #include "Exception.h"
-#include "CommCtrl.h"
-#include "Richedit.h"
+#include "commctrl.h"
+#include "richedit.h"
 #include "common/win32_helpers.h"
 #include <rdr/Exception.h>
 
@@ -39,7 +39,7 @@
 
 // [v1.0.2-jp1 fix]
 LRESULT CALLBACK SBProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-LONG pDefSBProc;
+LONG_PTR pDefSBProc;
 extern HINSTANCE m_hInstResDLL;
 
 extern char sz_E1[64];
@@ -515,7 +515,7 @@ BOOL CALLBACK TextChat::TextChatDlgProc(  HWND hWnd,  UINT uMsg,  WPARAM wParam,
 			
 			// [v1.0.2-jp1 fix] SUBCLASS Split bar
             pDefSBProc = helper::SafeGetWindowProc(GetDlgItem(hWnd, IDC_STATIC_SPLIT));
-            helper::SafeSetWindowProc(GetDlgItem(hWnd, IDC_STATIC_SPLIT), (LONG)SBProc);
+            helper::SafeSetWindowProc(GetDlgItem(hWnd, IDC_STATIC_SPLIT), (LONG_PTR)SBProc);
 
 			return TRUE;
 		}
@@ -566,7 +566,7 @@ BOOL CALLBACK TextChat::TextChatDlgProc(  HWND hWnd,  UINT uMsg,  WPARAM wParam,
 			{
 				memset(_this->m_szLocalText,0,TEXTMAXSIZE);
 				UINT nRes = GetDlgItemText( hWnd, IDC_INPUTAREA_EDIT, _this->m_szLocalText, TEXTMAXSIZE);
-				if (strstr(_this->m_szLocalText,"\n") >0 ) 
+				if (strstr(_this->m_szLocalText, "\n") != 0 )
 				{
 					_this->SendLocalText();			
 				}								

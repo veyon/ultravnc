@@ -1,7 +1,9 @@
 #include "stdafx.h"
 #include "resource.h"
 #include <time.h>
+#if !defined(__MINGW32__)
 #include "upnp.h"
+#endif
 #include "firewall.h"
 #include "log.h"
 #include <iphlpapi.h>
@@ -296,6 +298,7 @@ BOOL CALLBACK DlgProcService(HWND hwnd, UINT uMsg,WPARAM wParam, LPARAM lParam)
 			else EnableWindow(GetDlgItem(hwnd, IDC_STARTS), FALSE);
 			if (s_running)EnableWindow(GetDlgItem(hwnd, IDC_STOPS), TRUE);
 			else EnableWindow(GetDlgItem(hwnd, IDC_STOPS), FALSE);		
+			break;
 		}
 	
 	case WM_COMMAND: 
