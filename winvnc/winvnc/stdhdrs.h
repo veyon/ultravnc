@@ -45,6 +45,7 @@
 #endif
 
 #ifdef _USE_DESKTOPDUPLICATION
+#undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0602
 #ifndef WINVER
 #define WINVER 0x0602
