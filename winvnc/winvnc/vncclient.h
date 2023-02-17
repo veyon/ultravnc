@@ -234,12 +234,15 @@ public:
 		if (m_pointerenabled == true)
 			m_pointerenabled = enable;
 	};
+
 	virtual void EnableJap(bool enable) {m_jap = enable;};
 	virtual void EnableUnicode(bool enable) {m_unicode = enable;};
 	virtual void SetCapability(int capability) {m_capability = capability;};
 
 	virtual int GetCapability() {return m_capability;};
-	virtual const char *GetClientName();
+	virtual const char *GetClientDomainUsername();
+	virtual const char *GetClientNameName();
+	const char* GetClientNameAddress();
 	virtual vncClientId GetClientId() {return m_id;};
 
 	// Disable/enable protocol messages to the client
@@ -517,7 +520,9 @@ protected:
 	// The server
 	vncServer		*m_server;
 	
-	char			*m_client_name;
+	char			*m_client_domain_username;
+	char			*m_client_name_name;
+	char			* m_client_name_address;
 
 	// The client thread
 	omni_thread		*m_thread_ClientThread;
@@ -686,9 +691,9 @@ public:
 	BOOL InitGiiVersion();
 #endif
 	virtual BOOL InitAuthenticate();
-	virtual BOOL AuthenticateClient(std::vector<CARD8>& current_auth);
+	virtual BOOL AuthenticateClient(std::vector<CARD8>& current_auth, bool isconnected);
 #ifndef ULTRAVNC_VEYON_SUPPORT
-	virtual BOOL AuthenticateLegacyClient();
+	virtual BOOL AuthenticateLegacyClient(bool isconnected);
 #endif
 
 #ifdef DSM_SUPPORT
@@ -712,7 +717,7 @@ public:
 #endif
 	BOOL CheckEmptyPasswd();
 	BOOL CheckLoopBack();
-	void LogAuthResult(bool success);
+	void LogAuthResult(bool success, bool isconnected);
 	void SendConnFailed(const char* szMessage);
 
 	// adzm 2010-08

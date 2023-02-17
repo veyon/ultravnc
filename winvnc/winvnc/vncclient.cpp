@@ -910,7 +910,7 @@ vncClientThread::FilterClients_Ask_Permission()
 		verified = vncServer::aqrAccept;
 	}
 	else {
-		verified = m_server->VerifyHost(m_socket->GetPeerName());
+		verified = m_server->VerifyHost(m_socket->GetPeerName(false));
 	}
 
 	// If necessary, query the connection with a timed dialog
@@ -928,7 +928,7 @@ vncClientThread::FilterClients_Ask_Permission()
 					verified = vncServer::aqrAccept;
 			}
 			else {
-				vncAcceptDialog* acceptDlg = new vncAcceptDialog(settings->getQueryTimeout(), m_server->QueryAccept(), m_socket->GetPeerName(), m_client->infoMsg, settings->getNotification());
+				vncAcceptDialog* acceptDlg = new vncAcceptDialog(settings->getQueryTimeout(), m_server->QueryAccept(), m_socket->GetPeerName(true), m_client->infoMsg, settings->getNotification());
 				if (acceptDlg == NULL) {
 					if (m_server->QueryAccept() == 1)
 						verified = vncServer::aqrAccept;
@@ -961,7 +961,7 @@ vncClientThread::FilterClients_Blacklist()
 		verified = vncServer::aqrAccept;
 	}
 	else {
-		verified = m_server->VerifyHost(m_socket->GetPeerName());
+		verified = m_server->VerifyHost(m_socket->GetPeerName(false));
 	}
 
 	if (verified == vncServer::aqrReject) {
@@ -993,7 +993,7 @@ vncClientThread::CheckLoopBack()
 	if (!settings->getAllowLoopback())
 	{
 		char* localname = _strdup(m_socket->GetSockName());
-		char* remotename = _strdup(m_socket->GetPeerName());
+		char* remotename = _strdup(m_socket->GetPeerName(false));
 
 		// Check that the local & remote names are different!
 		if ((localname != NULL) && (remotename != NULL))
@@ -1020,7 +1020,7 @@ vncClientThread::CheckLoopBack()
 	else
 	{
 		char* localname = _strdup(m_socket->GetSockName());
-		char* remotename = _strdup(m_socket->GetPeerName());
+		char* remotename = _strdup(m_socket->GetPeerName(false));
 
 		// Check that the local & remote names are different!
 		if ((localname != NULL) && (remotename != NULL))
@@ -1067,7 +1067,7 @@ void vncClientThread::SendConnFailed(const char* szMessage)
 	m_socket->SendExact(szMessage, (const VCard)strlen(szMessage));
 }
 
-void vncClientThread::LogAuthResult(bool success)
+void vncClientThread::LogAuthResult(bool success, bool isconnected)
 {
 #ifndef SC_20
 	if (!success)
@@ -1087,7 +1087,7 @@ void vncClientThread::LogAuthResult(bool success)
 		if (hModule)
 		{
 			Logevent = (LogeventFn)GetProcAddress(hModule, "LOGFAILED");
-			Logevent((char*)m_client->GetClientName());
+			Logevent((char*)m_client->GetClientNameName());
 			FreeLibrary(hModule);
 		}
 #endif
@@ -1097,7 +1097,7 @@ void vncClientThread::LogAuthResult(bool success)
 #ifdef ULTRAVNC_VEYON_SUPPORT
 		vnclog.Print(LL_INTINFO, VNCLOG("authentication succeeded\n"));
 #else
-		typedef BOOL(*LogeventFn)(char* machine);
+		typedef BOOL(*LogeventFn)(char* machine, vncClientId *clientId, bool *isinteractive);
 		LogeventFn Logevent = 0;
 		char szCurrentDir[MAX_PATH];
 		if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
@@ -1109,8 +1109,12 @@ void vncClientThread::LogAuthResult(bool success)
 		HMODULE hModule = LoadLibrary(szCurrentDir);
 		if (hModule)
 		{
-			Logevent = (LogeventFn)GetProcAddress(hModule, "LOGLOGON");
-			Logevent((char*)m_client->GetClientName());
+			if (!isconnected) {
+				Logevent = (LogeventFn)GetProcAddress(hModule, "LOGCONN");
+			} else {
+				Logevent = (LogeventFn)GetProcAddress(hModule, "LOGLOGON");
+			}
+			Logevent((char*)m_client->GetClientNameName(), (vncClientId*)m_client->GetClientId(), (bool *)(m_client->m_keyboardenabled && m_client->m_pointerenabled));
 			FreeLibrary(hModule);
 		}
 #endif
@@ -1135,7 +1139,7 @@ vncClientThread::InitAuthenticate()
 	//adzm 2010-09 - Do the actual authentication
 	if (m_minor >= 7) {
 		std::vector<CARD8> current_auth;
-		if (!AuthenticateClient(current_auth)) {
+		if (!AuthenticateClient(current_auth, false)) {
 			return FALSE;
 		}
 	}
@@ -1151,7 +1155,7 @@ vncClientThread::InitAuthenticate()
 			return FALSE;
 		}
 #endif
-		if (!AuthenticateLegacyClient()) {
+		if (!AuthenticateLegacyClient(true)) {
 			return FALSE;
 		}
 #endif
@@ -1164,12 +1168,12 @@ vncClientThread::InitAuthenticate()
 			return FALSE;
 		}
 		else {
-			m_server->AddAuthHostsBlacklist(m_client->GetClientName());
-			m_server->AddAuthHostsBlacklist(m_client->GetClientName());
-			m_server->AddAuthHostsBlacklist(m_client->GetClientName());
-			m_server->AddAuthHostsBlacklist(m_client->GetClientName());
-			m_server->AddAuthHostsBlacklist(m_client->GetClientName());
-			m_server->AddAuthHostsBlacklist(m_client->GetClientName());
+			m_server->AddAuthHostsBlacklist(m_client->GetClientNameAddress());
+			m_server->AddAuthHostsBlacklist(m_client->GetClientNameAddress());
+			m_server->AddAuthHostsBlacklist(m_client->GetClientNameAddress());
+			m_server->AddAuthHostsBlacklist(m_client->GetClientNameAddress());
+			m_server->AddAuthHostsBlacklist(m_client->GetClientNameAddress());
+			m_server->AddAuthHostsBlacklist(m_client->GetClientNameAddress());
 
 			m_server->GetClient(m_server->getOldestViewer())->Kill();
 			m_client->forceBlacklist = true;
@@ -1229,7 +1233,7 @@ vncClientThread::InitAuthenticate()
 	return m_server->Authenticated(m_client->GetClientId());
 }
 
-BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth)
+BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth, bool connected)
 {
 	// adzm 2010-09 - Gather all authentication types we support
 	std::vector<CARD8> auth_types;
@@ -1340,6 +1344,7 @@ BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth)
 
 	// Authenticate the connection, if required
 	BOOL auth_success = FALSE;
+	BOOL auth_is_mslogon = FALSE;
 	BOOL version_warning = FALSE;
 	std::string auth_message;
 	switch (auth_accepted)
@@ -1363,6 +1368,9 @@ BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth)
 #ifdef AUTH_MS_LOGON_SUPPORT
 	case rfbUltraVNC_MsLogonIIAuth:
 		auth_success = AuthMsLogon(auth_message);
+		if (auth_success) {
+			auth_is_mslogon = TRUE;
+		}
 		break;
 #endif
 	case rfbVncAuth:
@@ -1388,7 +1396,9 @@ BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth)
 		break;
 	}
 	// Log authentication success or failure
-	LogAuthResult(auth_success ? true : false);
+	if (!auth_is_mslogon) {
+		LogAuthResult(auth_success ? true : false, connected);
+	}
 
 	// Return the result
 	CARD32 auth_result = rfbVncAuthFailed;
@@ -1490,7 +1500,7 @@ BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth)
 		return FALSE;
 
 	if (auth_success && auth_result == rfbVncAuthContinue) {
-		if (!AuthenticateClient(current_auth)) {
+		if (!AuthenticateClient(current_auth, true)) {
 			return FALSE;
 		}
 	}
@@ -1504,7 +1514,7 @@ BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth)
 }
 
 #ifndef ULTRAVNC_VEYON_SUPPORT
-BOOL vncClientThread::AuthenticateLegacyClient()
+BOOL vncClientThread::AuthenticateLegacyClient(bool isconnected)
 {
 	vncPasswd::ToText plain(settings->getPasswd(), settings->getSecure());
 
@@ -1551,6 +1561,8 @@ BOOL vncClientThread::AuthenticateLegacyClient()
 
 	// Authenticate the connection, if required
 	BOOL auth_success = FALSE;
+	BOOL auth_is_mslogon = FALSE;
+
 	std::string auth_message;
 	switch (auth_type)
 	{
@@ -1576,6 +1588,9 @@ BOOL vncClientThread::AuthenticateLegacyClient()
 #ifdef AUTH_MS_LOGON_SUPPORT
 	case rfbLegacy_MsLogon:
 		auth_success = AuthMsLogon(auth_message);
+		if (auth_success) {
+			auth_is_mslogon = TRUE;
+		}
 		break;
 #endif
 	case rfbVncAuth:
@@ -1590,7 +1605,9 @@ BOOL vncClientThread::AuthenticateLegacyClient()
 	}
 
 	// Log authentication success or failure
-	LogAuthResult(auth_success ? true : false);
+	if (!auth_is_mslogon) {
+		LogAuthResult(auth_success ? true : false, false);
+	}
 
 	// Return the result
 	CARD32 auth_result = rfbVncAuthFailed;
@@ -1835,14 +1852,18 @@ vncClientThread::AuthMsLogon(std::string& auth_message)
 	vncDecryptBytes((unsigned char*)user, sizeof(user), key); user[255] = '\0';
 	vncDecryptBytes((unsigned char*)passwd, sizeof(passwd), key); passwd[63] = '\0';
 
-	int result = CheckUserGroupPasswordUni(user, passwd, m_client->GetClientName());
+	int result = CheckUserGroupPasswordUni(user, passwd, m_client->GetClientNameAddress());
 	vnclog.Print(LL_INTINFO, "CheckUserGroupPasswordUni result=%i\n", result);
-	if (result == 2) {
+	if (result == 2) { // ViewOnly?
 		m_client->EnableKeyboard(false);
 		m_client->EnablePointer(false);
 	}
 
 	if (result) {
+		if (user != NULL)
+			m_client->m_client_domain_username = _strdup(user);
+		else
+			m_client->m_client_domain_username = _strdup("<unknown>");
 		return TRUE;
 	}
 	else {
@@ -2297,14 +2318,14 @@ vncClientThread::run(void* arg)
 	SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
 
 	vnclog.Print(LL_CLIENTS, VNCLOG("client connected : %s (%hd)\n"),
-		m_client->GetClientName(),
+		m_client->GetClientNameName(),
 		m_client->GetClientId());
 	// Save the handle to the thread's original desktop
 	HDESK home_desktop = GetThreadDesktop(GetCurrentThreadId());
 	HDESK input_desktop = 0;
 
 	// Initially blacklist the client so that excess connections from it get dropped
-	m_server->AddAuthHostsBlacklist(m_client->GetClientName());
+	m_server->AddAuthHostsBlacklist(m_client->GetClientNameAddress());
 
 	// adzm 2010-08
 	if (!InitSocket()) {
@@ -2370,7 +2391,7 @@ vncClientThread::run(void* arg)
 
 	// Authenticated OK - remove from blacklist and remove timeout
 	if (!m_client->forceBlacklist)
-		m_server->RemAuthHostsBlacklist(m_client->GetClientName());
+		m_server->RemAuthHostsBlacklist(m_client->GetClientNameAddress());
 	m_client->forceBlacklist = false;
 	m_socket->SetTimeout(settings->getIdleTimeout() * 1000);
 	vnclog.Print(LL_INTINFO, VNCLOG("authenticated connection\n"));
@@ -4614,30 +4635,28 @@ vncClientThread::run(void* arg)
 	// Quit this thread.  This will automatically delete the thread and the
 	// associated client.
 	vnclog.Print(LL_CLIENTS, VNCLOG("client disconnected : %s (%hd)\n"),
-		m_client->GetClientName(),
+		m_client->GetClientNameName(),
 		m_client->GetClientId());
 #ifndef ULTRAVNC_VEYON_SUPPORT
 	//////////////////
 	// LOG it also in the event
 	//////////////////
 #ifndef SC_20
+	typedef BOOL(*LogeventFn)(char* machine, char* user, vncClientId *clientId, bool *isinteractive);
+	LogeventFn Logevent = 0;
+	char szCurrentDir[MAX_PATH];
+	if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
 	{
-		typedef BOOL(*LogeventFn)(char* machine);
-		LogeventFn Logevent = 0;
-		char szCurrentDir[MAX_PATH];
-		if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
-		{
-			char* p = strrchr(szCurrentDir, '\\');
-			*p = '\0';
-			strcat_s(szCurrentDir, "\\logging.dll");
-		}
-		HMODULE hModule = LoadLibrary(szCurrentDir);
-		if (hModule)
-		{
-			Logevent = (LogeventFn)GetProcAddress(hModule, "LOGEXIT");
-			Logevent((char*)m_client->GetClientName());
-			FreeLibrary(hModule);
-		}
+		char* p = strrchr(szCurrentDir, '\\');
+		*p = '\0';
+		strcat_s(szCurrentDir, "\\logging.dll");
+	}
+	HMODULE hModule = LoadLibrary(szCurrentDir);
+	if (hModule)
+	{
+		Logevent = (LogeventFn)GetProcAddress(hModule, "LOGEXIT");
+		Logevent((char*)m_client->GetClientNameName(), (char*)m_client->GetClientDomainUsername(), (vncClientId*)m_client->GetClientId(), (bool*)(m_client->m_keyboardenabled && m_client->m_pointerenabled));
+		FreeLibrary(hModule);
 	}
 #endif
 #endif
@@ -4689,7 +4708,9 @@ vncClient::vncClient() : m_clipboard(ClipboardSettings::defaultServerCaps), Send
 #endif
 
 	m_socket = NULL;
-	m_client_name = NULL;
+	m_client_name_name = NULL;
+	m_client_name_address = NULL;
+	m_client_domain_username = NULL;
 
 	// Initialise mouse fields
 	m_mousemoved = FALSE;
@@ -4854,9 +4875,18 @@ vncClient::~vncClient()
 #endif
 
 	// We now know the thread is dead, so we can clean up
-	if (m_client_name != NULL) {
-		free(m_client_name);
-		m_client_name = NULL;
+	if (m_client_name_address != NULL) {
+		free(m_client_name_address);
+		m_client_name_address = NULL;
+	}
+	
+	if (m_client_domain_username != NULL) {
+		free(m_client_domain_username);
+		m_client_domain_username = NULL;
+	}
+	if (m_client_name_name != NULL) {
+		free(m_client_name_name);
+		m_client_name_name = NULL;
 	}
 
 	// If we have a socket then kill it
@@ -4957,11 +4987,17 @@ vncClient::Init(vncServer* server,
 	m_socket = socket;
 
 	// Save the name of the connecting client
-	char* name = m_socket->GetPeerName();
+	char* name = m_socket->GetPeerName(true);
 	if (name != NULL)
-		m_client_name = _strdup(name);
+		m_client_name_name = _strdup(name);
 	else
-		m_client_name = _strdup("<unknown>");
+		m_client_name_name = _strdup("<unknown>");
+
+	char* address = m_socket->GetPeerName(false);
+	if (address != NULL)
+		m_client_name_address = _strdup(address);
+	else
+		m_client_name_address = _strdup("<unknown>");
 
 	// Save the client id
 	m_id = newid;
@@ -5226,11 +5262,23 @@ vncClient::SetNewSWSize(long w, long h, BOOL Desktop)
 	return TRUE;
 }
 
+const char*
+vncClient::GetClientDomainUsername()
+{
+	return m_client_domain_username;
+}
+
 // Functions used to set and retrieve the client settings
 const char*
-vncClient::GetClientName()
+vncClient::GetClientNameName()
 {
-	return m_client_name;
+	return m_client_name_name;
+}
+
+const char*
+vncClient::GetClientNameAddress()
+{
+	return m_client_name_address;
 }
 
 // Enabling and disabling clipboard/GFX updates

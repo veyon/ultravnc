@@ -827,14 +827,14 @@ VSocket::Accept()
 ////////////////////////////
 #ifdef IPV6V4
 VString
-VSocket::GetPeerName()
+VSocket::GetPeerName(bool naam)
 {
-	if (sock4 != INVALID_SOCKET) return GetPeerName4();
-	if (sock6 != INVALID_SOCKET) return GetPeerName6();
+	if (sock4 != INVALID_SOCKET) return GetPeerName4(naam);
+	if (sock6 != INVALID_SOCKET) return GetPeerName6(naam);
 	return "<unavailable>";
 }
 VString
-VSocket::GetPeerName4()
+VSocket::GetPeerName4(bool naam)
 {
 	struct sockaddr_in	sockinfo;
 	struct in_addr		address;
@@ -854,7 +854,7 @@ VSocket::GetPeerName4()
 
 char straddr[INET6_ADDRSTRLEN];
 VString
-VSocket::GetPeerName6()
+VSocket::GetPeerName6(bool naam)
 {
 	struct sockaddr_in6	sockinfo;
 	struct in6_addr		address;
@@ -872,7 +872,7 @@ VSocket::GetPeerName6()
 }
 #else
 VString
-VSocket::GetPeerName()
+VSocket::GetPeerName(bool naam)
 {
 	struct sockaddr_in	sockinfo{};
 	struct in_addr		address{};
@@ -884,11 +884,13 @@ VSocket::GetPeerName()
 	memcpy(&address, &sockinfo.sin_addr, sizeof(address));
 
 	struct hostent* remoteHost = gethostbyaddr((char*)&address, sizeof(address), AF_INET);
-	if (remoteHost != NULL) {
+
+	if (remoteHost != NULL && naam) {
 		name = remoteHost->h_name;
 		return name;
 	}
-	name = inet_ntoa(address);
+
+	name = inet_ntoa(address);;
 	if (name == NULL)
 		return "<unavailable>";
 	else
