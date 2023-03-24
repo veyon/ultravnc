@@ -261,8 +261,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine2
 	memset(&info, 0, sizeof(CR_INSTALL_INFO));
 	info.cb = sizeof(CR_INSTALL_INFO);
 	info.pszAppName = _T("UVNC");
-	info.pszAppVersion = _T("1.4.0.7");
-	info.pszEmailSubject = _T("UVNC server 1.4.0.7 Error Report");
+	info.pszAppVersion = _T("1.4.0.9");
+	info.pszEmailSubject = _T("UVNC server 1.4.0.9 Error Report");
 	info.pszEmailTo = _T("uvnc@skynet.be");
 	info.uPriorities[CR_SMAPI] = 1; // Third try send report over Simple MAPI    
 	// Install all available exception handlers
@@ -1038,7 +1038,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine2
 					delete[] name;
 #else
 					VCard32 address = VSocket::Resolve(name);
-					delete [] name;
+#ifdef SC_20
+					if (address == 0) {
+						char text[1024]{};
+						sprintf(text, " Hostnamee (%s) could not be resolved", name);
+						MessageBox(NULL, text, szAppName, MB_ICONEXCLAMATION | MB_OK);
+						delete[] name;
+						return 0;
+					}					
+#endif
+					delete[] name;
 					if (address != 0) {
 						// Post the IP address to the server
 						// We can not contact a runnning service, permissions, so we must store the settings
