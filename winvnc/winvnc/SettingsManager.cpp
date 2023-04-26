@@ -194,7 +194,11 @@ void SettingsManager::setDefaults()
 #ifdef KEEP_ALIVE_SUPPORT
 	m_pref_fEnableKeepAlive = false;
 #endif
+#ifdef ULTRAVNC_VEYON_SUPPORT
+	m_pref_fRunningFromExternalService = true;
+#else
 	m_pref_fRunningFromExternalService = false;
+#endif
 	m_pref_fRunningFromExternalServiceRdp = false;
 	m_pref_fAutoRestart = false;
 #ifndef SC_20
