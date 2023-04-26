@@ -235,7 +235,9 @@ public:
 	int DriverType;
 	DWORD color[10];
 	// added jeff
+#ifndef ULTRAVNC_VEYON_SUPPORT
 	LayeredWindows *layeredWindows;
+#endif
 	// Modif rdv@2002 Dis/enable input
 	void SetDisableInput();
 	void SetSW(int x,int y);

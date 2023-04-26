@@ -544,7 +544,9 @@ vncDesktop::vncDesktop()
 	m_SWOffsetx = 0;
 	m_SWOffsety = 0;
 
+#ifndef ULTRAVNC_VEYON_SUPPORT
 	layeredWindows = new LayeredWindows();
+#endif
 }
 
 vncDesktop::~vncDesktop()
@@ -631,7 +633,9 @@ vncDesktop::~vncDesktop()
 	}
 	if (sesmsg) delete[] sesmsg;
 	sesmsg = NULL;
+#ifndef ULTRAVNC_VEYON_SUPPORT
 	delete layeredWindows;
+#endif
 }
 
 
