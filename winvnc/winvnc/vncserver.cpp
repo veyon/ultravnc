@@ -1869,12 +1869,6 @@ BOOL vncServer::SetDSMPlugin(BOOL bForceReload)
 	}
 	return TRUE;
 }
-
-//adzm 2010-05-12 - dsmplugin config
-void vncServer::SetDSMPluginConfig(char* szDSMPluginConfig)
-{
-	strncpy_s(m_szDSMPluginConfig, sizeof(m_szDSMPluginConfig) - 1, szDSMPluginConfig, _TRUNCATE);
-}
 #endif
 
 //

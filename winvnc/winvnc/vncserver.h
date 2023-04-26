@@ -221,8 +221,6 @@ public:
 	virtual BOOL EnableHTTPConnect(BOOL enable);
 #endif
 
-
-
 	virtual void GetScreenInfo(int &width, int &height, int &depth);
 
 	// Handling of per-client connection authorisation
@@ -244,9 +242,6 @@ public:
 	// sf@2002 - DSM Plugin
 	virtual BOOL SetDSMPlugin(BOOL fForceReload);
 	virtual CDSMPlugin* GetDSMPluginPointer() { return m_pDSMPlugin;};
-	//adzm 2010-05-12 - dsmplugin config
-	virtual void SetDSMPluginConfig(char* szDSMPluginConfig);
-	virtual char* GetDSMPluginConfig() { return m_szDSMPluginConfig;};
 #endif
 
 	// sf@2002 - Cursor handling
@@ -345,6 +340,7 @@ protected:
 	BOOL				m_enableHttpConn;
 #endif
 
+
 	// The desktop handler
 	vncDesktop			*m_desktop;
 	// Name of this desktop
@@ -393,6 +389,7 @@ protected:
 	char m_szAutoReconnectId[MAX_PATH];
 
 	HINSTANCE   hWtsLib;
+
 	DWORD startTime;
     BOOL m_fSendExtraMouse;
 	bool KillAuthClientsBuzy;	
