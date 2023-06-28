@@ -36,7 +36,7 @@
 
 int OSversion();
 DWORD WINAPI InitWindowThread(LPVOID lpParam);
-extern char g_hookstring[16];
+extern wchar_t g_hookstring[16];
 extern int g_lockcode;
 
 
@@ -568,7 +568,7 @@ vncDesktop::InitWindow()
 	m_settingClipboardViewer = false;		
 	vnclog.Print(LL_INTERR, VNCLOG("OOOOOOOOOOOO load hookdll's\n"));
 	////////////////////////
-		hModule=NULL;
+	hModuleVNCHook =NULL;
 	char szCurrentDir[MAX_PATH];
 		if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
 		{
@@ -601,14 +601,14 @@ vncDesktop::InitWindow()
 	UnSetHook=NULL;
 	SetHook=NULL;
 
-	hModule = LoadLibrary(szCurrentDir);
+	hModuleVNCHook = LoadLibrary(szCurrentDir);
 	hSCModule = LoadLibrary(szCurrentDirSC);//TOFIX resource leak
-	if (hModule)
+	if (hModuleVNCHook)
 		{			
-			UnSetHooks = (UnSetHooksFn) GetProcAddress( hModule, "UnSetHooks" );
-			SetMouseFilterHook  = (SetMouseFilterHookFn) GetProcAddress( hModule, "SetMouseFilterHook" );
-			SetKeyboardFilterHook  = (SetKeyboardFilterHookFn) GetProcAddress( hModule, "SetKeyboardFilterHook" );
-			SetHooks  = (SetHooksFn) GetProcAddress( hModule, "SetHooks" );
+			UnSetHooks = (UnSetHooksFn) GetProcAddress(hModuleVNCHook, "UnSetHooks" );
+			SetMouseFilterHook  = (SetMouseFilterHookFn) GetProcAddress(hModuleVNCHook, "SetMouseFilterHook" );
+			SetKeyboardFilterHook  = (SetKeyboardFilterHookFn) GetProcAddress(hModuleVNCHook, "SetKeyboardFilterHook" );
+			SetHooks  = (SetHooksFn) GetProcAddress(hModuleVNCHook, "SetHooks" );
 		}
 	if (hSCModule)
 		{
@@ -643,7 +643,7 @@ vncDesktop::InitWindow()
 				}
 			else if (msg.message==RFB_SCREEN_UPDATE)
 				{
-					strcpy_s(g_hookstring,"vnchook");
+					wcscpy_s(g_hookstring,L"vnchook");
 					if (can_be_hooked)
 					{
 #ifndef ULTRAVNC_VEYON_SUPPORT
@@ -695,8 +695,10 @@ vncDesktop::InitWindow()
 		Sleep(100);
 	}
 	KillTimer(m_hwnd,1001);
-	if (hModule)FreeLibrary(hModule);
-	if (hSCModule)FreeLibrary(hSCModule);
+	if (hModuleVNCHook)
+		FreeLibrary(hModuleVNCHook);
+	if (hSCModule)
+		FreeLibrary(hSCModule);
 	SetThreadDesktop(old_desktop);
     CloseDesktop(desktop);
 	///////////////////////

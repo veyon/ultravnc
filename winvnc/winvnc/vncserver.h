@@ -81,7 +81,7 @@ public:
 	vncServer();
 	~vncServer();
 
-#ifdef CLOUD_SUPPORT
+#ifdef _CLOUD
 	char code[18]{};
 	char* generateCode();
 #endif
@@ -299,13 +299,11 @@ public:
 #endif
 
 
-#ifdef CLOUD_SUPPORT
 	void cloudConnect(bool start, char* cloudServer);
 	bool isCloudThreadRunning();
 	char* getExternalIpAddress();
 	int getStatus();
 	void setVNcPort();
-#endif
 
 protected:
 	// The vncServer UpdateTracker class
@@ -394,7 +392,7 @@ protected:
     BOOL m_fSendExtraMouse;
 	bool KillAuthClientsBuzy;	
 	BOOL sethook;
-#ifdef CLOUD_SUPPORT
+#ifdef _CLOUD
 	CloudThread* cloudThread;
 #endif
 };

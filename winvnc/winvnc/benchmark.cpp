@@ -30,7 +30,7 @@
 bool G_USE_PIXEL=false;
 #ifndef ULTRAVNC_VEYON_SUPPORT
 extern VNCLog vnclog;
-#define VNCLOG(s)	(__FILE__ " : " s)
+#define VNCLOG(s)	(__FUNCTION__ " : " s)
 
 struct _BMInfo {
 		BOOL			truecolour;

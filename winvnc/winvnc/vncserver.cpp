@@ -48,7 +48,9 @@
 #include "Localization.h" // ACT : Add localization on messages
 #include "ScSelect.h"
 
+#ifdef _CLOUD
 #include "./UdtCloudlib/proxy/Cloudthread.h"
+#endif
 
 #pragma comment(lib, "iphlpapi.lib")
 
@@ -87,7 +89,7 @@ vncServer::ServerUpdateTracker::add_copied(const rfb::Region2D& dest, const rfb:
 	}
 }
 
-#ifdef CLOUD_SUPPORT
+#ifdef _CLOUD
 char* vncServer::generateCode() {
 	PIP_ADAPTER_INFO AdapterInfo{};
 	DWORD dwBufLen = sizeof(IP_ADAPTER_INFO);
@@ -194,15 +196,17 @@ vncServer::vncServer()
 	HookWanted = FALSE;
 	DriverWantedSet = FALSE;
 	sethook = false;
-#ifdef CLOUD_SUPPORT
-	strcpy_s(code, generateCode());
+#ifdef _CLOUD
+	char* generatedcode = generateCode();
+	strcpy_s(code, generatedcode);
+	free(generatedcode);
 	cloudThread = new CloudThread();
 #endif
 }
 
 vncServer::~vncServer()
 {
-#ifdef CLOUD_SUPPORT
+#ifdef _CLOUD
 	cloudThread->stopThread();
 	delete cloudThread;
 #endif
@@ -348,6 +352,7 @@ vncClientId vncServer::AddClient(VSocket* socket, BOOL auth, BOOL shared, int ca
 	client->SetCapability(capability);
 	client->EnableKeyboard(settings->getEnableRemoteInputs());
 	client->EnablePointer(settings->getEnableRemoteInputs());
+	client->EnableGii(settings->getEnableRemoteInputs());
 	client->EnableJap(settings->getEnableJapInput() ? true : false);
 	client->EnableUnicode(settings->getEnableUnicodeInput() ? true : false);
 
@@ -394,21 +399,22 @@ vncClientId vncServer::AddClient(VSocket* socket, BOOL auth, BOOL shared, int ca
 			strncat_s(szInfo, 255, ", ", _TRUNCATE);
 		}
 
-#ifdef SC_20
-		char all[256];
-		strcpy_s(all, ScSelect::Balloon1A);
-		strcat_s(all, "\n");
-		strcat_s(all, ScSelect::Balloon1B);
-		strcat_s(all, "\n");
-		strcat_s(all, ScSelect::Balloon1C);
-		vncMenu::NotifyBalloon(all, ScSelect::Balloon1Title);
+#ifdef SC_20		
+		wchar_t szTitle2[256] = { 0 };
+		wchar_t szInfo2[256] = { 0 };
+
+		_snwprintf_s(szInfo2, 255, L"%s %s %s", ScSelect::Balloon1A, ScSelect::Balloon1B, ScSelect::Balloon1C);
+		_snwprintf_s(szTitle2, 255, L"%s", ScSelect::Balloon1Title);
+		vncMenu::NotifyBalloon(szInfo2, szTitle2);
 		return clientid;
 #endif
 
 		if (m_unauthClients.size() > 0) {
 			szInfo[strlen(szInfo) - 2] = '\0';
 #ifndef ULTRAVNC_VEYON_SUPPORT
-			vncMenu::NotifyBalloon(szInfo);
+			wchar_t temp[256] = { 0 };
+			_snwprintf_s(temp, 255, L"%hs", szInfo);
+			vncMenu::NotifyBalloon(temp);
 #endif
 		}
 	}
@@ -523,49 +529,48 @@ vncServer::Authenticated(vncClientId clientid)
 	if (client != NULL) {
 
 #ifdef SC_20
-		char szTitle[256] = { 0 };
-		char szInfo[256] = { 0 };
+		wchar_t szTitle[256] = { 0 };
+		wchar_t szInfo[256] = { 0 };
 
-		_snprintf_s(szInfo, 255, "%s \n%s \n %s", ScSelect::Balloon2A, ScSelect::Balloon2B, ScSelect::Balloon2C);
+		_snwprintf_s(szInfo, 255, L"%s %s %s", ScSelect::Balloon2A, ScSelect::Balloon2B, ScSelect::Balloon2C);
 		if (settings->getNotification() && strlen(client->infoMsg) > 0)
-			_snprintf_s(szInfo, 255, "%s", client->infoMsg);
-		_snprintf_s(szTitle, 255, "%s", ScSelect::Balloon2Title);
+			_snwprintf_s(szInfo, 255, L"%s", client->infoMsg);
+		_snwprintf_s(szTitle, 255, L"%s", ScSelect::Balloon2Title);
 		vncMenu::NotifyBalloon(szInfo, szTitle);
 #else
 		// adzm 2009-07-05 - Balloon
 		if (settings->getScPrompt()) {
-			char szInfo[256] = { 0 };
+			wchar_t szInfo[256] = { 0 };
 			if (client->GetRepeaterID() && (strlen(client->GetRepeaterID()) > 0)) {
-				_snprintf_s(szInfo, 255, "UltraVNC is controling your device. \r Remote access from ID: %s", client->GetRepeaterID());
+				_snwprintf_s(szInfo, 255, L"UltraVNC is controling your device. \r Remote access from ID: %hs", client->GetRepeaterID());
 			}
 			else {
-				_snprintf_s(szInfo, 255, "UltraVNC is controling your device. \r Remote access from ip address %s", client->GetClientNameName());
+				_snwprintf_s(szInfo, 255, L"UltraVNC is controling your device. \r Remote access from ip address %hs", client->GetClientNameName());
 			}
 			vncMenu::NotifyBalloon(szInfo);
 		}
 
 		if (settings->getNotification()) {
 			if (strlen(client->infoMsg) > 0) {
-				char szInfo[256] = { 0 };
-				char szTitle[63] = { 0 };
+				wchar_t szInfo[256] = { 0 };
+				wchar_t szTitle[63] = { 0 };
 				if (client->GetRepeaterID() && (strlen(client->GetRepeaterID()) > 0)) {
-					_snprintf_s(szTitle, 63,"Connection from: %s", client->GetRepeaterID());
+					_snwprintf_s(szTitle, 63,L"Connection from: %hs", client->GetRepeaterID());
 				}
 				else {
-					strcpy_s(szTitle, "Connection from: ");
-					strncat_s(szTitle, client->GetClientNameName(), 45);
+					_snwprintf_s(szTitle, 63, L"Connection from: %hs", client->GetClientNameName());
 					szTitle[62] = '\0';
 				}
-				strcpy_s(szInfo, 255, client->infoMsg);
+				_snwprintf_s(szInfo, 255, L"%hs", client->infoMsg);
 				vncMenu::NotifyBalloon(szInfo, szTitle);
 			}
 			else if (settings->getNotificationSelection() == 0) {
-				char szInfo[256] = { 0 };
+				wchar_t szInfo[256] = { 0 };
 				if (client->GetRepeaterID() && (strlen(client->GetRepeaterID()) > 0)) {
-					_snprintf_s(szInfo, 255, "UltraVNC is controling your device. \r Remote access from ID: %s", client->GetRepeaterID());
+					_snwprintf_s(szInfo, 255, L"UltraVNC is controling your device. \r Remote access from ID: %hs", client->GetRepeaterID());
 				}
 				else {
-					_snprintf_s(szInfo, 255, "UltraVNC is controling your device. \r Remote access from ip address %s", client->GetClientNameName());
+					_snwprintf_s(szInfo, 255, L"UltraVNC is controling your device. \r Remote access from ip address %hs", client->GetClientNameName());
 				}
 				vncMenu::NotifyBalloon(szInfo);
 			}
@@ -1204,6 +1209,7 @@ vncServer::EnableRemoteInputs(BOOL enable)
 	for (i = m_authClients.begin(); i != m_authClients.end(); i++) {
 		GetClient(*i)->EnableKeyboard(settings->getEnableRemoteInputs());
 		GetClient(*i)->EnablePointer(settings->getEnableRemoteInputs());
+		GetClient(*i)->EnableGii(settings->getEnableRemoteInputs());
 	}
 }
 
@@ -2154,32 +2160,46 @@ void vncServer::SetAutoPortSelect(const BOOL autoport)
 		EnableConnections(SockConnected());
 };
 
-#ifdef CLOUD_SUPPORT
 void vncServer::cloudConnect(bool start, char *cloudServer)
 {
+#ifdef _CLOUD
 	if (start)
 		cloudThread->startThread(5352, cloudServer, code, ctSERVER);
 	else
 		cloudThread->stopThread();
+#endif
 }
 
 bool vncServer::isCloudThreadRunning()
 {
+#ifdef _CLOUD
 	return cloudThread->isThreadRunning();
+#else
+	return false;
+#endif
 }
 
 char *vncServer::getExternalIpAddress()
 {
+#ifdef _CLOUD
 	return cloudThread->getExternalIpAddress();
+#else
+	return "";
+#endif
 }
 
 int vncServer::getStatus()
 {
+#ifdef _CLOUD
 	return cloudThread->getStatus();
+#else
+	return 0;
+#endif
 }
 
 void vncServer::setVNcPort()
 {
+#ifdef _CLOUD
 	cloudThread->setVNcPort(m_port);
-}
 #endif
+}

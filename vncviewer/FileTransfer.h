@@ -221,6 +221,9 @@ public:
 	static FILETIME GetFileTimeFromString(char* szFileSystemTime);
 private:
 	int nDirZipRet;
+	bool rfbFileHeaderRequested;
+	bool rfbFileTransferOfferRequested;
+	char szRemoteFileNameRequested[MAX_PATH];
 
 };
 

@@ -44,8 +44,7 @@
 #endif
 #endif
 
-#ifdef _USE_DESKTOPDUPLICATION
-#undef _WIN32_WINNT
+/*#ifdef _USE_DESKTOPDUPLICATION
 #define _WIN32_WINNT 0x0602
 #ifndef WINVER
 #define WINVER 0x0602
@@ -55,7 +54,7 @@
 #ifndef WINVER
 #define WINVER 0x0500
 #endif
-#endif
+#endif*/
 
 #define WIN32_LEAN_AND_MEAN
 #ifndef STRICT
@@ -125,7 +124,7 @@ extern VNCLog vnclog;
 #ifdef ULTRAVNC_VEYON_SUPPORT
 #define VNCLOG(s)	(QStringLiteral("%1: %2").arg(QLatin1String(__PRETTY_FUNCTION__)).arg(QStringLiteral(s)).toUtf8().constData())
 #else
-#define VNCLOG(s)	(__FILE__ " : " s)
+#define VNCLOG(s)	(__FUNCTION__ " : " s)
 #endif
 //#if MSC_VER > 12
 #ifndef _X64

@@ -235,7 +235,7 @@ void SettingsManager::setDefaults()
 	m_pref_locdom2 = false;
 	m_pref_locdom3 = false;
 
-#ifdef CLOUD_SUPPORT
+#ifdef _CLOUD
 	memset(m_pref_cloudServer, 0, MAX_HOST_NAME_LEN);
 	m_pref_cloudEnabled = false;
 #endif
@@ -349,7 +349,7 @@ void SettingsManager::load()
 	myIniFile.ReadString("admin_auth", "group3", m_pref_group3, 150);
 	_tcscpy_s(m_pref_group3, "VNCVIEWONLY");
 
-#ifdef CLOUD_SUPPORT
+#ifdef _CLOUD
 	myIniFile.ReadString("admin", "cloudServer", m_pref_cloudServer, MAX_HOST_NAME_LEN);
 	m_pref_cloudEnabled = myIniFile.ReadInt("admin", "cloudEnabled", m_pref_cloudEnabled);
 #endif

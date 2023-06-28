@@ -1857,6 +1857,7 @@ vncClientThread::AuthMsLogon(std::string& auth_message)
 	if (result == 2) { // ViewOnly?
 		m_client->EnableKeyboard(false);
 		m_client->EnablePointer(false);
+		m_client->EnableGii(false);
 	}
 
 	if (result) {
@@ -1925,6 +1926,7 @@ BOOL vncClientThread::AuthVnc(std::string& auth_message)
 					vnclog.Print(LL_INTINFO, "View-only password authentication"); //PGM
 					m_client->EnableKeyboard(false); //PGM
 					m_client->EnablePointer(false); //PGM
+					m_client->EnableGii(false);
 					auth_ok = TRUE; //PGM
 
 					// Encrypt the view-only challenge bytes //PGM
@@ -2988,7 +2990,7 @@ vncClientThread::run(void* arg)
 					m_server->DisableCacheForAllClients();
 #ifdef _Gii
 				// Gii encoding requested (MC Multitouch Extensions)
-				if (gii_set && InjectTouchInputUVNC != NULL && InitializeTouchInjectionUVNC != NULL)
+				if (gii_set && InjectTouchInputUVNC != NULL && InitializeTouchInjectionUVNC != NULL && m_client->m_GiiEnabled)
 				{
 					InitGiiVersion();
 				}
@@ -3033,6 +3035,11 @@ vncClientThread::run(void* arg)
 			switch (subType) {
 			case _rfbGIIEventInjection:
 			{
+				if (!m_client->m_GiiEnabled) {
+					vnclog.Print(LL_INTERR, VNCLOG("GIIExtension not supported in readonly mode\n"));
+					m_client->cl_connected = FALSE;
+					break;
+				}
 				rfbGIIValuatorEventMsg rfbGIIValutorEvent{};
 				rfbGIIValutorEvent.header.messageType = rfbGIIMessage;
 				rfbGIIValutorEvent.header.subType = subType;
@@ -3235,6 +3242,11 @@ vncClientThread::run(void* arg)
 
 			case _rfbGIIVersionMessage:
 			{
+				if (!m_client->m_GiiEnabled) {
+					vnclog.Print(LL_INTERR, VNCLOG("GIIExtension not supported in readonly mode\n"));
+					m_client->cl_connected = FALSE;
+					return;
+				}
 				uint16_t clientVersion = 0;
 				//check length
 				vnclog.Print(LL_INTINFO, VNCLOG("GII: Get Subtype _rfbGIIVersionMessage \n"));
@@ -3266,6 +3278,11 @@ vncClientThread::run(void* arg)
 
 			case _rfbGIIDeviceCreation:
 			{
+				if (!m_client->m_GiiEnabled) {
+					vnclog.Print(LL_INTERR, VNCLOG("GIIExtension not supported in readonly mode\n"));
+					m_client->cl_connected = FALSE;
+					break;
+				}
 				rfbGIIClientDeviceCreationMsg rfbGIIClientDeviceCreation{};
 				//prepare already known data
 				omni_mutex_lock ll(m_client->GetUpdateLock(), 777);
@@ -3355,6 +3372,11 @@ vncClientThread::run(void* arg)
 			}
 
 			case _rfbGIIDeviceDestruction:
+				if (!m_client->m_GiiEnabled) {
+					vnclog.Print(LL_INTERR, VNCLOG("GIIExtension not supported in readonly mode\n"));
+					m_client->cl_connected = FALSE;
+					break;
+				}
 				//not yet implemented
 				vnclog.Print(LL_INTERR, VNCLOG("GIIExtension writing device creation failed\n"));
 				m_client->cl_connected = FALSE;

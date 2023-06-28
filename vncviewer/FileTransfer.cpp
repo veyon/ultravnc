@@ -60,6 +60,8 @@
 #include <string>
 #include <vector>
 #include "common/win32_helpers.h"
+#include "shlwapi.h"
+#pragma comment(lib, "Shlwapi.lib")
 
 // [v1.0.2-jp1 fix] yak!'s File transfer patch
 // Simply forward strchr() and strrchr() to _mbschr() and _mbsrchr() to avoid 0x5c problem, respectively.
@@ -312,6 +314,8 @@ FileTransfer::FileTransfer(VNCviewerApp *l_pApp, ClientConnection *pCC)
 		MessageBox( NULL, sz_E1, sz_E2, MB_OK | MB_ICONEXCLAMATION );
     }
 	InitializeCriticalSection(&crit);
+	rfbFileHeaderRequested = false;
+	rfbFileTransferOfferRequested = false;
 }
 
 //
@@ -538,21 +542,27 @@ void FileTransfer::ProcessFileTransferMsg(void)
 	// In response to a rfbFileTransferRequest request
 	// A file is received from the server.
 	case rfbFileHeader:
-		ReceiveFiles(Swap32IfLE(ft.size), Swap32IfLE(ft.length));
+		if (rfbFileHeaderRequested) {
+			ReceiveFiles(Swap32IfLE(ft.size), Swap32IfLE(ft.length));
+			rfbFileHeaderRequested = false;
+		}
 		break;
 
 	// In response to a rfbFileTransferOffer request
 	// The server can send the checksums of the destination file before sending a ack through
 	// rfbFileAcceptHeader (only if the destination file already exists and is accessible)
 	case rfbFileChecksums:
-		ReceiveDestinationFileChecksums(Swap32IfLE(ft.size), Swap32IfLE(ft.length));
-        m_pCC->SetRecvTimeout();
+			ReceiveDestinationFileChecksums(Swap32IfLE(ft.size), Swap32IfLE(ft.length));
+			m_pCC->SetRecvTimeout();
 		break;
 
 	// In response to a rfbFileTransferOffer request
 	// A ack or nack is received from the server.
 	case rfbFileAcceptHeader:
-		SendFiles(Swap32IfLE(ft.size), Swap32IfLE(ft.length));
+		if (rfbFileTransferOfferRequested) {
+			SendFiles(Swap32IfLE(ft.size), Swap32IfLE(ft.length));
+			rfbFileTransferOfferRequested = false;
+		}
 		break;
 
 	// Response to a command
@@ -1940,7 +1950,8 @@ void FileTransfer::RequestRemoteFile(LPSTR szRemoteFileName)
 	//adzm 2010-09
     m_pCC->WriteExactQueue((char *)&ft, sz_rfbFileTransferMsg, rfbFileTransfer);
     m_pCC->WriteExact((char *)szRemoteFileName, strlen(szRemoteFileName));
-
+	strncpy_s(szRemoteFileNameRequested, szRemoteFileName, strlen(szRemoteFileName));
+	rfbFileHeaderRequested = true;
 	return;
 }
 
@@ -2012,7 +2023,7 @@ bool FileTransfer::ReceiveFile(unsigned long lSize, UINT nLen)
 	}
 
     char  displayName[MAX_PATH + 32];
-    sprintf_s(displayName, "%s%s", m_szDestFileName, strrchr(szRemoteFileName, '\\') + 1);
+    sprintf_s(displayName, "%s%s", m_szDestFileName, PathFindFileName(szRemoteFileName));
 	// Check the free space on local destination drive
 	bool fErr = false;
 	ULARGE_INTEGER lpFreeBytesAvailable = { 0, 0 };
@@ -2023,6 +2034,10 @@ bool FileTransfer::ReceiveFile(unsigned long lSize, UINT nLen)
 	memset(szDestPath, 0, strlen(m_szDestFileName) + 1);
 	strcpy_s(szDestPath, strlen(m_szDestFileName) + 1, m_szDestFileName);
 	*strrchr(szDestPath, '\\') = '\0'; // We don't handle UNCs for now
+
+	//security requested filename must be the received filename
+	if (strcmp(szRemoteFileName, szRemoteFileNameRequested) != NULL)
+		return false;
 
     // only check root folder on drive, in case we have no permissions on dest folder
     if (szDestPath[1] == ':')
@@ -2076,7 +2091,7 @@ bool FileTransfer::ReceiveFile(unsigned long lSize, UINT nLen)
 
 
     
-    strcat_s(m_szDestFileName, make_temp_filename(strrchr(szRemoteFileName, '\\') + 1).c_str());
+    strcat_s(m_szDestFileName, make_temp_filename(PathFindFileName(szRemoteFileName)).c_str());
 
 	m_nnFileSize = (((__int64)(sizeH)) << 32) + lSize;
 	char szFFS[96];
@@ -2593,7 +2608,7 @@ bool FileTransfer::OfferLocalFile(LPSTR szSrcFileName)
 	//adzm 2010-09
     m_pCC->WriteExactQueue((char *)&ft, sz_rfbFileTransferMsg, rfbFileTransfer);
 	m_pCC->WriteExactQueue((char *)szDstFileName, strlen(szDstFileName));
-
+	rfbFileTransferOfferRequested = true;
 	if (!UsingOldProtocol())
 	{
 		CARD32 sizeH = Swap32IfLE(n2SrcSize.HighPart);
@@ -2738,16 +2753,6 @@ bool FileTransfer::SendFile(long lSize, UINT nLen)
 		delete [] szRemoteFileName;
 		return false;
 	}
-
-	// Build the local file path
-	// sf@2004 - Directory Transfer improvement : filename already known
-	/*
-	if (m_fOldFTProtocole)
-	{
-	GetDlgItemText(hWnd, IDC_CURR_LOCAL, m_szSrcFileName, sizeof(m_szSrcFileName));
-	strcat_s(m_szSrcFileName, strrchr(szRemoteFileName, '\\') + 1);
-	}
-	*/
 
 	delete [] szRemoteFileName;
 

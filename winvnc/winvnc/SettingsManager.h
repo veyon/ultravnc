@@ -243,7 +243,7 @@ public:
 	void setLocdom3(BOOL value) { m_pref_locdom3 = value; };
 	BOOL getLocdom3() { return m_pref_locdom3; };
 
-#ifdef CLOUD_SUPPORT
+#ifdef _CLOUD
 	void setCloudEnabled(BOOL value) { m_pref_cloudEnabled = value; };
 	BOOL getCloudEnabled() { return m_pref_cloudEnabled; };
 
@@ -381,7 +381,7 @@ private:
 	BOOL m_pref_locdom2;
 	BOOL m_pref_locdom3;
 
-#ifdef CLOUD_SUPPORT
+#ifdef _CLOUD
 	TCHAR m_pref_cloudServer[MAX_HOST_NAME_LEN];
 	bool m_pref_cloudEnabled;
 #endif

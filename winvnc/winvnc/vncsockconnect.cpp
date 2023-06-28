@@ -76,10 +76,11 @@ void *vncSockConnectThread::run_undetached(void * arg)
 {
 	vnclog.Print(LL_STATE, VNCLOG("started socket connection thread\n"));
 	// Go into a loop, listening for connections on the given socket
+	VSocket* new_socket = NULL;
 	while (!m_shutdown && !fShutdownOrdered)
 	{
 		// Accept an incoming connection
-		VSocket *new_socket = m_socket->Accept();
+		new_socket = m_socket->Accept();
 		if (new_socket == NULL)
 			break;
 		else
@@ -104,12 +105,13 @@ void *vncSockConnectThread::run_undetached(void * arg)
 		if (m_shutdown || fShutdownOrdered) 
 		{
 			delete new_socket;
+			new_socket = NULL;
 			break;
 		}
 		
 	}
-	//if (new_socket != null)
-	//	delete new_socket;
+	if (new_socket)
+		delete new_socket;
 
 	vnclog.Print(LL_STATE, VNCLOG("quitting socket connection thread\n"));
 
