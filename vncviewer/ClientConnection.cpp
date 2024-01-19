@@ -3800,6 +3800,10 @@ void ClientConnection::SizeWindow(bool noPosChange, bool noSizeChange)
 		workwidth = workrect.right - workrect.left;
 		workheight = workrect.bottom - workrect.top;
 	}
+	if (workwidth > 4320 || workheight > 4320 || workwidth < 0 || workheight < 0) {
+		workrect = { 0,0,1027,768 };
+	}
+
 	vnclog.Print(2, _T("Screen work area is %d x %d\n"), workwidth, workheight);
 
 	// sf@2003 - AutoScaling   
@@ -5282,6 +5286,7 @@ void* ClientConnection::run_undetached(void* arg) {
 	if (m_autoReconnect==0) m_autoReconnect=1;
 	initialupdate_counter=0;
 	ResetEvent(KillUpdateThreadEvent);
+	RealiseFullScreenMode();
 	while (m_autoReconnect > 0)
 	{
 		try

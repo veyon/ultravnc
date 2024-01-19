@@ -1195,6 +1195,36 @@ vncClientThread::InitAuthenticate()
 			return FALSE;
 	}
 
+#ifndef SC_20
+	// Check the FilterClients thing after final auth
+	if (strlen(m_client->infoMsg) > 0)
+	{
+		typedef BOOL(*LogeventFn)(char* info);
+		LogeventFn Logevent = NULL;
+		char szCurrentDir[MAX_PATH];
+		if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
+		{
+			char* p = strrchr(szCurrentDir, '\\');
+			*p = '\0';
+			strcat_s(szCurrentDir, "\\logging.dll");
+		}
+		HMODULE hModule = LoadLibrary(szCurrentDir);
+		if (hModule)
+		{
+			Logevent = (LogeventFn)GetProcAddress(hModule, "LOGEXTRAINFO");
+			
+			if (Logevent)
+				Logevent((char*)m_client->infoMsg);
+			FreeLibrary(hModule);
+		}
+	}
+	if ((m_minor >= 7) && !FilterClients_Ask_Permission())
+	{
+		vnclog.Print(LL_CLIENTS, VNCLOG("Your connection has been rejected.\n"));
+		return FALSE;
+	}
+#endif
+
 	// If the client wishes to have exclusive access then remove other clients
 	if (settings->getConnectPriority() == 3 && !m_shared)
 	{
@@ -1439,23 +1469,6 @@ BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth, bool 
 	// adzm 2010-10 - This was causing failure with DSM plugin, since this is
 	// pretty much the same as another auth type we'll just move it into that code
 	// instead. So see the AuthSCPrompt function.
-
-#ifndef SC_20
-	// Check the FilterClients thing after final auth
-	if (auth_result == rfbVncAuthOK)
-	{
-		// If not rejected by viewer
-		if (auth_result != rfbVncAuthFailed)
-		{
-			BOOL result = FilterClients_Ask_Permission();
-			if (!result)
-			{
-				auth_result = rfbVncAuthFailed;
-				auth_success = false;
-			}
-		}
-	}
-#endif
 
 	CARD32 auth_result_msg = Swap32IfLE(auth_result);
 	if (!m_socket->SendExactQueue((char*)&auth_result_msg, sizeof(auth_result_msg)))
@@ -2423,8 +2436,8 @@ vncClientThread::run(void* arg)
 	// Get the name of this desktop
 	// sf@2002 - v1.1.x - Complete the computer name with the IP address if necessary
 	bool fIP = false;
-	char desktopname[MAX_COMPUTERNAME_LENGTH + 3 + 256] = { 0 };
-	DWORD desktopnamelen = MAX_COMPUTERNAME_LENGTH + 1 + 256;
+	char desktopname[MAX_COMPUTERNAME_LENGTH + 3 + 256 + 32] = { 0 };
+	DWORD desktopnamelen = MAX_COMPUTERNAME_LENGTH + 1 + 256 + 32;
 	memset((char*)desktopname, 0, sizeof(desktopname));
 	if (GetComputerName(desktopname, &desktopnamelen))
 	{
@@ -4984,14 +4997,11 @@ vncClient::~vncClient()
 		WaitForSingleObject(ThreadHandleCompressFolder, INFINITE);
 		CloseHandle(ThreadHandleCompressFolder);
 	}
-#ifdef VIRTUAL_DISPLAY_SUPPORT
-	if (m_server->virtualDisplay)
-		m_server->virtualDisplay->disconnectDisplay(m_id, !m_server->AreThereMultipleViewers() && initialCapture_done);
-#endif
 	if (simulateCursor)
 		delete simulateCursor;
 	if (desktopUsersToken)
 		delete desktopUsersToken;
+	desktopUsersToken = NULL;
 }
 
 // Init
@@ -5046,6 +5056,10 @@ vncClient::Kill(bool deleted)
 		m_socket->Close();
 	if (deleted)
 		((vncClientThread*)m_thread_ClientThread)->m_deleted = true;
+#ifdef VIRTUAL_DISPLAY_SUPPORT
+	if (m_server->virtualDisplay)
+		m_server->virtualDisplay->disconnectDisplay(m_id, !m_server->AreThereMultipleViewers() && initialCapture_done);
+#endif
 }
 
 // Client manipulation functions for use by the server
@@ -6822,6 +6836,7 @@ void vncClient::UndoFTUserImpersonation()
 	m_fFTUserImpersonatedOk = false;
 	if (desktopUsersToken)
 		delete desktopUsersToken;
+	desktopUsersToken = NULL;
 	m_hPToken = 0;
 }
 #endif
