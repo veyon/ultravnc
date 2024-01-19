@@ -1362,7 +1362,7 @@ int WinVNCAppMain()
 	vnclog.SetLevel(settings->getDebugLevel());
 	vnclog.SetVideo(settings->getAvilog());
 
-	vnclog.Print(-1, VNCLOG("WinVNCAPPMain-----Application started\n"));
+	vnclog.Print(LL_INTINFO, VNCLOG("WinVNCAPPMain-----Application started\n"));
 #ifdef CRASH_ENABLED
 	LPVOID lpvState = Install(NULL,  "rudi.de.vos@skynet.be", "UltraVNC");
 #endif
