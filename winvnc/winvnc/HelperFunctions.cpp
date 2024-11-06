@@ -999,7 +999,7 @@ namespace processHelper {
 		char alternate_shell[129];
 		IniFile myIniFile;
 		strcpy_s(alternate_shell, "");
-		myIniFile.ReadString("admin", "alternate_shell", alternate_shell, 256);
+		myIniFile.ReadString("admin", "alternate_shell", alternate_shell, sizeof(alternate_shell)-1);
 		DWORD dwSessionId;
 		DWORD dwExplorerLogonPid = 0;
 		PROCESSENTRY32 procEntry{};
