@@ -1,3 +1,28 @@
+/////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
+//
+//  This program is free software; you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation; either version 2 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program; if not, write to the Free Software
+//  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+//  USA.
+//
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
+
+
 #include "stdhdrs.h"
 #include "Snapshot.h"
 #include "vncviewer.h"
@@ -87,7 +112,7 @@ void Snapshot::SaveJpeg(HBITMAP membit,TCHAR folder[MAX_PATH], TCHAR prefix[56],
     TCHAR buffer[80];
     time (&rawtime);
     timeinfo = localtime(&rawtime);
-    _tcsftime(buffer,80,"%d-%m-%Y %H-%M-%S",timeinfo);
+    _tcsftime(buffer,80,"%Y%m%d_%H%M%S",timeinfo);
 	_tcscat_s(filename, "_");
 	_tcscat_s(filename, buffer);
 	_tcscat_s(filename, imageFormat);
@@ -172,6 +197,9 @@ BOOL CALLBACK Snapshot::DlgProc(  HWND hwnd,  UINT uMsg,
 			_this = (Snapshot *) lParam;
 			SetDlgItemText(hwnd, IDC_FOLDER, _this->m_folder);
 			SetDlgItemText(hwnd, IDC_PREFIX, _this->m_prefix);
+			HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDR_TRAY));
+			SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+			SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
 			return TRUE;
 		}
 	case WM_COMMAND:

@@ -41,18 +41,21 @@
 #define WM_HOOKCHANGE				WM_APP+7
 #define WM_SHUTDOWN					WM_APP+8
 #define WM_REQUESTMOUSESHAPE		WM_APP+9
+#define WM_UPDATEVIEWERS			WM_APP+13
 
 
 // Export the application details
 extern HINSTANCE	hAppInstance;
 extern const char	*szAppName;
 extern DWORD		mainthreadId;
+extern char winvncFolder[MAX_PATH];
 
-// Main VNC server routine
+// Main UltraVNC Server routine
 
 extern int WinVNCAppMain();
 
 // Standard command-line flag definitions
+const char winvncConfig[] = "-config";
 const char winvncRunService[]		= "-service_run";
 const char winvncRunServiceRdp[]		= "-service_rdp_run";
 const char winvncPreConnect[]		="-preconnect";
@@ -67,35 +70,34 @@ const char winvncSCexit[]	= "-sc_exit";
 const char winvncSCprompt[]	= "-sc_prompt";
 const char winvncmulti[]	= "-multi";
 const char winvnchttp[]	= "-httpproxy";
+const char winvncsettings[] = "-settings";
 
 //adzm 2009-06-20
 // for use with -sc
 const char winvncRepeater[]	= "-repeater"; // set default repeater host
 extern char* g_szRepeaterHost;
 
-const char winvncSettingshelper[]		= "-settingshelper";
-const char winvncSettings[]				= "-settings";
-const char winvncStopserviceHelper[]	= "-stopservicehelper";
-const char winvncStopservice[]			= "-stopservice";
-const char winvncStartserviceHelper[]	= "-startservicehelper";
-const char winvncStartservice[]			= "-startservice";
+const char winvncStopserviceHelper[]		= "-stopservicehelper";
+const char winvncStopservice[]				= "-stopservice";
+const char winvncStartserviceHelper[]		= "-startservicehelper";
+const char winvncStartservice[]				= "-startservice";
 
-const char winvncInstallService[]		= "-install";
-const char winvncInstallDriver[]		= "-installdriver";
-const char winvncUnInstallService[]		= "-uninstall";
+const char winvncInstallService[]			= "-install";
+const char winvncInstallDriver[]			= "-installdriver";
+const char winvncUnInstallService[]			= "-uninstall";
 const char winvncInstallServiceHelper[]		= "-installhelper";
 const char winvncUnInstallServiceHelper[]	= "-uninstallhelper";
 
-const char winvncSoftwarecad[]		= "-softwarecad";
+const char winvncSoftwarecad[]				= "-softwarecad";
 const char winvncSoftwarecadHelper[]		= "-softwarecadhelper";
 
-const char winvncRebootSafe[]		= "-rebootsafemode";
-const char winvncRebootSafeHelper[]	= "-rebootsafemodehelper";
+const char winvncRebootSafe[]				= "-rebootsafemode";
+const char winvncRebootSafeHelper[]			= "-rebootsafemodehelper";
 
-const char winvncRebootForce[]		= "-rebootforce";
-const char winvncRebootForceHelper[]	= "-rebootforcehelper";
+const char winvncRebootForce[]				= "-rebootforce";
+const char winvncRebootForceHelper[]		= "-rebootforcehelper";
 
-const char winvncdelSoftwarecad[]		= "-delsoftwarecad";
+const char winvncdelSoftwarecad[]			= "-delsoftwarecad";
 const char winvncdelSoftwarecadHelper[]		= "-delsoftwarecadhelper";
 
 const char winvncSecurityEditorHelper[]		= "-securityeditorhelper";
@@ -103,11 +105,13 @@ const char winvncSecurityEditor[]			= "-securityeditor";
 const char winvncKill[]						= "-kill";
 const char winvncopenhomepage[]				= "-openhomepage";
 const char winvncopenforum[]				= "-openforum";
-
-const char dsmpluginhelper[] = "-dsmpluginhelper";
-const char dsmplugininstance[] = "-dsmplugininstance";
-
-const char winvncinipath[] = "-inifile";
+const char winvncopengithub[]				= "-opengithub";
+const char winvncopenmastodon[]				= "-openmastodon";
+const char winvncopenbluesky[]				= "-openbluesky";
+const char winvncopenfacebook[]				= "-openfacebook";
+const char winvncopenxtwitter[]				= "-openxtwitter";
+const char winvncopenreddit[]				= "-openreddit";
+const char winvncopenopenhub[]				= "-openopenhub";
 
 // Usage string
-const char winvncUsageText[]		= "winvnc [-sc_prompt] [-sc_exit] [-id:????] [-stopreconnect][-autoreconnect[ ID:????]] [-connect host[:display]] [-connect host[::port]] [-repeater host[:port]] [-inifile ????] [-run]\n";
+const char winvncUsageText[]		= "winvnc [-sc_prompt] [-sc_exit] [-id:????] [-stopreconnect][-autoreconnect[ ID:????]] [-connect host[:display]] [-connect host[::port]] [-repeater host[:port]][-run]\n";

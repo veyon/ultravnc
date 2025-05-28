@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2013 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,9 +16,9 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check 
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
 #include "stdhdrs.h"
@@ -26,6 +26,10 @@
 #include "SessionDialog.h"
 #include <shlobj.h>
 #include "common/win32_helpers.h"
+#include "UltraVNCHelperFunctions.h"
+
+using namespace helper;
+extern HINSTANCE m_hInstResDLL;
 
 BOOL CALLBACK DlgProcEncoders(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 BOOL CALLBACK DlgProcKeyboardMouse(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -56,7 +60,7 @@ void SessionDialog::InitTab(HWND hwnd)
 	item.mask = TCIF_TEXT;
 	item.pszText = "Encoders";
 	TabCtrl_InsertItem(m_hTab, 0, &item);
-	item.pszText = "Mouse and keyboard";
+	item.pszText = "Input";
 	TabCtrl_InsertItem(m_hTab, 1, &item);
 	item.pszText = "Display";
 	TabCtrl_InsertItem(m_hTab, 2, &item);
@@ -66,7 +70,7 @@ void SessionDialog::InitTab(HWND hwnd)
 	TabCtrl_InsertItem(m_hTab, 4, &item);
 	item.pszText = "Quick encoder";
 	TabCtrl_InsertItem(m_hTab, 5, &item);
-	item.pszText = "Listen mode";
+	item.pszText = "Listen";
 	TabCtrl_InsertItem(m_hTab, 6, &item);
 	hTabEncoders = CreateDialogParam(pApp->m_instance,
 		MAKEINTRESOURCE(IDD_ENCODERS),
@@ -537,7 +541,7 @@ BOOL CALLBACK DlgProcSecurity(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 				}
 				else
 				{
-					MessageBox(hwnd, sz_F1, sz_F3, MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND | MB_TOPMOST);
+					yesUVNCMessageBox(m_hInstResDLL, hwnd, sz_F1, sz_F3, MB_ICONEXCLAMATION);
 				}
 			}
 			return TRUE;
@@ -939,6 +943,8 @@ void SessionDialog::InitDlgProcMisc()
 	SetDlgItemText(hwnd, IDC_PREFIX, prefix);
 	HWND hNoStatus = GetDlgItem(hwnd, IDC_HIDESTATUS);
 	SendMessage(hNoStatus, BM_SETCHECK, NoStatus, 0);
+	HWND hHideEndOfStreamError = GetDlgItem(hwnd, IDC_HIDEENDOFSTREAMERROR);
+	SendMessage(hHideEndOfStreamError, BM_SETCHECK, HideEndOfStreamError, 0);
 	HWND hcomboscreen = GetDlgItem(hwnd, IDC_IMAGEFORMAT);
 	SendMessage(hcomboscreen, CB_RESETCONTENT, 0, 0);
 	SendMessage(hcomboscreen, CB_ADDSTRING, 0, (LPARAM)".jpeg");
@@ -980,6 +986,8 @@ void SessionDialog::InitDlgProcSecurity()
 	SendMessage(hfUseEncryption, BM_SETCHECK, fUseDSMPlugin, 0);
 	SendDlgItemMessage(hwnd, IDC_EDITCUSTOMMESSAGE, EM_SETLIMITTEXT, 244, 0);
 	SetDlgItemText(hwnd, IDC_EDITCUSTOMMESSAGE, InfoMsg);
+	HWND hipv6 = GetDlgItem(hwnd, IDC_IPV6);
+	SendMessage(hipv6, BM_SETCHECK, ipv6, 0);
 }
 ////////////////////////////////////////////////////////////////////////////////
 void SessionDialog::InitDlgProcListen()
@@ -1204,6 +1212,10 @@ void SessionDialog::ReadDlgProcMisc()
 
 	HWND hNoStatus = GetDlgItem(hwnd, IDC_HIDESTATUS);
 	NoStatus = (SendMessage(hNoStatus, BM_GETCHECK, 0, 0) == BST_CHECKED);
+	
+	HWND hHideEndOfStreamError = GetDlgItem(hwnd, IDC_HIDEENDOFSTREAMERROR);
+	HideEndOfStreamError = (SendMessage(hHideEndOfStreamError, BM_GETCHECK, 0, 0) == BST_CHECKED);
+
 	GetDlgItemText(hwnd, IDC_IMAGEFORMAT, imageFormat, 56);
 }
 ////////////////////////////////////////////////////////////////////////////////
@@ -1225,6 +1237,7 @@ void SessionDialog::ReadDlgProcSecurity()
 	fAutoAcceptIncoming = (SendMessage(GetDlgItem(hwnd, IDC_AUTOACCEPT), BM_GETCHECK, 0, 0) == BST_CHECKED);
 	fAutoAcceptNoDSM = (SendMessage(GetDlgItem(hwnd, IDC_AUTOACCEPTNOWARN), BM_GETCHECK, 0, 0) == BST_CHECKED);
 	restricted = (SendMessage(GetDlgItem(hwnd, IDC_HIDEMENU), BM_GETCHECK, 0, 0) == BST_CHECKED);
+	ipv6 = (SendMessage(GetDlgItem(hwnd, IDC_IPV6), BM_GETCHECK, 0, 0) == BST_CHECKED);
 	GetDlgItemText(hwnd, IDC_EDITCUSTOMMESSAGE, InfoMsg, 255);
 }
 ////////////////////////////////////////////////////////////////////////////////
@@ -1475,7 +1488,7 @@ void SessionDialog::FixScaling()
 {
 	if (scale_num < 1 || scale_den < 1 || scale_num > 400 || scale_den > 100)
 	{
-		MessageBox(NULL, sz_D2, sz_D1, MB_OK | MB_TOPMOST | MB_ICONWARNING);
+		yesUVNCMessageBox(m_hInstResDLL, NULL, sz_D2, sz_D1, MB_ICONWARNING);
 		scale_num = 1;
 		scale_den = 1;
 		scaling = false;
@@ -1559,8 +1572,10 @@ void SessionDialog::StartListener()
 	m_pOpt->m_fAutoAcceptNoDSM = fAutoAcceptNoDSM;
 	m_pOpt->m_fRequireEncryption = fRequireEncryption;
 	m_pOpt->m_restricted = restricted;
+	m_pOpt->m_ipv6 = ipv6;
 	m_pOpt->m_AllowUntrustedServers = AllowUntrustedServers;
 	m_pOpt->m_NoStatus = NoStatus;
+	m_pOpt->m_HideEndOfStreamError = HideEndOfStreamError;
 	m_pOpt->m_NoHotKeys = NoHotKeys;
 #ifdef _Gii
 	m_pOpt->m_giiEnable = giiEnable;

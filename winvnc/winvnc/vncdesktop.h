@@ -1,11 +1,10 @@
-//  Copyright (C) 2002 UltraVNC Team Members. All Rights Reserved.
+/////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //  Copyright (C) 2000-2002 Const Kaplinsky. All Rights Reserved.
 //  Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
 //  Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
 //
-//  This file is part of the VNC system.
-//
-//  The VNC system is free software; you can redistribute it and/or modify
+//  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
@@ -20,15 +19,17 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the VNC system is not available from the place 
-// whence you received this file, check http://www.uk.research.att.com/vnc or contact
-// the authors on vnc@uk.research.att.com for information on obtaining it.
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
 
 
 // vncDesktop object
 
 // The vncDesktop object handles retrieval of data from the
-// display buffer.  It also uses the RFBLib DLL to supply
+// display buffer. It also uses the RFBLib DLL to supply
 // information on mouse movements and screen updates to
 // the server
 
@@ -226,7 +227,7 @@ public:
 	rfb::Rect		GetSize();
 	void		SetBitmapRectOffsetAndClipRect(int offesetx, int offsety, int width = 0 , int height = 0);
 
-	// Modif rdv@2002 - v1.1.x - videodriver
+	// Modif rdv@2002 - v1.1.x - VideoDriver
 	//BOOL IsVideoDriverEnabled();
 	BOOL VideoBuffer();
 	int m_ScreenOffsetx;
@@ -241,6 +242,7 @@ public:
 	// Modif rdv@2002 Dis/enable input
 	void SetDisableInput();
 	void SetSW(int x,int y);
+	void SetMonitor(int nbr);
 	//hook selection
 	BOOL m_hookdriver;
 	void SethookMechanism(BOOL hookall,BOOL hookdriver);
@@ -278,6 +280,7 @@ public:
 	// Screen info
 	rfbServerInitMsg	m_scrinfo;
 	void requestMouseShapeUpdate();
+	int nr_monitors;
 protected:
 
 	// Routines to hook and unhook us
@@ -318,7 +321,7 @@ protected:
 	// HDC	         m_hDC;			 // Local Screen Device context to capture our Grid of pixels 
 	int          m_nGridCycle;   // Cycle index for grid shifting
 
-	// sf@2002 - TextChat - No more used for now
+	// sf@2002 - Text Chat - No more used for now
 	// bool m_fTextChatRunning;
 	// TextChat* m_pCurrentTextChat;
 
@@ -384,7 +387,7 @@ protected:
 
 	//DDIHOOK
 
-	// Modif rdv@2002 - v1.1.x - videodriver	
+	// Modif rdv@2002 - v1.1.x - VideoDriver	
 	BOOL InitVideoDriver();
  	void ShutdownVideoDriver();
 	omni_mutex		m_screenCapture_lock;
@@ -440,8 +443,7 @@ protected:
 	rfb::Region2D iconregion;
 	bool blankmonitorstate;
 
-	//Multi monitor
-	int nr_monitors;
+	//Multi monitor	
 	bool show_all_monitors;
 	bool requested_all_monitor;
 

@@ -61,8 +61,6 @@
 #define IDI_FILE                        184
 #define IDI_DIR                         185
 #define IDI_DRIVE                       186
-#define IDB_BITMAP13                    187
-#define IDB_BITMAP14                    188
 #define IDB_BITMAPsx                    189
 #define IDB_BITMAPl                     198
 #define IDB_BITMAPlx                    199
@@ -88,6 +86,9 @@
 #define IDB_RED                         230
 #define IDB_BITMAP1                     231
 #define IDB_YELLOW                      231
+#define IDB_CHAT                        238
+#define IDB_BITMAP8                     240
+#define IDB_FT                          240
 #define IDD_USER_NAME                   604
 #define ID_VK_LWINDOWN                  605
 #define ID_VK_RWINDOWN                  606
@@ -209,7 +210,6 @@
 #define IDC_64COLORS_RADIO              1138
 #define IDC_FTPCONFIRMCOMMENT           1139
 #define IDC_8COLORS_RADIO               1140
-#define IDC_BUTTON1                     1141
 #define IDC_RENAME_B                    1142
 #define IDC_8GREYCOLORS_RADIO           1143
 #define IDC_DEFAULT                     1144
@@ -224,7 +224,6 @@
 #define IDD_AUTH_DIALOG2                1153
 #define IDD_APP_MESSAGE                 1154
 #define IDC_BUTTON2                     1155
-#define IDD_APP_MESSAGE1                1156
 #define IDD_APP_MESSAGE2                1157
 #define IDD_AUTH_DIALOG3                1158
 #define IDD_OPTION1                     1159
@@ -247,9 +246,11 @@
 #define IDC_JAPKEYBOARD                 1170
 #define IDD_LISTEN                      1170
 #define IDC_EXIT_CHECK                  1171
+#define IDD_AUTH_DIALOG4                1171
 #define IDC_RADIO2                      1172
 #define IDC_RADIOREPEATER               1172
 #define IDC_RADIO_EXTEND                1172
+#define IDD_AUTH_DIALOG5                1172
 #define IDC_MANUAL                      1173
 #define IDC_CHECK2                      1174
 #define IDC_AUTOACCEPTNOWARN            1174
@@ -268,6 +269,7 @@
 #define IDC_PREFIX                      1184
 #define IDC_RADIO3                      1185
 #define IDC_RADIO_NOVIRT                1185
+#define IDC_HIDEENDOFSTREAMERROR        1186
 #define IDC_ENCODING_BASE               1199
 #define IDC_RAWRADIO                    2000
 #define IDC_RRERADIO                    2002
@@ -330,6 +332,18 @@
 #define IDC_RED                         2065
 #define IDC_YELLOW                      2066
 #define IDC_GNOME                       2067
+#define IDC_CATCHPHRASE                 2068
+#define IDC_SIGNATURE                   2069
+#define IDC_ABOUT                       2070
+#define IDC_Message2                    2071
+#define IDC_FORUMHYPERLINK              2072
+#define IDC_GIT                         2073
+#define IDC_WEBSITE                     2074
+#define IDC_WEBDOWNLOAD                 2075
+#define IDC_UVNCCOM                     2076
+#define IDC_UVVERSION                   2077
+#define IDC_UVVERSION2                  2078
+#define IDC_IPV6                        2079
 #define IDC_STATIC_SPLIT                9000
 #define IDC_HOSTNAME_DEL                9001
 #define ID_SESSION_SET_CRECT            32777
@@ -619,14 +633,41 @@
 #define IDS_H101                        50272
 #define IDS_H102                        50273
 #define IDS_L94                         50274
+#define IDS_STRING50275                 50275
+#define IDS_STRING50276                 50276
+#define IDS_STRING50277                 50277
+#define IDS_STRING50278                 50278
+#define IDS_STRING50279                 50279
+#define IDS_STRING50280                 50280
+#define IDS_STRING50281                 50281
+#define IDS_STRING50282                 50282
+#define IDS_STRING50283                 50283
+#define IDS_STRING50284                 50284
+#define IDS_STRING50285                 50285
+#define IDS_STRING50286                 50286
+#define IDS_STRING50287                 50287
+#define IDS_STRING50288                 50288
+#define IDS_STRING50289                 50289
+#define IDS_STRING50290                 50290
+#define IDS_STRING103                   50293
+#define IDS_STRING50293                 50293
+#define IDS_STRING104                   50294
+#define IDS_STRING50294                 50294
+#define IDS_STRING105                   50295
+#define IDS_STRING50295                 50295
+#define IDS_STRING106                   50296
+#define IDS_STRING50296                 50296
+#define IDS_STRING107                   50297
+#define IDS_STRING50297                 50297
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        232
+#define _APS_NO_MFC                     1
+#define _APS_NEXT_RESOURCE_VALUE        241
 #define _APS_NEXT_COMMAND_VALUE         50025
-#define _APS_NEXT_CONTROL_VALUE         2068
+#define _APS_NEXT_CONTROL_VALUE         2080
 #define _APS_NEXT_SYMED_VALUE           154
 #endif
 #endif

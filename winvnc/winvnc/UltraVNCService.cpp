@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2013 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,9 +16,9 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check 
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
 #ifndef SC_20
@@ -26,9 +26,12 @@
 #include <windows.h>
 #include <wtsapi32.h>
 #include "common/win32_helpers.h"
-#include "inifile.h"
+#include "common/inifile.h"
 #include "UltraVNCService.h"
 #include <userenv.h>
+#include <shlobj.h>
+#include <direct.h>
+#include <fstream>
 
 
 
@@ -45,6 +48,19 @@ HANDLE UltraVNCService::hEvent = NULL;
 int UltraVNCService::clear_console = 0;
 char* UltraVNCService::app_name = "UltraVNC";
 char  UltraVNCService::cmdtext[256]{};
+char UltraVNCService::configfilename[MAX_PATH] = "";
+char UltraVNCService::inifile[MAX_PATH] = "";
+IniFile UltraVNCService::iniFileService;
+
+void GetServiceExecutablePath(char* path, size_t size) {
+	if (GetModuleFileName(NULL, path, static_cast<DWORD>(size)))
+	{
+		char* p = strrchr(path, '\\');
+		*p = '\0';
+	}
+	else
+		path = '\0';
+}
 
 UltraVNCService::UltraVNCService()
 {
@@ -61,6 +77,33 @@ void WINAPI UltraVNCService::service_main(DWORD argc, LPTSTR* argv) {
     serviceStatus.dwServiceSpecificExitCode=NO_ERROR;
     serviceStatus.dwCheckPoint=0;
     serviceStatus.dwWaitHint=0;
+	if (strcmp(argv[0], service_name) == NULL) {
+		strcpy_s(configfilename, "ultravnc.ini");
+	}
+	else
+	{
+		strcpy_s(configfilename, argv[0]);
+		strcat_s(configfilename, ".ini");
+	}
+
+	char programdataPath[MAX_PATH]{};
+	char currentFolder[MAX_PATH]{};
+	HRESULT result = SHGetFolderPathA(NULL, CSIDL_COMMON_APPDATA, NULL, 0, programdataPath);
+	strcpy_s(inifile, "");
+	strcat_s(inifile, programdataPath);
+	strcat_s(inifile, "\\UltraVNC");
+	strcat_s(inifile, "\\");
+	strcat_s(inifile, configfilename);
+	std::ifstream file(inifile);
+	if (!file.good()) {
+		GetServiceExecutablePath(currentFolder, MAX_PATH);
+		strcpy_s(inifile, "");
+		strcat_s(inifile, currentFolder);
+		strcat_s(inifile, "\\");
+		strcat_s(inifile, "ultravnc.ini");
+	}
+
+	iniFileService.setIniFile(inifile);
 
     typedef SERVICE_STATUS_HANDLE (WINAPI * pfnRegisterServiceCtrlHandlerEx)(LPCTSTR, LPHANDLER_FUNCTION_EX, LPVOID);
     helper::DynamicFn<pfnRegisterServiceCtrlHandlerEx> pRegisterServiceCtrlHandlerEx("advapi32.dll","RegisterServiceCtrlHandlerExA");
@@ -165,7 +208,7 @@ void UltraVNCService::set_service_description()
 	DWORD	dw;
 	HKEY hKey;
 	char tempName[256];
-    char desc[] = "Provides secure remote desktop sharing";
+    char desc[] = "UltraVNC Server provides secure remote desktop sharing";
 	_snprintf_s(tempName,  sizeof tempName, "SYSTEM\\CurrentControlSet\\Services\\%s", service_name);
 	RegCreateKeyEx(HKEY_LOCAL_MACHINE,
 						tempName,
@@ -204,7 +247,7 @@ int UltraVNCService::install_service(void) {
             app_name, MB_ICONERROR);
         return 1;
     }
-    //"Provides secure remote desktop sharing"
+    //"UltraVNC Server provides secure remote desktop sharing"
     service=CreateService(scm,service_name, service_name, SERVICE_ALL_ACCESS,
                           SERVICE_WIN32_OWN_PROCESS,
                           SERVICE_AUTO_START, SERVICE_ERROR_NORMAL, service_path,
@@ -220,8 +263,6 @@ int UltraVNCService::install_service(void) {
 		}
 		if (myerror==ERROR_SERVICE_EXISTS)
 		{
-			//MessageBoxSecure(NULL, "Failed: Already exist",
-            //"UltraVNC", MB_ICONERROR);
 			CloseServiceHandle(scm);
 			return 1;
 		}
@@ -283,8 +324,6 @@ int UltraVNCService::uninstall_service(void) {
         return 1;
     }
     if(serviceStatus.dwCurrentState!=SERVICE_STOPPED) {
-        //MessageBoxSecure(NULL, "The service is still running, disable it first",
-        //    "UltraVNC", MB_ICONERROR);
         CloseServiceHandle(service);
         CloseServiceHandle(scm);
 		Sleep(2500);uninstall_service();
@@ -304,9 +343,9 @@ int UltraVNCService::uninstall_service(void) {
 ////////////////////////////////////////////////////////////////////////////////
 int UltraVNCService::pad()
 {
-	char exe_file_name[MAX_PATH], dir[MAX_PATH], *ptr;
-    GetModuleFileName(0, exe_file_name, MAX_PATH);
-
+	char dir[MAX_PATH], *ptr;
+	char exe_file_name[MAX_PATH];
+	GetModuleFileName(0, exe_file_name, MAX_PATH);
     /* set current directory */
     strcpy_s(dir, exe_file_name);
     ptr=strrchr(dir, '\\'); /* last backslash */
@@ -319,10 +358,6 @@ int UltraVNCService::pad()
     strcpy_s(service_path, "\"");
     strcat_s(service_path, exe_file_name);
 	strcat_s(service_path, "\"");
-	if (g_szIniFile) {
-		strcat_s(service_path, " -inifile ");
-		strcat_s(service_path, g_szIniFile);
-	}
 	strcat_s(service_path, " -service");
 	return 0;
 }
@@ -530,7 +565,6 @@ void UltraVNCService::Reboot_with_force_reboot()
 
 void UltraVNCService::Reboot_with_force_reboot_elevated()
 {
-
 	char exe_file_name[MAX_PATH];
 	GetModuleFileName(0, exe_file_name, MAX_PATH);
 	SHELLEXECUTEINFO shExecInfo;
@@ -558,7 +592,6 @@ void UltraVNCService::Reboot_in_safemode()
 
 void UltraVNCService::Reboot_in_safemode_elevated()
 {
-
 	char exe_file_name[MAX_PATH];
 	GetModuleFileName(0, exe_file_name, MAX_PATH);
 	SHELLEXECUTEINFO shExecInfo;
@@ -781,23 +814,27 @@ bool UltraVNCService::IsAnyRDPSessionActive()
 
 int UltraVNCService::createWinvncExeCall(bool preconnect, bool rdpselect)
 {
+	char exe_file_name[MAX_PATH];
+	GetModuleFileName(0, exe_file_name, MAX_PATH);
 	OSVERSIONINFO OSversion;
 	OSversion.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
 	GetVersionEx(&OSversion);
-	char exe_file_name[MAX_PATH];
 	char cmdline[MAX_PATH];
-	GetModuleFileName(0, exe_file_name, MAX_PATH);
 	strcpy_s(app_path, exe_file_name);
+	strcat_s(app_path, " -config");
+	strcat_s(app_path, "\"");
+	strcat_s(app_path, UltraVNCService::inifile);
+	strcat_s(app_path, "\"");
 	if (preconnect)
 		strcat_s(app_path, " -preconnect");
 	if (rdpselect)
 		strcat_s(app_path, " -service_rdp_run");
 	else
 		strcat_s(app_path, " -service_run");
-	IniFile myIniFile;
-	kickrdp = myIniFile.ReadInt("admin", "kickrdp", kickrdp);
-	clear_console = myIniFile.ReadInt("admin", "clearconsole", clear_console);
-	myIniFile.ReadString("admin", "service_commandline", cmdline, 256);
+
+	kickrdp = iniFileService.ReadInt("admin", "kickrdp", kickrdp);
+	clear_console = iniFileService.ReadInt("admin", "clearconsole", clear_console);
+	iniFileService.ReadString("admin", "service_commandline", cmdline, 256);
 	if (strlen(cmdline) != 0) {
 		strcpy_s(app_path, exe_file_name);
 		if (preconnect)
@@ -815,8 +852,7 @@ int UltraVNCService::createWinvncExeCall(bool preconnect, bool rdpselect)
 
 void UltraVNCService::monitorSessions() {
 	BOOL  RDPMODE = false;
-	IniFile myIniFile;
-	RDPMODE = myIniFile.ReadInt("admin", "rdpmode", 0);
+	RDPMODE = iniFileService.ReadInt("admin", "rdpmode", 0);
 	createWinvncExeCall(false, false);
 	DWORD requestedSessionID = 0;
 	DWORD dwSessionId = 0;
@@ -862,7 +898,7 @@ void UltraVNCService::monitorSessions() {
 			// We get some preconnect session selection input
 		case WAIT_OBJECT_0 + 2:
 		{
-			//Tell winvnc to stop
+			//Tell UltraVNC Server to stop
 			SetEvent(hEvent);
 			requestedSessionID = *a;
 			//We always have a process handle, else we could not get the signal from it.
@@ -962,7 +998,7 @@ void UltraVNCService::monitorSessions() {
 					if (ProcessInfo.hThread) CloseHandle(ProcessInfo.hThread);
 					ProcessInfo.hProcess = NULL;
 					ProcessInfo.hThread = NULL;
-					RDPMODE = myIniFile.ReadInt("admin", "rdpmode", 0);
+					RDPMODE = iniFileService.ReadInt("admin", "rdpmode", 0);
 					Sleep(1000);
 					goto whileloop;
 				}
@@ -977,7 +1013,7 @@ void UltraVNCService::monitorSessions() {
 					CloseHandle(ProcessInfo.hThread);
 				ProcessInfo.hProcess = NULL;
 				ProcessInfo.hThread = NULL;
-				RDPMODE = myIniFile.ReadInt("admin", "rdpmode", 0);
+				RDPMODE = iniFileService.ReadInt("admin", "rdpmode", 0);
 				Sleep(1000);
 				goto whileloop;
 			}//timeout
@@ -1007,7 +1043,7 @@ void UltraVNCService::monitorSessions() {
 								sessidcounter++;
 								if (sessidcounter > 10) break;
 							}
-							RDPMODE = myIniFile.ReadInt("admin", "rdpmode", 0);
+							RDPMODE = iniFileService.ReadInt("admin", "rdpmode", 0);
 							goto whileloop;
 						}
 					}
@@ -1028,7 +1064,7 @@ void UltraVNCService::monitorSessions() {
 								break;
 						}
 
-						RDPMODE = myIniFile.ReadInt("admin", "rdpmode", 0);
+						RDPMODE = iniFileService.ReadInt("admin", "rdpmode", 0);
 						goto whileloop;
 					}
 				}

@@ -1,8 +1,8 @@
+/////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //  Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
 //
-//  This file is part of the VNC system.
-//
-//  The VNC system is free software; you can redistribute it and/or modify
+//  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
@@ -17,9 +17,11 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the VNC system is not available from the place 
-// whence you received this file, check http://www.uk.research.att.com/vnc or contact
-// the authors on vnc@uk.research.att.com for information on obtaining it.
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
 
 
 // vncSockConnect.cpp
@@ -32,6 +34,7 @@
 #include "vncserver.h"
 #include <omnithread.h>
 #include "SettingsManager.h"
+#include "UdpEchoServer.h"
 
 
 #ifdef HTTP_SUPPORT
@@ -74,7 +77,6 @@ BOOL vncSockConnectThread::Init(VSocket *socket, vncServer *server)
 // Code to be executed by the thread
 void *vncSockConnectThread::run_undetached(void * arg)
 {
-	vnclog.Print(LL_STATE, VNCLOG("started socket connection thread\n"));
 	// Go into a loop, listening for connections on the given socket
 	VSocket* new_socket = NULL;
 	while (!m_shutdown && !fShutdownOrdered)
@@ -97,6 +99,7 @@ void *vncSockConnectThread::run_undetached(void * arg)
 			}
 #endif
 
+			vnclog.Print(LL_LOGSCREEN, "connection from %s", new_socket->GetPeerName(true));
 			vnclog.Print(LL_CLIENTS, VNCLOG("accepted connection from %s\n"), new_socket->GetPeerName(true));
 			if (!m_shutdown && !fShutdownOrdered) 
 				m_server->AddClient(new_socket, FALSE, FALSE,NULL,false);
@@ -138,13 +141,14 @@ vncSockConnect::~vncSockConnect()
 	((vncSockConnectThread *)m_thread)->m_shutdown = TRUE;
 
 	VSocket socket;
-#ifdef IPV6V4
-	socket.CreateBindConnect("localhost", m_port);
-#else
-	socket.Create();
-	socket.Bind(0);
-	socket.Connect("localhost", m_port);
-#endif
+	if (settings->getIPV6()) {
+		socket.CreateBindConnect("localhost", m_port);
+	}
+	else {
+		socket.Create();
+		socket.Bind(0);
+		socket.Connect("localhost", m_port);
+	}
 	socket.Close();
 
 	void *returnval;
@@ -160,21 +164,26 @@ BOOL vncSockConnect::Init(vncServer *server, UINT port)
 	// Save the port id
 	m_port = port;
 
-#ifdef IPV6V4
-	if (!m_socket.CreateBindListen(m_port, settings->getLoopbackOnly()))
-		return FALSE;
-#else
-	// Create the listening socket
-	if (!m_socket.Create())
-		return FALSE;
+	if (settings->getIPV6()) {
+		if (!m_socket.CreateBindListen(m_port, settings->getLoopbackOnly()))
+			return FALSE;
+	}
+	else {
+		// Create the listening socket
+		if (!m_socket.Create())
+			return FALSE;
 
-	// Bind it
-	if (!m_socket.Bind(m_port, settings->getLoopbackOnly()))
-		return FALSE;
+		// Bind it
+		if (!m_socket.Bind(m_port, settings->getLoopbackOnly()))
+			return FALSE;
 
-	// Set it to listen
-	if (!m_socket.Listen())
-		return FALSE;
+		// Set it to listen
+		if (!m_socket.Listen())
+			return FALSE;
+	}
+#ifndef ULTRAVNC_VEYON_SUPPORT
+	//udpecho server
+	StartEchoServer(m_port);
 #endif
 	// Create the new thread
 	m_thread = new vncSockConnectThread;

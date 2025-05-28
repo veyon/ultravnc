@@ -1,3 +1,5 @@
+/////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //  Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
 //  Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
 //
@@ -16,9 +18,12 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check http://www.realvnc.com/ or contact
-// the authors on info@realvnc.com for information on obtaining it.
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
+
 
 // This is an object and macros which provide general logging and debugging functions.
 // It can log to a file, to a new console, and/or to debug - others maybe to follow.
@@ -60,17 +65,7 @@ public:
 	//    append   - if logging to a file, whether or not to append to any
 	//               existing log.
 	VNCLog();
-
-	inline void Print(int level, const char* format, ...) {
-#ifndef ULTRAVNC_VEYON_SUPPORT
-		if (level > m_level) return;
-		if (!m_todebug && !m_toconsole && !m_tofile) return;
-#endif
-		va_list ap;
-		va_start(ap, format);
-		ReallyPrint(level, format, ap);
-		va_end(ap);
-	}
+	void Print(int level, const char* format, ...);
 
 	// Change the log level
 	void SetLevel(int level);
@@ -86,7 +81,7 @@ public:
 	void SetMode(int mode);
 	int  GetMode() const { return m_mode; };
 
-	// Change or set the logging filename.  This only has an effect if
+	// Change or set the logging filename. This only has an effect if
 	// the log mode includes ToFile
 	void SetFile();
 
@@ -95,10 +90,11 @@ public:
 private:
 #ifdef ULTRAVNC_VEYON_SUPPORT
 	void ReallyPrintLine(int level, const char* line);
-    void ReallyPrint(int level, const char* format, va_list ap);
+	void ReallyPrint(int level, const char* format, va_list ap);
 #else
 	void ReallyPrintLine(const char* line);
 	void ReallyPrint(const char* format, va_list ap);
+	void ReallyPrintScreen(const char* format, va_list ap);
 	void OpenFile();
 	void CloseFile();
 #endif

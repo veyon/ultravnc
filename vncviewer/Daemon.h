@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2013 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,9 +16,9 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check 
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
 
@@ -35,7 +35,7 @@ bool GetListenMode();
 class Daemon  
 {
 public:
-	Daemon(int port);
+	Daemon(int port, bool ipv6);
 	virtual ~Daemon();
 	static LRESULT CALLBACK WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam);
 protected:
@@ -43,12 +43,10 @@ protected:
 	void CheckTrayIcon();
 	void RemoveTrayIcon();
 	bool SendTrayMsg(DWORD msg);
-#ifdef IPV6V4
-	SOCKET m_deamon_sock6;
-	SOCKET m_deamon_sock4;
-#else
-	SOCKET m_deamon_sock;
-#endif
+	bool ipv6;
+	SOCKET m_deamon_sock6 = INVALID_SOCKET;
+	SOCKET m_deamon_sock4 = INVALID_SOCKET;
+	SOCKET m_deamon_sock = INVALID_SOCKET;
 
 	HWND m_hwnd;
 	HMENU m_hmenu;

@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2013 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,28 +16,29 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check 
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
- 
+
 
 #include "stdhdrs.h"
 #include "vncviewer.h"
 #include "Exception.h"
 #include "display.h"
-#ifdef _INTERNALLIB
+/*#ifdef _INTERNALLIB
 #pragma comment(lib, "zlibstat.lib")
 #pragma comment(lib, "zip32.lib")
 #pragma comment(lib, "unz32lib.lib")
 #pragma comment(lib, "libjpeg-turbo-win-static.lib")
 #pragma comment(lib, "libzstd_static.lib")
-#endif
+#endif*/
 
 #include "omnithread/omnithread.h"
 #include "VNCviewerApp32.h"
 #include "shellscalingapi.h"
+#include "UltraVNCHelperFunctions.h"
 
 // All logging is done via the log object
 Log vnclog;
@@ -296,6 +297,7 @@ char sz_M6[64];
 char sz_M7[64];
 char sz_M8[64];
 
+
 bool command_line=true;
 bool g_passwordfailed=true;
 bool g_ConnectionLossAlreadyReported = false;
@@ -347,13 +349,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR szCmdLin
 	HMODULE hUser32 = LoadLibrary(_T("user32.dll"));
 	HMODULE shcoreDLL = LoadLibrary("SHCORE.DLL");
 	//Min  Vista
-	typedef BOOL(*SetProcessDPIAwareFunc)();
+	typedef BOOL(WINAPI *SetProcessDPIAwareFunc)();
 	SetProcessDPIAwareFunc setDPIAwareF = NULL;
 	//Min Windows 8.1
-	typedef HRESULT(*SetProcessDpiAwarenessFunc) (PROCESS_DPI_AWARENESS);
+	typedef HRESULT(WINAPI *SetProcessDpiAwarenessFunc) (PROCESS_DPI_AWARENESS);
 	SetProcessDpiAwarenessFunc setDPIpiAwarenessF = NULL;
 	//Min Windows 10, version 1703
-	typedef HRESULT(*SetProcessDpiAwarenessContextFunc) (DPI_AWARENESS_CONTEXT);
+	typedef HRESULT(WINAPI *SetProcessDpiAwarenessContextFunc) (DPI_AWARENESS_CONTEXT);
 	SetProcessDpiAwarenessContextFunc SetProcessDpiAwarenessContextF = NULL;
 	if (hUser32) {
 		setDPIAwareF = (SetProcessDPIAwareFunc)GetProcAddress(hUser32, "SetProcessDPIAware");
@@ -381,18 +383,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR szCmdLin
 	memset(&info, 0, sizeof(CR_INSTALL_INFO));
 	info.cb = sizeof(CR_INSTALL_INFO);
 	info.pszAppName = _T("UVNC");
-	info.pszAppVersion = _T("1.4.3.6");
-	info.pszEmailSubject = _T("UVNC viewer 1.4.3.6 Error Report");
+	info.pszAppVersion = _T("1.4.4.0-dev");
+	info.pszEmailSubject = _T("UltraVNC Viewer 1.4.4.0-dev Error Report");
 	info.pszEmailTo = _T("uvnc@skynet.be");
 	info.uPriorities[CR_SMAPI] = 1; // Third try send report over Simple MAPI    
 	// Install all available exception handlers
 	info.dwFlags |= CR_INST_ALL_POSSIBLE_HANDLERS;
-	// Restart the app on crash 
+	// Restart the app on crash
 	info.dwFlags |= CR_INST_APP_RESTART;
 	info.dwFlags |= CR_INST_SEND_QUEUED_REPORTS;
 	info.dwFlags |= CR_INST_AUTO_THREAD_HANDLERS;
 	info.pszRestartCmdLine = _T("/restart");
-	// Define the Privacy Policy URL 
+	// Define the Privacy Policy URL
 
 	// Install crash reporting
 	int nResult = crInstall(&info);
@@ -742,7 +744,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR szCmdLin
     LoadString(m_hInstResDLL, IDS_H101, sz_H101, 64 -1);
     LoadString(m_hInstResDLL, IDS_H102, sz_H102, 128 -1);
 //	RegisterLinkLabel(m_hInstResDLL);
-
+	loadStrings(m_hInstResDLL);
 
 	/////////////////////////////////////////////////////////////
 
@@ -816,8 +818,8 @@ void CentreWindow(HWND hwnd)
 	int winwidth = winrect.right - winrect.left;
 	int winheight = winrect.bottom - winrect.top;
 	// Make sure it's not bigger than the work area
-	winwidth = min(winwidth, workwidth);
-	winheight = min(winheight, workheight);
+	winwidth = minimum(winwidth, workwidth);
+	winheight = minimum(winheight, workheight);
 
 	// Now centre it
 	SetWindowPos(hwnd, 
@@ -872,6 +874,3 @@ bool ParseDisplay(LPTSTR display, LPTSTR phost, int hostlen, int *pport)
     *pport = tmp_port;
     return true;
 }
-
-
-

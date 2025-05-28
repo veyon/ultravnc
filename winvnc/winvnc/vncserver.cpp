@@ -1,11 +1,10 @@
-//  Copyright (C) 2002 UltraVNC Team Members. All Rights Reserved.
+/////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //  Copyright (C) 2000-2002 Const Kaplinsky. All Rights Reserved.
 //  Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
 //  Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
 //
-//  This file is part of the VNC system.
-//
-//  The VNC system is free software; you can redistribute it and/or modify
+//  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
@@ -20,9 +19,12 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the VNC system is not available from the place
-// whence you received this file, check http://www.uk.research.att.com/vnc or contact
-// the authors on vnc@uk.research.att.com for information on obtaining it.
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
+
 
 // vncServer.cpp
 
@@ -157,10 +159,12 @@ vncServer::vncServer()
 	m_port = DISPLAY_TO_PORT(0);
 	m_port_http = DISPLAY_TO_HPORT(0); // TightVNC 1.2.7
 	m_blacklist = 0;
+#ifndef ULTRAVNC_VEYON_SUPPORT
 	{
 		vncPasswd::FromClear clearPWD(settings->getSecure());
 		memcpy(settings->getPasswd(), clearPWD, MAXPWLEN);
 	}
+#endif
 	// Clear the client mapping table
 	for (int x = 0; x < MAX_CLIENTS; x++)
 		m_clientmap[x] = NULL;
@@ -407,7 +411,7 @@ vncClientId vncServer::AddClient(VSocket* socket, BOOL auth, BOOL shared, int ca
 		_snwprintf_s(szTitle2, 255, L"%s", ScSelect::Balloon1Title);
 		vncMenu::NotifyBalloon(szInfo2, szTitle2);
 		return clientid;
-#endif
+#endif // SC_20
 
 		if (m_unauthClients.size() > 0) {
 			szInfo[strlen(szInfo) - 2] = '\0';
@@ -418,6 +422,9 @@ vncClientId vncServer::AddClient(VSocket* socket, BOOL auth, BOOL shared, int ca
 #endif
 		}
 	}
+#ifndef ULTRAVNC_VEYON_SUPPORT
+	vncMenu::updateList();
+#endif
 	return clientid;
 }
 
@@ -575,11 +582,15 @@ vncServer::Authenticated(vncClientId clientid)
 				vncMenu::NotifyBalloon(szInfo);
 			}
 		}
-#endif
+#endif // SC_20
 	}
 #endif
 
 	vnclog.Print(LL_INTINFO, VNCLOG("Authenticated() done\n"));
+	vnclog.Print(LL_LOGSCREEN, "Viewer authenticated");
+#ifndef ULTRAVNC_VEYON_SUPPORT
+	vncMenu::updateList();
+#endif
 	return authok;
 }
 
@@ -643,7 +654,7 @@ void vncServer::KillClient(LPSTR szClientName)
 
 #ifdef TEXT_CHAT_SUPPORT
 //
-// sf@2002 - Open a textchat window with the named client
+// sf@2002 - Open a Text Chat window with the named client
 //
 void vncServer::TextChatClient(LPSTR szClientName)
 {
@@ -655,7 +666,7 @@ void vncServer::TextChatClient(LPSTR szClientName)
 		pClient = GetClient(*i);
 		if (!_stricmp(pClient->GetClientNameName(), szClientName)) { //TOCHECK
 			if (!pClient->IsUltraViewer()) {
-				vnclog.Print(LL_INTINFO, VNCLOG("Client %s is not Ultra. Doesn't know TextChat\n"), szClientName);
+				vnclog.Print(LL_INTINFO, VNCLOG("Client %s is not Ultra. Doesn't know Text Chat\n"), szClientName);
 				vncTimedMsgBox::Do(
 					sz_ID_ULTRAVNC_TEXTCHAT,
 					sz_ID_ULTRAVNC_WARNING,
@@ -663,7 +674,7 @@ void vncServer::TextChatClient(LPSTR szClientName)
 				);
 				break;
 			}
-			vnclog.Print(LL_INTINFO, VNCLOG("TextChat with client named: %s\n"), szClientName);
+			vnclog.Print(LL_INTINFO, VNCLOG("Text Chat with client named: %s\n"), szClientName);
 			pClient->GetTextChatPointer()->OrderTextChat();
 			break;
 		}
@@ -725,6 +736,7 @@ void vncServer::ListAuthClients(HWND hListBox)
 {
 	vncClientList::iterator i;
 	omni_mutex_lock l(m_clientsLock, 22);
+	SendMessage(hListBox, LB_RESETCONTENT, 0, 0);
 	for (i = m_authClients.begin(); i != m_authClients.end(); i++)
 	{
 		// adzm 2009-07-05
@@ -748,6 +760,7 @@ void vncServer::ListUnauthClients(HWND hListBox)
 	vncClientList::iterator i;
 	omni_mutex_lock l(m_clientsLock, 23);
 
+	SendMessage(hListBox, LB_RESETCONTENT, 0, 0);
 	for (i = m_unauthClients.begin(); i != m_unauthClients.end(); i++) {
 		// adzm 2009-07-05
 		vncClient* client = GetClient(*i);
@@ -988,8 +1001,6 @@ vncServer::RemoveClient(vncClientId clientid)
 		for (i = m_authClients.begin(); i != m_authClients.end(); i++) {
 			// Is this the right client?
 			if ((*i) == clientid) {
-				vnclog.Print(LL_INTINFO, VNCLOG("removing authorised client\n"));
-
 				// Yes, so remove the client and kill it
 				m_authClients.erase(i);
 				if (clientid >= 0 && clientid < 512) m_clientmap[clientid] = NULL;
@@ -1006,10 +1017,8 @@ vncServer::RemoveClient(vncClientId clientid)
 
 	// Are there any authorised clients connected?
 	if (m_authClients.empty() && (m_desktop != NULL)) {
-		vnclog.Print(LL_STATE, VNCLOG("deleting desktop server\n"));
-
 #ifndef ULTRAVNC_VEYON_SUPPORT
-		// sf@2007 - Do not lock/logoff even if required when WinVNC autorestarts (on desktop change (XP FUS / Vista))
+		// sf@2007 - Do not lock/logoff even if required when UltraVNC Server autorestarts (on desktop change (Windows XP FUS / Windows Vista))
 		if (!settings->AutoRestartFlag() && !OS_Shutdown) {
 			// Are there locksettings set?
 			if (settings->getLockSettings() == 1 || settings->getClearconsole()) {
@@ -1032,7 +1041,6 @@ vncServer::RemoveClient(vncClientId clientid)
 			}
 		}
 #endif
-
 		// Delete the screen server
 		delete m_desktop;
 		m_desktop = NULL;
@@ -1041,6 +1049,9 @@ vncServer::RemoveClient(vncClientId clientid)
 	// Notify anyone interested of the change
 	DoNotify(WM_SRV_CLIENT_DISCONNECT, 0, 0);
 	vnclog.Print(LL_INTINFO, VNCLOG("RemoveClient() done\n"));
+#ifndef ULTRAVNC_VEYON_SUPPORT
+	vncMenu::updateList();
+#endif
 }
 
 // NOTIFICATION HANDLING!
@@ -1249,9 +1260,8 @@ vncServer::EnableConnections(BOOL On)
 {
 #ifdef SC_20
 	return TRUE;
-#endif
+#endif // SC_20
 	// Are we being asked to switch socket connects on or off?
-	vnclog.Print(LL_SOCKINFO, VNCLOG("SockConnect %d\n"), On);
 	if (On) {
 		// Is there a listening socket?
 		if (m_socketConn == NULL) {
@@ -1274,23 +1284,19 @@ vncServer::EnableConnections(BOOL On)
 
 					// Attempt to connect to the port
 					VSocket tempsock;
-#ifdef IPV6V4
-					if (!tempsock.CreateConnect("localhost", m_port))
-#else
-					if (tempsock.Create()) {
-						if (!tempsock.Connect("localhost", m_port))
-#endif
-						{
-							// Couldn't connect, so this port is probably usable!
-							if (m_socketConn->Init(this, m_port)) {
-								ok = TRUE;
-								break;
-							}
+					BOOL result;
+					if (settings->getIPV6())
+						result = !tempsock.CreateConnect("localhost", m_port);
+					else
+						result = tempsock.Create() && !tempsock.Connect("localhost", m_port);
+					if (result)	{
+						// Couldn't connect, so this port is probably usable!
+						if (m_socketConn->Init(this, m_port)) {
+							ok = TRUE;
+							break;
 						}
-#ifdef IPV6V4
-#else
 					}
-#endif
+
 				}
 				if (!ok) {
 					delete m_socketConn;
@@ -1311,7 +1317,6 @@ vncServer::EnableConnections(BOOL On)
 			// Now let's start the HTTP connection stuff
 			EnableHTTPConnect(m_enableHttpConn);
 #endif
-			vnclog.Print(LL_SOCKINFO, VNCLOG("SockConnect  Done %d\n"), On);
 		}
 	}
 	else {
@@ -1350,7 +1355,7 @@ vncServer::EnableHTTPConnect(BOOL enable)
 {
 #ifdef SC_20
 	return TRUE;
-#endif
+#endif // SC_20
 	m_enableHttpConn = enable;
 	if (enable && m_socketConn)
 	{
@@ -1537,7 +1542,7 @@ vncServer::VerifyHost(const char* hostname) {
 	while (current) {
 		// Has the blacklist entry timed out?
 		if ((now.QuadPart - current->_lastRefTime.QuadPart) > 0) {
-			// Yes.  Is it a "blocked" entry?
+			// Yes. Is it a "blocked" entry?
 			if (current->_blocked) {
 				// Yes, so unblock it & re-set the reference time
 				current->_blocked = FALSE;
@@ -1646,34 +1651,39 @@ vncServer::VerifyHost(const char* hostname) {
 			break;
 		authHostsPos++;
 	}
-	vnclog.Print(LL_INTINFO, VNCLOG("client %s verifiedHost %u prior to adjustment\n"), hostname, verifiedHost);
 	//
 	bool autoAccept = false;
 	if ((GetTickCount() - startTime) < settings->getQueryDisableTime() * 1000)
 		autoAccept = true;
 
 	// Based on the server's QuerySetting, adjust the verification result
+	//QuerySetting == 4 popup, 2 no poup
+
 	switch (verifiedHost) {
-	case vncServer::aqrAccept:
+	/*case vncServer::aqrAccept:
 		if (settings->getQuerySetting() >= 3)
 			verifiedHost = autoAccept
 			? vncServer::aqrAccept
 			: vncServer::aqrQuery;
-		break;
+		break;*/
 	case vncServer::aqrQuery:
-		if (settings->getQuerySetting() <= 1)
-			verifiedHost = vncServer::aqrAccept;
-		else if (settings->getQuerySetting() == 4)
+		if (settings->getQuerySetting() == 2)
 			verifiedHost = vncServer::aqrReject;
+		else {
+			verifiedHost = autoAccept
+				? vncServer::aqrAccept
+				: vncServer::aqrQuery;
+		}
 		break;
-	case vncServer::aqrReject:
+	/*case vncServer::aqrReject:
 		if (settings->getQuerySetting() == 0)
 			verifiedHost = autoAccept
 			? vncServer::aqrAccept
 			: vncServer::aqrQuery;
+		break;*/
+	default:
 		break;
 	};
-	vnclog.Print(LL_INTINFO, VNCLOG("client %s verifiedHost %u after adjustment\n"), hostname, verifiedHost);
 	return verifiedHost;
 }
 
@@ -1703,11 +1713,13 @@ vncServer::AddAuthHostsBlacklist(const char* machine) {
 			current->_failureCount++;
 
 #ifdef ULTRAVNC_VEYON_SUPPORT
-			if (current->_failureCount > 50)
+			if (current->_failureCount > 50) {
 #else
-			if (current->_failureCount > 5)
+			if (current->_failureCount > 5) {
 #endif
 				current->_blocked = TRUE;
+				vnclog.Print(LL_LOGSCREEN, "%s Blacklisten failed passwords %d \n", current->_machineName, current->_failureCount);
+			}
 			return;
 		}
 		current = current->_next;
@@ -1856,7 +1868,7 @@ BOOL vncServer::SetDSMPlugin(BOOL bForceReload)
 			strcpy_s(szParams, "NoPassword");
 
 		// The second parameter tells the plugin the kind of program is using it
-		// (in WinVNC : "server-app" or "server-svc"
+		// (in UltraVNC Server : "server-app" or "server-svc"
 		strcat_s(szParams, ",");
 		strcat_s(szParams, settings->RunningFromExternalService() ? "server-svc" : "server-app");
 		if (m_pDSMPlugin->SetPluginParams(NULL, szParams, settings->getDSMPluginConfig(), NULL)) {
@@ -2025,13 +2037,16 @@ void vncServer::actualRetryThread()
 		vnclog.Print(LL_INTINFO, VNCLOG("Attempting AutoReconnect....\n"));
 		retrysock = new VSocket;
 		if (retrysock) {
-			// Connect out to the specified host on the VNCviewer listen port
-#ifdef IPV6V4
-			if (retrysock->CreateConnect(m_szAutoReconnectAdr, m_AutoReconnectPort)) {
-#else
-			retrysock->Create();
-			if (retrysock->Connect(m_szAutoReconnectAdr, m_AutoReconnectPort)) {
-#endif
+			// Connect out to the specified host on the UltraVNC Viewer listen port
+			bool result;
+			if (settings->getIPV6())
+				result = retrysock->CreateConnect(m_szAutoReconnectAdr, m_AutoReconnectPort);
+			else {
+				retrysock->Create();
+				result = retrysock->Connect(m_szAutoReconnectAdr, m_AutoReconnectPort);
+			}
+
+			if (result) {
 				if (strlen(m_szAutoReconnectId) > 0) {
 					retrysock->Send(m_szAutoReconnectId, 250);
 					retrysock->SetTimeout(0);

@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2013 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,17 +16,17 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check 
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
- 
-
 
 
 #include "stdhdrs.h"
 #include "vncviewer.h"
+#include "../common/Hyperlinks.h"
+#include "UltraVNCHelperFunctions.h"
 
 HBITMAP
     DoGetBkGndBitmap(IN CONST UINT uBmpResId )
@@ -101,6 +101,26 @@ BOOL
         return TRUE;
     }
 
+void convertToISO8601(const char* input, char* output, size_t size) {
+    // Expected format: "Mar 14 2025 12:34:56"
+
+    // Convert month abbreviation to a number
+    const char* months = "JanFebMarAprMayJunJulAugSepOctNovDec";
+
+    char monthStr[4];  // Buffer for the month abbreviation (e.g., "Mar")
+    int day, year, month;
+    int hour, minute, second;
+
+    // Extract components from the input string
+    sscanf(input, "%3s %d %d %d:%d:%d", monthStr, &day, &year, &hour, &minute, &second);
+
+    // Convert month abbreviation to number (1-12)
+    month = (std::strstr(months, monthStr) - months) / 3 + 1;
+
+    // Format into ISO 8601 format "YYYY-MM-DDTHH:MM:SS"
+    snprintf(output, size, "%04d-%02d-%02d %02d:%02d:%02d", year, month, day, hour, minute, second);
+}
+
 // Process the About dialog.
 static LRESULT CALLBACK AboutDlgProc(HWND hwnd, UINT iMsg, 
 										   WPARAM wParam, LPARAM lParam) {
@@ -110,7 +130,21 @@ static LRESULT CALLBACK AboutDlgProc(HWND hwnd, UINT iMsg,
 			//CentreWindow(hwnd);
 			SetForegroundWindow(hwnd);
             extern char buildtime[];
-            SetDlgItemText(hwnd, IDC_BUILDTIME, buildtime);
+            char isoTime[20];  // Buffer for ISO output
+            convertToISO8601(buildtime, isoTime, sizeof(isoTime));
+            SetDlgItemText(hwnd, IDC_BUILDTIME, isoTime);
+
+            ConvertStaticToHyperlink(hwnd, IDC_UVNCCOM);
+            char version[50]{};
+            char title[256]{};
+            strcpy_s(title, "UltraVNC Viewer - ");
+            strcat_s(title, GetVersionFromResource(version));
+            SetDlgItemText(hwnd, IDC_UVVERSION, title);
+
+            HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDR_TRAY));
+            SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+            SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
+
 			return TRUE;
 		}
 	case WM_CLOSE:
@@ -120,16 +154,10 @@ static LRESULT CALLBACK AboutDlgProc(HWND hwnd, UINT iMsg,
 		if (LOWORD(wParam) == IDOK) {
 			EndDialog(hwnd, TRUE);
 		}
-	/*case WM_ERASEBKGND:
-            {
-               DoSDKEraseBkGnd((HDC)wParam, RGB(255,0,0));
-				return true;
-            }
-	case WM_CTLCOLORSTATIC:
-			{
-				SetBkMode((HDC) wParam, TRANSPARENT);
-				return (DWORD) GetStockObject(NULL_BRUSH);
-			}*/
+        if (LOWORD(wParam) == IDC_UVNCCOM) {
+            ShellExecute(GetDesktopWindow(), "open", "https://uvnc.com/", "", 0, SW_SHOWNORMAL);
+        }
+
 	}
 	return FALSE;
 }

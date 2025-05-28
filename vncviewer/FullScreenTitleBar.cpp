@@ -1,7 +1,32 @@
+/////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
+//
+//  This program is free software; you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation; either version 2 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program; if not, write to the Free Software
+//  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+//  USA.
+//
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
+
+
 //===========================================================================
 //	FullScreen Titlebar
 //	2004 - All rights reservered
-//  2019 - modified for uVNc
+//  2019 - modified for UltraVNC
 //===========================================================================
 //
 //	Project/Product :	FullScreenTitlebar
@@ -30,6 +55,10 @@ extern Log vnclog;
 #include "multimon.h"
 #include <commctrl.h>
 #include "VNCOptions.h"
+#include "UltraVNCHelperFunctions.h"
+
+using namespace helper;
+extern HINSTANCE m_hInstResDLL;
 
 //***************************************************************************************
 
@@ -53,6 +82,10 @@ CTitleBar::CTitleBar()
 	PhotoTip = nullptr;
 	SwitchMonitorTip = nullptr;
 	MonitorTop = 0;	
+	Chat = nullptr;
+	ChatTip = nullptr;
+	FT = nullptr;
+	FTTip = nullptr;
 }
 
 CTitleBar::CTitleBar(HINSTANCE hInst, HWND ParentWindow, bool Fit)
@@ -79,6 +112,12 @@ CTitleBar::~CTitleBar()
 	if (ScreenTip) DestroyWindow(ScreenTip);
 	if (PhotoTip) DestroyWindow(PhotoTip);
 	if (SwitchMonitorTip) DestroyWindow(SwitchMonitorTip);
+
+	if (Chat) DestroyWindow(Chat);
+	if (ChatTip) DestroyWindow(ChatTip);
+	if (FT) DestroyWindow(FT);
+	if (FTTip) DestroyWindow(FTTip);
+
 }
 
 //***************************************************************************************
@@ -260,6 +299,24 @@ void CTitleBar::CreateDisplay()
 				nullptr);
 	CreateToolTipForRect(SwitchMonitor, SwitchMonitorTip, "Switch monitor");
 
+	Chat = CreateWindow("STATIC",
+		"Chat",
+		WS_CHILD | WS_VISIBLE | SS_NOTIFY | SS_OWNERDRAW,
+		tbLeftSpace + (tbcxPicture * 4) + (tbButtonSpace * 4), tbTopSpace, tbcxPicture, tbcyPicture, m_hWnd,
+		(HMENU)tbIDC_CHAT,
+		hInstance,
+		nullptr);
+	CreateToolTipForRect(Chat, ChatTip, "Start Chat");
+
+	FT = CreateWindow("STATIC",
+		"FT",
+		WS_CHILD | WS_VISIBLE | SS_NOTIFY | SS_OWNERDRAW,
+		tbLeftSpace + (tbcxPicture * 5) + (tbButtonSpace * 5), tbTopSpace, tbcxPicture, tbcyPicture, m_hWnd,
+		(HMENU)tbIDC_FT,
+		hInstance,
+		nullptr);
+	CreateToolTipForRect(FT, FTTip, "File Transfer");
+
 	//Pin button
 	Pin=CreateWindow("STATIC",
 				"Pin",
@@ -356,6 +413,12 @@ LRESULT CALLBACK CTitleBar::WndProc(HWND hwnd, UINT iMsg,
 			if(lpdis->CtlID==tbIDC_SWITCHMONITOR)
 					hbrOld=SelectObject(hdcMem, TitleBarThis->hSwitchMonitor); 
 
+			if (lpdis->CtlID == tbIDC_CHAT)
+				hbrOld = SelectObject(hdcMem, TitleBarThis->hChat);
+
+			if (lpdis->CtlID == tbIDC_FT)
+				hbrOld = SelectObject(hdcMem, TitleBarThis->hFT);
+
 			StretchBlt(lpdis->hDC,
 				lpdis->rcItem.left,
 				lpdis->rcItem.top,
@@ -436,9 +499,14 @@ LRESULT CALLBACK CTitleBar::WndProc(HWND hwnd, UINT iMsg,
 					if (TitleBarThis->Fit == TRUE)
 						::SendMessage(TitleBarThis->Parent, tbWM_PHOTO, 0, 0);
 					else
-						MessageBox(TitleBarThis->Parent, _T("Function only supported in 1:1 mode"), _T("uVNC snapshot"), MB_ICONINFORMATION | MB_OK | MB_SETFOREGROUND | MB_TOPMOST);
+						yesUVNCMessageBox(m_hInstResDLL, TitleBarThis->Parent, _T("Function only supported in 1:1 mode"), _T("UltraVNC Viewer - Snapshot"), MB_ICONINFORMATION);
 				if(LOWORD(wParam) == tbIDC_SWITCHMONITOR)
 					::SendMessage(TitleBarThis->Parent, tbWM_SWITCHMONITOR, 0, 0);
+
+				if (LOWORD(wParam) == tbIDC_CHAT)
+					::SendMessage(TitleBarThis->Parent, tbWM_CHAT, 0, 0);
+				if (LOWORD(wParam) == tbIDC_FT)
+					::SendMessage(TitleBarThis->Parent, tbWM_FT, 0, 0);
 			}
         }
 
@@ -641,6 +709,8 @@ void CTitleBar::LoadPictures()
 	hNoScaleScreen=LoadBitmap(hInstance, MAKEINTRESOURCE(IDB_NOSCALE));
 	hPhoto=LoadBitmap(hInstance, MAKEINTRESOURCE(IDB_PHOTO));
 	hSwitchMonitor=LoadBitmap(hInstance, MAKEINTRESOURCE(IDB_SWITCHMONITOR));
+	hChat = LoadBitmap(hInstance, MAKEINTRESOURCE(IDB_CHAT));
+	hFT = LoadBitmap(hInstance, MAKEINTRESOURCE(IDB_FT));
 }
 
 
@@ -655,6 +725,8 @@ void CTitleBar::FreePictures()
 	DeleteObject(hNoScaleScreen);
 	DeleteObject(hPhoto);
 	DeleteObject(hSwitchMonitor);
+	DeleteObject(hChat);
+	DeleteObject(hFT);
 }
 
 //***************************************************************************************
@@ -837,6 +909,8 @@ void CTitleBar::MoveToMonitor(HMONITOR hMonitor)
 	::SetWindowPos(Screen, 0, tbLeftSpace + (tbcxPicture * 1) + (tbButtonSpace * 1), tbTopSpace, tbcxPicture, tbcyPicture, SWP_NOACTIVATE | SWP_NOZORDER);
 	::SetWindowPos(Photo, 0, tbLeftSpace + (tbcxPicture * 2) + (tbButtonSpace * 2), tbTopSpace, tbcxPicture, tbcyPicture, SWP_NOACTIVATE | SWP_NOZORDER);
 	::SetWindowPos(SwitchMonitor, 0, tbLeftSpace + (tbcxPicture * 3) + (tbButtonSpace * 3), tbTopSpace, tbcxPicture, tbcyPicture, SWP_NOACTIVATE | SWP_NOZORDER);
+	::SetWindowPos(Chat, 0, tbLeftSpace + (tbcxPicture * 4) + (tbButtonSpace * 4), tbTopSpace, tbcxPicture, tbcyPicture, SWP_NOACTIVATE | SWP_NOZORDER);
+	::SetWindowPos(FT, 0, tbLeftSpace + (tbcxPicture * 5) + (tbButtonSpace * 5), tbTopSpace, tbcxPicture, tbcyPicture, SWP_NOACTIVATE | SWP_NOZORDER);
 	::SetWindowPos(Pin, 0, tbLeftSpace, tbTopSpace, tbcxPicture, tbcyPicture, SWP_NOACTIVATE | SWP_NOZORDER);
 
 	// after DPI change, Set region to window so it is non rectangular

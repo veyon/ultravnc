@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2013 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,9 +16,9 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
 
@@ -38,6 +38,11 @@
 #define NOCURSOR 0
 #define DOTCURSOR 1
 #define NORMALCURSOR 2
+
+inline bool SwitchMatch(LPCTSTR arg, LPCTSTR swtch) {
+	return (arg[0] == '-' || arg[0] == '/') &&
+		(_tcsicmp(&arg[1], swtch) == 0);
+}
 
 class VNCOptions
 {
@@ -60,6 +65,7 @@ public:
 	int     m_quickoption; // Modif sf@2002 - v1.1.2
 	TCHAR   m_configFilename[_MAX_PATH];
 	bool	m_restricted;
+	bool	m_ipv6;
 	bool m_AllowUntrustedServers;
 
 	// default connection options - can be set through Dialog
@@ -152,6 +158,7 @@ public:
 
 	int DoDialog(bool running = false, HWND hwnd = NULL);
 	void SetFromCommandLine(LPTSTR szCmdLine);
+	char szCmdLine[8191]{};
 
 	void CancelDialog();
 	void setDefaultDocumentPath();
@@ -167,6 +174,9 @@ public:
 	static void setDefaultOptionsFileName(TCHAR* optionfile);
 	TCHAR* getDefaultOptionsFileName();
 	char m_InfoMsg[255]{ 0 };
+	char m_ClassName[255]{ 0 };
+
+	bool m_HideEndOfStreamError;
 
 private:
 	void ShowUsage(LPTSTR info = NULL);

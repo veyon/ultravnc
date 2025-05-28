@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2013 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,11 +16,12 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
+
 
 // VNCOptions.cpp: implementation of the VNCOptions class.
 
@@ -34,6 +35,9 @@
 #include <sys/stat.h>
 #include <direct.h>
 #include "Snapshot.h"
+#include "UltraVNCHelperFunctions.h"
+using namespace helper;
+extern HINSTANCE m_hInstResDLL;
 
 extern char sz_A2[64];
 extern char sz_D1[64];
@@ -202,6 +206,7 @@ VNCOptions::VNCOptions()
 	m_listening = false;
 	m_listenPort = INCOMING_PORT_OFFSET;
 	m_restricted = false;
+	m_ipv6 = false;
 	m_AllowUntrustedServers = false;
 	// Tight specific
 	m_useCompressLevel = true;
@@ -228,7 +233,7 @@ VNCOptions::VNCOptions()
 
 	m_szDSMPluginFilename[0] = '\0';
 	setDefaultDocumentPath();
-	_tcscpy_s(m_prefix, "vnc_");
+	_tcscpy_s(m_prefix, "ultravnc_");
 	_tcscpy_s(m_imageFormat, ".jpeg");
 
 #ifdef _Gii
@@ -252,8 +257,11 @@ VNCOptions::VNCOptions()
 	m_keepAliveInterval = KEEPALIVE_INTERVAL;
 	m_IdleInterval = 0;
 	m_throttleMouse = 0; // adzm 2010-10
+	
+	m_HideEndOfStreamError = false;
+	
 	setDefaultOptionsFileName(m_optionfile);
-	LoadOptions(getDefaultOptionsFileName());
+	//LoadOptions(getDefaultOptionsFileName());
 }
 
 void VNCOptions::setDefaultOptionsFileName(TCHAR * optionfile)
@@ -411,6 +419,7 @@ VNCOptions& VNCOptions::operator=(VNCOptions& s)
 	m_listening = s.m_listening;
 	m_listenPort = s.m_listenPort;
 	m_restricted = s.m_restricted;
+	m_ipv6 = s.m_ipv6;
 	m_AllowUntrustedServers = s.m_AllowUntrustedServers;
 
 	// Tight specific
@@ -455,13 +464,8 @@ VNCOptions::~VNCOptions()
 {
 }
 
-inline bool SwitchMatch(LPCTSTR arg, LPCTSTR swtch) {
-	return (arg[0] == '-' || arg[0] == '/') &&
-		(_tcsicmp(&arg[1], swtch) == 0);
-}
-
 static void ArgError(LPTSTR msg) {
-	MessageBox(NULL, msg, sz_D1, MB_OK | MB_TOPMOST | MB_ICONSTOP);
+	yesUVNCMessageBox(m_hInstResDLL, NULL, msg, sz_D1, MB_ICONSTOP);
 }
 
 // Greatest common denominator, by Euclid
@@ -475,8 +479,7 @@ void VNCOptions::FixScaling()
 {
 	if (m_scale_num < 1 || m_scale_den < 1 || m_scale_num > 400 || m_scale_den > 100)
 	{
-		MessageBox(NULL, sz_D2,
-			sz_D1, MB_OK | MB_TOPMOST | MB_ICONWARNING);
+		yesUVNCMessageBox(m_hInstResDLL, NULL, sz_D2,sz_D1,  MB_ICONWARNING);
 		m_scale_num = 1;
 		m_scale_den = 1;
 		m_scaling = false;
@@ -492,6 +495,7 @@ void VNCOptions::FixScaling()
 void VNCOptions::SetFromCommandLine(LPTSTR szCmdLine) {
 	// We assume no quoting here.
 	// Copy the command line - we don't know what might happen to the original
+	strcpy_s(this->szCmdLine, szCmdLine);
 	config_specified = false;
 	int cmdlinelen = _tcslen(szCmdLine);
 	if (cmdlinelen == 0) return;
@@ -597,6 +601,9 @@ void VNCOptions::SetFromCommandLine(LPTSTR szCmdLine) {
 		else if (SwitchMatch(args[j], _T("restricted"))) {
 			m_restricted = true;
 		}
+		else if (SwitchMatch(args[j], _T("ipv6"))) {
+			m_ipv6 = true;
+		}
 		else if (SwitchMatch(args[j], _T("AllowUntrustedServers"))) {
 			m_AllowUntrustedServers = true;
 		}		
@@ -605,6 +612,9 @@ void VNCOptions::SetFromCommandLine(LPTSTR szCmdLine) {
 		}
 		else if (SwitchMatch(args[j], _T("nostatus"))) {
 			m_NoStatus = true;
+		}
+		else if (SwitchMatch(args[j], _T("hideendofstreamerror"))) {
+			m_HideEndOfStreamError = true;
 		}
 		else if (SwitchMatch(args[j], _T("nohotkeys"))) {
 			m_NoHotKeys = true;
@@ -1016,6 +1026,14 @@ void VNCOptions::SetFromCommandLine(LPTSTR szCmdLine) {
 			//adzm 2010-08
 			m_fEnableCache = true;
 		}
+		else if (SwitchMatch(args[j], _T("classname")))
+		{
+			if (++j == i) {
+				ArgError("No classname");
+			continue;
+			}
+			strcpy_s(m_ClassName, args[j]);
+		}
 		else if (SwitchMatch(args[j], _T("throttlemouse")))
 		{
 			//adzm 2010-10
@@ -1128,9 +1146,11 @@ void VNCOptions::SaveOptions(char* fname)
 		saveInt("preferred_encoding", m_PreferredEncodings[0], fname);
 	}
 	saveInt("restricted", m_restricted, fname);
+	saveInt("ipv6", m_ipv6, fname);
 	saveInt("AllowUntrustedServers", m_AllowUntrustedServers, fname);
 	saveInt("viewonly", m_ViewOnly, fname);
 	saveInt("nostatus", m_NoStatus, fname);
+	saveInt("HideEOStreamError", m_HideEndOfStreamError, fname);
 	saveInt("nohotkeys", m_NoHotKeys, fname);
 	saveInt("showtoolbar", m_ShowToolbar, fname);
 	saveInt("fullscreen", m_FullScreen, fname);
@@ -1224,9 +1244,11 @@ void VNCOptions::LoadOptions(char* fname)
 	m_PreferredEncodings.push_back(nPreferredEncoding);
 
 	m_restricted = readInt("restricted", m_restricted, fname) != 0;
+	m_ipv6 = readInt("ipv6", m_ipv6, fname) != 0;
 	m_AllowUntrustedServers = readInt("AllowUntrustedServers", m_AllowUntrustedServers, fname) != 0;
 	m_ViewOnly = readInt("viewonly", m_ViewOnly, fname) != 0;
 	m_NoStatus = readInt("nostatus", m_NoStatus, fname) != 0;
+	m_HideEndOfStreamError = readInt("HideEOStreamError", m_HideEndOfStreamError, fname) != 0;
 	m_NoHotKeys = readInt("nohotkeys", m_NoHotKeys, fname) != 0;
 	m_ShowToolbar = readInt("showtoolbar", m_ShowToolbar, fname) != 0;
 	m_FullScreen = readInt("fullscreen", m_FullScreen, fname) != 0;
@@ -1341,10 +1363,10 @@ void VNCOptions::ShowUsage(LPTSTR info) {
 			"      [/encodings xz zrle ...]  (in order of priority)\r\n"
 			"      [/autoacceptincoming] [/autoacceptnodsm] [/disablesponsor][/InfoMsg \"Messages need quotes\"]\r\n" //adzm 2009-06-21, adzm 2009-07-19
 			"      [/requireencryption] [/enablecache] [/throttlemouse n] [/socketkeepalivetimeout n]\r\n" //adzm 2010-05-12
-			"      [/gnome]\r\n"
+			"      [/gnome] [/hideendofstreamerror]\r\n"
 			"For full details see documentation."),
 		tmpinf);
-	MessageBox(NULL, msg, sz_A2, MB_OK | MB_ICONINFORMATION | MB_TOPMOST);
+	yesUVNCMessageBox(m_hInstResDLL, NULL, msg, sz_A2, MB_ICONINFORMATION);
 }
 
 // The dialog box allows you to change the session-specific parameters
@@ -1371,6 +1393,9 @@ BOOL CALLBACK VNCOptions::OptDlgProc(HWND hwnd, UINT uMsg,
 	switch (uMsg) {
 	case WM_INITDIALOG:
 	{
+		HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDR_TRAY));
+		SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+		SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
 		helper::SafeSetWindowUserData(hwnd, lParam);
 		_this = (VNCOptions*)lParam;
 		// Initialise the controls

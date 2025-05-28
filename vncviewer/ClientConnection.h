@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2020 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,9 +16,9 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check 
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
  
@@ -36,7 +36,7 @@
 #include "KeyMapjap.h"
 #include <rdr/types.h>
 #include "../common/UltraVncZ.h"
-#ifdef _INTERNALLIB
+#ifdef _VCPKG
 #include <zlib.h>
 #include <zstd.h>
 #else
@@ -46,7 +46,7 @@
 
 extern "C"
 {
-#ifdef _INTERNALLIB
+#ifdef _VCPKG
 #include <jpeglib.h>
 #else
 #include "libjpeg-turbo-win/jpeglib.h"
@@ -80,12 +80,12 @@ class vnctouch;
 #endif
 extern const UINT FileTransferSendPacketMessage;
 
-#ifndef max
-#define max(a,b)            (((a) > (b)) ? (a) : (b))
+#ifndef maximum
+#define maximum(a,b)            (((a) > (b)) ? (a) : (b))
 #endif
 
-#ifndef min
-#define min(a,b)            (((a) < (b)) ? (a) : (b))
+#ifndef minimum
+#define minimum(a,b)            (((a) < (b)) ? (a) : (b))
 #endif
 
 //adzm 2010-09
@@ -137,7 +137,6 @@ struct BitmapInfo {
 };
 
 namespace rdr { class InStream; class FdInStream; class ZlibInStream; class xzInStream; class ZstdInStream; }
-typedef BOOL(WINAPI* PFN_GetDpiForMonitor) (HMONITOR, MONITOR_DPI_TYPE, UINT*,UINT*);
 typedef BOOL(WINAPI* PFN_AdjustWindowRectExForDpi) (LPRECT, DWORD, BOOL, DWORD, UINT);
 
 class ClientConnection  : public omni_thread
@@ -256,6 +255,8 @@ private:
 	void Authenticate(std::vector<CARD32>& current_auth);
 	void AuthenticateServer(CARD32 authScheme, std::vector<CARD32>& current_auth);
 	void NegotiateProtocolVersion();
+	void AuthRSAAES(int keySize, bool encrypted);
+	void AuthVeNCrypt();
 	void AuthVnc();
 	void AuthSCPrompt(); // adzm 2010-10
 	void AuthSessionSelect(); // adzm 2010-10
@@ -321,6 +322,7 @@ private:
 	void ReadScreenUpdate();
 	void Update(RECT *pRect);
 	bool IsOnlyOneMonitor();
+	void  setTitle();
 	void SizeWindow(bool noPosChange = true, bool noSizeChange = false);
 	bool ScrollScreen(int dx, int dy, bool absolute = false);
 	void UpdateScrollbars();
@@ -496,7 +498,7 @@ private:
 	void * run_undetached(void* arg);
 	
 
-	// Modif sf@2002 - FileTransfer
+	// Modif sf@2002 - File Transfer
 	friend class FileTransfer;  
 	friend class TextChat;  
 
@@ -505,6 +507,7 @@ private:
 	// Modif rdv@2002 - Server dis/enable input
 	bool SendServerInput(BOOL enabled);
 	bool SendSW(int x, int y);
+	bool SendSetMonitor(int nbr);
 	// sf@2002 - DSM Plugin
 	void CheckNetRectBufferSize(int nBufSize);
 	void CheckZRLENetRectBufferSize(int nBufSize);
@@ -517,6 +520,7 @@ private:
     // 21 March 2008 jdp
     void ReadServerState();
 	// Utilities
+	void ReadMonitorInfo();
 
 	// These draw a solid rectangle of colour on the bitmap
 	// They assume the bitmap is already selected into the DC, and the
@@ -565,7 +569,7 @@ private:
 	unsigned char *m_zipbuf;
 	int m_zipbufsize;
 
-	// sf@2002 - v1.1.0 - Buffer for zip decompression (FileTransfer)
+	// sf@2002 - v1.1.0 - Buffer for zip decompression (File Transfer)
 	void CheckFileZipBufferSize(int bufsize);
 	unsigned char *m_filezipbuf;
 	int m_filezipbufsize;
@@ -596,7 +600,7 @@ private:
     KeyMap *m_keymap;
 	KeyMapJap *m_keymapJap;
 
-	FileTransfer *m_pFileTransfer; // Modif sf@2002 - FileTransfer
+	FileTransfer *m_pFileTransfer; // Modif sf@2002 - File Transfer
 	TextChat *m_pTextChat;			// Modif sf@2002 - Text Chat
 	int m_nServerScale; 	       // Modif sf@2002 - Server Scaling
 
@@ -650,7 +654,7 @@ private:
 	TCHAR *m_desktopName_viewonly;
 	unsigned char m_encPasswd[8];
 	unsigned char m_encPasswdMs[32];
-	char m_ms_user[256];  // act: add user storage for mslogon autoreconnect
+	char m_ms_user[256];  // act: add user storage for MS-Logon autoreconnect
 	char m_cmdlnUser[256]; // act: add user option on command line
 	char m_clearPasswd[256]; // Modif sf@2002
 
@@ -718,13 +722,13 @@ private:
 
 //	BmpFlasher *flash;
 
-	// ms logon
+	// MS-Logon
 	bool m_ms_logon_I_legacy;
 	char m_ad_passwd[256];
 	char m_ad_domain[256];
 	char m_ad_user[256];
 
-	// sf@2002 - FileTRansfer on server
+	// sf@2002 - File Transfer on server
 	BOOL m_fServerKnowsFileTransfer;
 
 	// sf@2002 - Auto mode
@@ -847,10 +851,9 @@ private:
 	UINT m_Dpi;
 	UINT m_DpiOld;
 	bool m_DpiMove;
-	HMODULE hShcore;
 	HMODULE hUser32;
-	PFN_GetDpiForMonitor getDpiForMonitor;
 	PFN_AdjustWindowRectExForDpi adjustWindowRectExForDpi;
+	short nbrMonitors = 0;
 
 public:
 	// RFB settings

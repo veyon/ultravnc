@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2010 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,9 +16,9 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
 
@@ -54,18 +54,17 @@ void
 vncDesktop::StopInitWindowthread()
 {
 	//vndesktopthread is closing, all threads need to be stopped
-	//else winvnc wil stay running in background on exit
+	//else UltraVNC Server will stay running in background on exit
 	g_lockcode = 0;
 		can_be_hooked=true;
 		if (InitWindowThreadh)
 		{
-			vnclog.Print(LL_INTINFO, VNCLOG("~vncDesktop::Tell initwindowthread to close \n"));
 			PostThreadMessage(pumpID, WM_QUIT, 0, 0);
 			DWORD status=WaitForSingleObject(InitWindowThreadh,2000);
 			if (status==WAIT_TIMEOUT)
 			{
 				vnclog.Print(LL_INTERR, VNCLOG("~vncDesktop::ERROR:  messageloop blocked \n"));
-				// WE need to kill the thread to prevent a winvnc lock
+				// WE need to kill the thread to prevent a UltraVNC Server lock
 				TerminateThread(InitWindowThreadh,0);
 				CloseHandle(InitWindowThreadh);
 				m_hwnd=NULL;
@@ -94,12 +93,10 @@ vncDesktop::StartInitWindowthread()
 	DWORD dummy;
 	char new_name[256];
 	can_be_hooked=false;
-	vnclog.Print(LL_INTINFO, VNCLOG("StartInitWindowthread \n"));
 	if (GetUserObjectInformation(desktop, UOI_NAME, &new_name, 256, &dummy))
 	{
 		if (strcmp(new_name,"Default")==0)
 		{
-			vnclog.Print(LL_INTINFO, VNCLOG("StartInitWindowthread default desk\n"));
 			if (InitWindowThreadh==NULL)
 			{
 				ResetEvent(restart_event);
@@ -121,7 +118,6 @@ vncDesktop::StartInitWindowthread()
 				}
 				else
 				{
-					vnclog.Print(LL_INTINFO, VNCLOG("StartInitWindowthread started\n"));
 					can_be_hooked=true;
 				}
 			}
@@ -129,13 +125,8 @@ vncDesktop::StartInitWindowthread()
 			{
 				// initwindowthread is still running
 				// make it back active
-				vnclog.Print(LL_INTINFO, VNCLOG("StartInitWindowthread reactivate\n"));
 				can_be_hooked=true;
 			}
-		}
-		else
-		{
-			vnclog.Print(LL_INTINFO, VNCLOG("StartInitWindowthread no default desk\n"));
 		}
 	}
 }
@@ -369,10 +360,10 @@ DesktopWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 		// WE change the clients screensize, if they support it.
 		vnclog.Print(LL_INTERR, VNCLOG("WM_DISPLAYCHANGE\n"));
 		// We First check if the Resolution changed is caused by a temp resolution switch
-		// For a temp resolution we don't use the driver, to fix the mirror driver
+		// For a temp resolution we don't use the driver, to fix the Mirror Driver
 		// to the new change, a resolution switch is needed, preventing screensaver locking.
 
-		if (_this->m_screenCapture != NULL) //Video driver active
+		if (_this->m_screenCapture != NULL) // Video Driver active
 		{
 			if (!_this->m_screenCapture->getBlocked())
 			{
@@ -476,8 +467,6 @@ ATOM m_wndClass = INVALID_ATOM;
 BOOL
 vncDesktop::InitWindow()
 {
-	vnclog.Print(LL_INTERR, VNCLOG("InitWindow called\n"));
-
 	HDESK desktop;
 	desktop = OpenInputDesktop(0, FALSE,
 								DESKTOP_CREATEMENU | DESKTOP_CREATEWINDOW |
@@ -488,8 +477,6 @@ vncDesktop::InitWindow()
 
 	if (desktop == NULL)
 		vnclog.Print(LL_INTERR, VNCLOG("InitWindow:OpenInputdesktop Error \n"));
-	else
-		vnclog.Print(LL_INTERR, VNCLOG("InitWindow:OpenInputdesktop OK\n"));
 
 	HDESK old_desktop = GetThreadDesktop(GetCurrentThreadId());
 	DWORD dummy;
@@ -500,8 +487,6 @@ vncDesktop::InitWindow()
 	{
 		vnclog.Print(LL_INTERR, VNCLOG("InitWindow:!GetUserObjectInformation \n"));
 	}
-
-	vnclog.Print(LL_INTERR, VNCLOG("InitWindow:SelectHDESK to %s (%x) from %x\n"), new_name, desktop, old_desktop);
 
 	if (!SetThreadDesktop(desktop))
 	{
@@ -570,26 +555,17 @@ vncDesktop::InitWindow()
 	////////////////////////
 	hModuleVNCHook =NULL;
 	char szCurrentDir[MAX_PATH];
-		if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
-		{
-			char* p = strrchr(szCurrentDir, '\\');
-			if (p == NULL) return 0;
-			*p = '\0';
-			strcat_s(szCurrentDir,"\\vnchooks.dll");
-		}
+	strcpy_s(szCurrentDir, winvncFolder);
+	strcat_s(szCurrentDir, "\\vnchooks.dll");
 	hSCModule=NULL;
 	char szCurrentDirSC[MAX_PATH];
-		if (GetModuleFileName(NULL, szCurrentDirSC, MAX_PATH))
-		{
-			char* p = strrchr(szCurrentDirSC, '\\');
-			if (p == NULL) return 0;
-			*p = '\0';
+	strcpy_s(szCurrentDirSC, winvncFolder);
 #ifdef _X64
 			strcat_s(szCurrentDirSC,"\\schook_legacy64.dll");
 #else
 			strcat_s(szCurrentDirSC,"\\schook_legacy.dll");
 #endif
-		}
+
 
 	UnSetHooks=NULL;
 	SetMouseFilterHook=NULL;
@@ -630,14 +606,12 @@ vncDesktop::InitWindow()
 
 			if (msg.message==WM_QUIT || fShutdownOrdered)
 				{
-					vnclog.Print(LL_INTERR, VNCLOG("OOOOOOOOOOOO called wm_quit\n"));
 					DestroyWindow(m_hwnd);
 					SetEvent(trigger_events[5]);
 					break;
 				}
 			else if (msg.message==WM_SHUTDOWN)
 				{
-					vnclog.Print(LL_INTERR, VNCLOG("OOOOOOOOOOOO called wm_user+4\n"));
 					DestroyWindow(m_hwnd);
 					break;
 				}
@@ -646,9 +620,6 @@ vncDesktop::InitWindow()
 					wcscpy_s(g_hookstring,L"vnchook");
 					if (can_be_hooked)
 					{
-#ifndef ULTRAVNC_VEYON_SUPPORT
-					vnclog.Print(LL_INTERR, VNCLOG("RFB_SCREEN_UPDATE  \n"));
-#endif
 					rfb::Rect rect;
 					rect.tl = rfb::Point((SHORT)LOWORD(msg.wParam), (SHORT)HIWORD(msg.wParam));
 					rect.br = rfb::Point((SHORT)LOWORD(msg.lParam), (SHORT)HIWORD(msg.lParam));
@@ -657,9 +628,6 @@ vncDesktop::InitWindow()
 					rect.br.x-=m_ScreenOffsetx;
 					rect.tl.y-=m_ScreenOffsety;
 					rect.br.y-=m_ScreenOffsety;
-#ifndef ULTRAVNC_VEYON_SUPPORT
-					vnclog.Print(LL_INTERR, VNCLOG("REct3 %i %i %i %i  \n"),rect.tl.x,rect.br.x,rect.tl.y,rect.br.y);
-#endif
 
 					rect = rect.intersect(m_Cliprect);
 					if (!rect.is_empty())
@@ -674,16 +642,12 @@ vncDesktop::InitWindow()
 				{
 					if (can_be_hooked)
 					{
-#ifndef ULTRAVNC_VEYON_SUPPORT
-					vnclog.Print(LL_INTERR, VNCLOG("RFB_MOUSE_UPDATE  \n"));
-#endif
 					SetCursor((HCURSOR) msg.wParam);
 					SetEvent(trigger_events[2]);
 					}
 				}
 			else
 				{
-					if (msg.message==WM_USER+3 )vnclog.Print(LL_INTERR, VNCLOG("OOOOOOOOOOOO called wm_user+3\n"));
 					TranslateMessage(&msg);
 					DispatchMessage(&msg);
 				}
@@ -701,8 +665,6 @@ vncDesktop::InitWindow()
 		FreeLibrary(hSCModule);
 	SetThreadDesktop(old_desktop);
     CloseDesktop(desktop);
-	///////////////////////
-	vnclog.Print(LL_INTERR, VNCLOG("OOOOOOOOOOOO end dispatch\n"));
 	m_hwnd = NULL;
 	return TRUE;
 }

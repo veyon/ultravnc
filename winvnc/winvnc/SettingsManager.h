@@ -1,6 +1,31 @@
+/////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
+//
+//  This program is free software; you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation; either version 2 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program; if not, write to the Free Software
+//  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+//  USA.
+//
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
+
+
 #pragma once
 #include "stdhdrs.h"
-#include "inifile.h"
+#include "common/inifile.h"
 #include "rfb.h"
 
 #define MAXPWLEN 8
@@ -12,9 +37,11 @@ class SettingsManager
 public:
 	static SettingsManager* getInstance();
 
+	void Initialize(char* configFile);
 	void load();
 	void save();
-
+	void savePassword();
+	void saveViewOnlyPassword();
 	BOOL getAllowProperties() { return m_pref_allowproperties; };
 	BOOL getAllowInjection() { return m_pref_allowInjection; };
 	BOOL getAllowShutdown() { return m_pref_allowshutdown; };
@@ -29,6 +56,8 @@ public:
 #endif
 	BOOL getPrimary() { return m_pref_Primary; };
 	BOOL getSecondary() { return m_pref_Secondary; };
+	void setPrimary(BOOL value) { m_pref_Primary = value;};
+	void setSecondary(BOOL value) { m_pref_Secondary = value;};
 	BOOL getEnableBlankMonitor() { return m_pref_EnableBlankMonitor; };
 	BOOL getBlankInputsOnly() { return m_pref_BlankInputsOnly; };
 	int getDefaultScale() { return m_pref_DefaultScale; };
@@ -58,7 +87,7 @@ public:
 	BOOL getEnableWin8Helper() { return m_pref_EnableWin8Helper; };
 	BOOL getClearconsole() { return m_pref_clearconsole; };
 	char* getPasswd() { return m_pref_passwd; };
-	char* getPasswd2() { return m_pref_passwd2; };
+	char* getPasswdViewOnly() { return m_pref_passwdViewOnly; };
 	BOOL getAutoPortSelect() { return m_pref_AutoPortSelect; };
 	LONG getPortNumber() { return m_pref_PortNumber; };
 	LONG getHttpPortNumber() { return m_pref_HttpPortNumber; };
@@ -72,11 +101,14 @@ public:
 	void setService_commandline(char* value) { strcpy_s(m_pref_service_commandline, value); };
 	void setAccept_reject_mesg(char* value) { strcpy_s(m_pref_accept_reject_mesg, value); };
 	BOOL getDebugMode() { return m_pref_DebugMode; };
+	void setDebugMode(BOOL value) { m_pref_DebugMode = value; };
+
 	BOOL getDebugLevel() { return m_pref_DebugLevel; };
 	BOOL getAvilog() { return m_pref_Avilog; };
 	char* getDebugPath() { return m_pref_DebugPath; };
 	BOOL getAllowLoopback() { return m_pref_AllowLoopback; };
 	BOOL getAuthRequired() { return m_pref_AuthRequired; };
+	void setAuthRequired(BOOL value) { m_pref_AuthRequired = value; };
 	char* getAuthhosts() { return m_pref_authhosts; };
 	BOOL getDisableTrayIcon() { return m_pref_DisableTrayIcon; };
 	BOOL getRdpmode() { return m_pref_Rdpmode; };
@@ -93,9 +125,10 @@ public:
 	int getkeepAliveInterval() { return m_pref_keepAliveInterval; };
 #endif
 	int getIdleInputTimeout() { return m_pref_IdleInputTimeout; };
-	UINT getQueryIfNoLogon() { return m_pref_QueryIfNoLogon; };
+	BOOL getQueryIfNoLogon() { return m_pref_QueryIfNoLogon; };
 	UINT getSENDBUFFER_EX() { return G_SENDBUFFER_EX; };
 
+	void setQueryIfNoLogon(BOOL value) { m_pref_QueryIfNoLogon = value; };
 	void setAllowProperties(BOOL value) { m_pref_allowproperties = value; };
 	void setAllowInjection(BOOL value) { m_pref_allowInjection = value; };
 	void setAllowShutdown(BOOL value) { m_pref_allowshutdown = value; };
@@ -119,12 +152,13 @@ public:
 	void setDisableLocalInputs(BOOL value) { m_pref_DisableLocalInputs = value; };
 	void setEnableJapInput(BOOL value) { m_pref_EnableJapInput = value; };
 	void setEnableUnicodeInput(BOOL value) { m_pref_EnableUnicodeInput = value; };
-	void setLoopbackOnly(BOOL value) { m_pref_LoopbackOnly = value; };
+	void setLoopbackOnly(BOOL value) { m_pref_LoopbackOnly = value; if (value) setAllowLoopback(true);};
 	void setAllowLoopback(BOOL value) { m_pref_AllowLoopback = value; };
 	void setQuerySetting(UINT value) { m_pref_QuerySetting = value; };
 	void setConnectPriority(int value) { m_pref_ConnectPriority = value; };
 	void setQueryDisableTime(UINT value) { m_pref_QueryDisableTime = value; };
 	void setQueryTimeout(UINT value) { m_pref_QueryTimeout = value; };
+	void setDebugPath(char* value) { strcpy_s(m_pref_DebugPath, value);};
 
 	void setMaxViewers(UINT value) { m_pref_MaxViewers = value; };
 	void setCollabo(BOOL value) { m_pref_Collabo = value; };
@@ -146,18 +180,13 @@ public:
 	void setEnableBlankMonitor(BOOL value) { m_pref_EnableBlankMonitor = value; };
 	void setBlankInputsOnly(BOOL value) { m_pref_BlankInputsOnly = value; };
 
-#ifndef ULTRAVNC_VEYON_SUPPORT
-	void setTempFile(char* value) { strcpy_s(m_Tempfile, value); };
-	char* getTempFile() { return m_Tempfile; };
-#endif
-
 	void setPasswd(const char* passwd)
 	{
 		memcpy(m_pref_passwd, passwd, MAXPWLEN);
 	}
-	void setPasswd2(const char* passwd)
+	void setPasswdViewOnly(const char* passwd)
 	{
-		memcpy(m_pref_passwd2, passwd, MAXPWLEN);
+		memcpy(m_pref_passwdViewOnly, passwd, MAXPWLEN);
 	}
 
 #ifdef DSM_SUPPORT
@@ -172,6 +201,8 @@ public:
 #ifdef KEEP_ALIVE_SUPPORT
 	void setkeepAliveInterval(int secs);
 #endif
+	void setIdleTimeout(int secs);
+	void setIdleInputTimeout(int secs);
 #ifdef FILETRANSFER_SUPPORT
 	void setftTimeout(int value) { m_pref_ftTimeout = value; };
 #endif
@@ -183,9 +214,9 @@ public:
 	bool DoKeepAlives() { return m_pref_fEnableKeepAlive; }
 #endif
 	BOOL RunningFromExternalService() { return m_pref_fRunningFromExternalService; };
-	void RunningFromExternalService(BOOL fEnabled) { m_pref_fRunningFromExternalService = fEnabled; };
+	void setRunningFromExternalService(BOOL fEnabled);
 	BOOL RunningFromExternalServiceRdp() { return m_pref_fRunningFromExternalServiceRdp; };
-	void RunningFromExternalServiceRdp(BOOL fEnabled) { m_pref_fRunningFromExternalServiceRdp = fEnabled; };
+	void setRunningFromExternalServiceRdp(BOOL fEnabled) { m_pref_fRunningFromExternalServiceRdp = fEnabled; };
 	void AutoRestartFlag(BOOL fOn) { m_pref_fAutoRestart = fOn; };
 	BOOL AutoRestartFlag() { return m_pref_fAutoRestart; };
 
@@ -222,10 +253,10 @@ public:
 	void setddEngine(BOOL value) { m_pref_ddEngine = value; };
 	BOOL getddEngine() { return m_pref_ddEngine; };
 
-	void setMaxCpu(BOOL value) { m_pref_MaxCpu = value; };
-	BOOL getMaxCpu() { return m_pref_MaxCpu; };
-	void setMaxFPS(BOOL value) { m_pref_MaxFPS = value; };
-	BOOL getMaxFPS() { return m_pref_MaxFPS; };
+	void setMaxCpu(int value) { m_pref_MaxCpu = value; };
+	int getMaxCpu() { return m_pref_MaxCpu; };
+	void setMaxFPS(int value) { m_pref_MaxFPS = value; };
+	int getMaxFPS() { return m_pref_MaxFPS; };
 	void setAutocapt(BOOL value) { m_pref_autocapt = value; };
 	BOOL getAutocapt() { return m_pref_autocapt; };
 
@@ -252,19 +283,32 @@ public:
 #endif
 
 
-#ifdef IPV6V4
 	// Whether or not to allow connections from the local machine
 	void setIPV6(BOOL ok) { m_pref_ipv6_allowed = ok; };
 	BOOL getIPV6() { return m_pref_ipv6_allowed; };
-#endif
-	bool IsRunninAsAdministrator();
 
+	bool IsRunninAsAdministrator();
+	bool IsDesktopUserAdmin();
+	bool getAllowUserSettingsWithPassword();
+	void setAllowUserSettingsWithPassword(bool value);
+	bool checkAdminPassword();
+	void setAdminPasswordHash(char *password);
+	bool isAdminPasswordSet();
+	void setShowAllLogs(bool value) { showAllLogs = value; }
+	bool getShowAllLogs() { return showAllLogs; }
+
+	char* getAlternateShell() { return m_pref_alternateShell; };
+
+	bool getShowSettings();
+	void setShowSettings(bool value) { showSettings = value; };
+	char *getLogFile() { return logfile; };
+	void setLogFile(char* value) { strcpy_s(logfile, value); };
 private:
 	SettingsManager();
 	static SettingsManager* s_instance;
 	void setDefaults();
 	void initTemp();
-	IniFile myIniFile;
+	IniFile iniFile;
 
 	BOOL	m_pref_allowproperties;
 	BOOL	m_pref_allowInjection;
@@ -286,7 +330,7 @@ private:
 	LONG m_pref_PortNumber;
 	LONG m_pref_HttpPortNumber;
 	char m_pref_passwd[MAXPWLEN];
-	char m_pref_passwd2[MAXPWLEN];
+	char m_pref_passwdViewOnly[MAXPWLEN];
 	UINT m_pref_QuerySetting;
 	UINT m_pref_QueryIfNoLogon;
 	UINT m_pref_QueryAccept;
@@ -335,7 +379,8 @@ private:
 	BOOL m_pref_AllowLoopback;
 	BOOL m_pref_AuthRequired;
 	int m_pref_ConnectPriority;
-	char m_pref_authhosts[150];
+	char m_pref_authhosts[1280];
+	char m_pref_authhosts2[1280];
 
 	BOOL m_pref_DebugMode;
 	char m_pref_DebugPath[512];
@@ -343,9 +388,7 @@ private:
 	BOOL m_pref_Avilog;
 	BOOL m_pref_UseIpv6;
 	unsigned int G_SENDBUFFER_EX;
-#ifndef ULTRAVNC_VEYON_SUPPORT
-	char m_Tempfile[MAX_PATH];
-#endif
+	char logfile[MAX_PATH];
 	bool m_pref_fEnableStateUpdates;
 #ifdef KEEP_ALIVE_SUPPORT
 	bool m_pref_fEnableKeepAlive;
@@ -385,6 +428,10 @@ private:
 	TCHAR m_pref_cloudServer[MAX_HOST_NAME_LEN];
 	bool m_pref_cloudEnabled;
 #endif
+	char m_pref_alternateShell[1024];
+	bool m_pref_AllowUserSettingsWithPassword;
+	bool showAllLogs = false;
+	bool showSettings = false;
 };
 
 extern SettingsManager* settings;

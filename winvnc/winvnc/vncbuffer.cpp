@@ -1,11 +1,10 @@
-//  Copyright (C) 2002 UltraVNC Team Members. All Rights Reserved.
+/////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //  Copyright (C) 2000-2002 Const Kaplinsky. All Rights Reserved.
 //  Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
 //  Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
 //
-//  This file is part of the VNC system.
-//
-//  The VNC system is free software; you can redistribute it and/or modify
+//  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
@@ -20,9 +19,12 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the VNC system is not available from the place
-// whence you received this file, check http://www.uk.research.att.com/vnc or contact
-// the authors on vnc@uk.research.att.com for information on obtaining it.
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
+
 
 // ScrBuffer implementation
 
@@ -66,7 +68,7 @@ vncBuffer::~vncBuffer()
 {
 	if (m_freemainbuff) {
 		// We need to free the slow-blit buffer
-		// Modif rdv@2002 - v1.1.x - Videodriver
+		// Modif rdv@2002 - v1.1.x - VideoDriver
 	if (m_mainbuff != NULL)
 		{
 			delete [] m_mainbuff;
@@ -167,7 +169,7 @@ vncBuffer::CheckBuffer()
 		vnclog.Print(LL_INTINFO, VNCLOG("request local buffer[%d]\n"), m_desktop->ScreenBuffSize());
 		if (m_freemainbuff) {
 			// Slow blits were enabled - free the slow blit buffer
-			// Modif rdv@2002 - v1.1.x - Videodriver
+			// Modif rdv@2002 - v1.1.x - VideoDriver
 			if (m_mainbuff != NULL)
 			{
 				delete [] m_mainbuff;
@@ -183,7 +185,7 @@ vncBuffer::CheckBuffer()
 		}
 
 		// Check whether or not the vncDesktop is using fast blits
-		// Modif rdv@2002 - v1.1.x - Videodriver
+		// Modif rdv@2002 - v1.1.x - VideoDriver
 
 		m_mainbuff = (BYTE *)m_desktop->OptimisedBlitBuffer();
 		if (m_mainbuff) {
@@ -316,7 +318,7 @@ void vncBuffer::CheckRect(rfb::Region2D &dest, rfb::Region2D &cacheRgn, const rf
 	int x, y;
 	UINT ay, by;
 
-	// DWORD align the incoming rectangle.  (bPP will be 8, 16 or 32)
+	// DWORD align the incoming rectangle. (bPP will be 8, 16 or 32)
 	if (bytesPerPixel < 4) {
 		if (bytesPerPixel == 1)				// 1 byte per pixel
 			ScaledRect.tl.x -= (ScaledRect.tl.x & 3);	// round down to nearest multiple of 4
@@ -535,7 +537,7 @@ void vncBuffer::CheckRect(rfb::Region2D &dest, rfb::Region2D &cacheRgn, const rf
 	}
 }
 
-//rdv modif scaled and videodriver
+// rdv modif scaled and VideoDriver
 void
 vncBuffer::GrabRegion(rfb::Region2D &src,BOOL driver,BOOL capture)
 {
@@ -704,7 +706,7 @@ void vncBuffer::ScaleRect(rfb::Rect &rect)
 
 	// TrueColor Case.
 	// Pixels Blending (takes the "medium" pixel of each m_Scale*m_nScale square)
-	// This TrueColor Pixel blending routine comes from the Harakan's WinVNC with Server Side Scaling
+	// This TrueColor Pixel blending routine comes from the Harakan's UltraVNC Server with Server Side Scaling
 	// Extension. It replaces my own buggy Blending function that given *ugly* results.
 	if (m_nScale == 1 && !m_videodriverused && !m_fGreyPalette)
 	{
@@ -775,7 +777,7 @@ void vncBuffer::ScaleRect(rfb::Rect &rect)
 		}
 	}
 	// Keep only the topleft pixel of each MainBuffer's m_Scale*m_nScale block
-	// Very incurate method...but bearable result in 256 and 16bit colors modes.
+	// Very incurate method...but bearable result in 256 and 16-bit colors modes.
 	else
 	{
 		UINT nBytesPerPixel = (m_scrinfo.format.bitsPerPixel / 8);
@@ -1005,7 +1007,7 @@ vncBuffer::ClearBack()
 {
 	if (m_freemainbuff) {
 		// Slow blits were enabled - free the slow blit buffer
-		// Modif rdv@2002 - v1.1.x - Videodriver
+		// Modif rdv@2002 - v1.1.x - VideoDriver
 		if (m_mainbuff != NULL)
 		{
 			delete [] m_mainbuff;
@@ -1091,7 +1093,7 @@ vncBuffer::GetMousePos(rfb::Rect &rect)
 // Verify that the fast blit buffer hasn't changed
 inline BOOL
 vncBuffer::FastCheckMainbuffer() {
-	// Modif rdv@2002 - v1.1.x - videodriver
+	// Modif rdv@2002 - v1.1.x - VideoDriver
 	VOID *tmp = m_desktop->OptimisedBlitBuffer();
 	if (tmp && (m_mainbuff != tmp))
 		{

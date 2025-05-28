@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2013 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,9 +16,9 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check 
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
  
@@ -26,6 +26,11 @@
 #include "VNCviewerApp32.h"
 #include "vncviewer.h"
 #include "Exception.h"
+#include "UltraVNCHelperFunctions.h"
+#include "common/win32_helpers.h"
+using namespace helper;
+extern HINSTANCE m_hInstResDLL;
+
 extern char sz_A1[64];
 extern char sz_A2[64];
 extern char sz_A3[64];
@@ -45,8 +50,7 @@ VNCviewerApp32::VNCviewerApp32(HINSTANCE hInstance, PSTR szCmdLine) :
 		HKL hkl = LoadKeyboardLayout(  m_options.m_kbdname, 
 			KLF_ACTIVATE | KLF_REPLACELANG | KLF_REORDER  );
 		if (hkl == NULL) {
-			MessageBox(NULL, sz_A1, 
-				sz_A2, MB_OK | MB_ICONSTOP);
+			yesUVNCMessageBox(m_hInstResDLL, NULL, sz_A1, sz_A2, MB_ICONSTOP);
 			exit(1);
 		}
 	}
@@ -57,12 +61,12 @@ VNCviewerApp32::VNCviewerApp32(HINSTANCE hInstance, PSTR szCmdLine) :
 		vnclog.Print(3, _T("In listening mode - staring daemons\n"));
 		
 		try {
-			m_pdaemon = new Daemon(m_options.m_listenPort);
+			m_pdaemon = new Daemon(m_options.m_listenPort, m_options.m_ipv6);
 		} catch (WarningException &e) {
 			char msg[1024];
 			sprintf_s(msg,"%s (%s)\n\r%s",sz_A3,
 				e.m_info, sz_A4);
-			MessageBox(NULL, msg, sz_A5, MB_OK | MB_ICONSTOP);
+			yesUVNCMessageBox(m_hInstResDLL, NULL, msg, sz_A5, MB_ICONSTOP);
 			exit(1);
 		}
 		

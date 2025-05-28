@@ -1,3 +1,5 @@
+//  /////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //  Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
@@ -15,9 +17,12 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check http://www.realvnc.com/ or contact
-// the authors on info@realvnc.com for information on obtaining it.
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
+
 
 // Log.cpp: implementation of the VNCLog class.
 //
@@ -26,7 +31,10 @@
 #include "stdhdrs.h"
 #include <io.h>
 #include "vnclog.h"
-#include "inifile.h"
+#include "common/inifile.h"
+#include "PropertiesDialog.h"
+#include <ctime>
+#include "winvnc.h"
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
@@ -37,6 +45,39 @@ const int VNCLog::ToFile    =  2;
 const int VNCLog::ToConsole =  4;
 
 static const int LINE_BUFFER_SIZE = 1024;
+#include "SettingsManager.h"
+
+char* removeNewlineAndCopy(const char* str) {
+    size_t len = strlen(str); // Get the length of the string
+    bool hasNewline = (len > 0 && str[len - 1] == '\n');
+    size_t newLen = hasNewline ? len - 1 : len; // Adjust length if there's a newline
+
+    // Allocate a new char array for the result
+    char* result = new char[newLen + 1]; // +1 for null terminator
+    strncpy(result, str, newLen); // Copy up to newLen characters
+    result[newLen] = '\0'; // Add null terminator
+
+    return result; // Return the new char array
+}
+
+
+void VNCLog::Print(int level, const char* format, ...) {
+#ifndef ULTRAVNC_VEYON_SUPPORT
+    if (level == -1 || (settings && settings->getShowAllLogs())) {
+        va_list ap;
+        va_start(ap, format);
+        ReallyPrintScreen(removeNewlineAndCopy(format), ap);
+        va_end(ap);
+        return;
+    }
+    if (level > m_level) return;
+    if (!m_todebug && !m_toconsole && !m_tofile) return;
+#endif
+    va_list ap;
+    va_start(ap, format);
+    ReallyPrint(level, format, ap);
+    va_end(ap);
+}
 
 VNCLog::VNCLog()
     : m_tofile(false)
@@ -58,7 +99,7 @@ void VNCLog::SetMode(int mode)
 #ifndef ULTRAVNC_VEYON_SUPPORT
 #ifdef SC_20
     return;
-#endif
+#endif // SC_20
 	m_mode = mode;
     if (mode & ToDebug)
         m_todebug = true;
@@ -107,11 +148,7 @@ void VNCLog::SetFile()
 {
 #ifdef SC_20
     return;
-#endif
-	char temp[512];
-	IniFile myIniFile;
-	myIniFile.ReadString("admin", "path", temp,512);
-	SetPath(temp);
+#endif // SC_20
 	strcpy_s(m_filename,m_path);
 	strcat_s(m_filename,"\\");
 	strcat_s(m_filename,"WinVNC.log");
@@ -124,7 +161,7 @@ void VNCLog::OpenFile()
 {
 #ifdef SC_20
     return;
-#endif
+#endif // SC_20
 	// Is there a file-name?
 	if (strlen(m_filename) == 0)
 	{
@@ -176,7 +213,7 @@ void VNCLog::OpenFile()
 void VNCLog::CloseFile() {
 #ifdef SC_20
     return;
-#endif
+#endif // SC_20
     if (hlogfile != NULL) {
         CloseHandle(hlogfile);
         hlogfile = NULL;
@@ -215,7 +252,7 @@ inline void VNCLog::ReallyPrintLine(const char* line)
 {
 #ifdef SC_20
     return;
-#endif
+#endif // SC_20
     if (m_todebug) OutputDebugString(line);
     if (m_toconsole) {
         DWORD byteswritten;
@@ -233,11 +270,14 @@ void VNCLog::ReallyPrint(int level, const char* format, va_list ap)
 #ifndef ULTRAVNC_VEYON_SUPPORT
 #ifdef SC_20
     return;
-#endif
+#endif // SC_20
 	time_t current = time(0);
 	if (current != m_lastLogTime) {
 		m_lastLogTime = current;
-		ReallyPrintLine(ctime(&m_lastLogTime));
+        char isoTime[20]; // Buffer for ISO 8601 format: "YYYY-MM-DDTHH:MM:SS"
+        std::strftime(isoTime, sizeof(isoTime), "%Y-%m-%d %H:%M:%S", std::localtime(&m_lastLogTime));
+		ReallyPrintLine(isoTime);
+        ReallyPrintLine("\n");
 	}
 #endif
 
@@ -261,6 +301,22 @@ void VNCLog::ReallyPrint(int level, const char* format, va_list ap)
     }
 	ReallyPrintLine(level, line);
 }
+
+#ifndef ULTRAVNC_VEYON_SUPPORT
+void VNCLog::ReallyPrintScreen(const char* format, va_list ap)
+{
+    time_t current = time(0);
+    char isoTime[20]; // Buffer for ISO 8601 format: "YYYY-MM-DDTHH:MM:SS"
+    std::strftime(isoTime, sizeof(isoTime), "%Y-%m-%d %H:%M:%S", std::localtime(&current));
+    TCHAR line[(LINE_BUFFER_SIZE * 2) + 1];
+    TCHAR line2[(LINE_BUFFER_SIZE * 2) + 1];
+    _vsnprintf(line, LINE_BUFFER_SIZE, format, ap);
+    strcpy_s(line2, isoTime);
+    strcat_s(line2, " ");
+    strcat_s(line2, line);
+    PropertiesDialog::LogToEdit(line2);
+}
+#endif
 
 VNCLog::~VNCLog()
 {
@@ -290,14 +346,7 @@ void VNCLog::SetPath(char path[512])
 {
 	if (strlen(path)==0)
 	{
-		char WORKDIR[MAX_PATH];
-	if (GetModuleFileName(NULL, WORKDIR, MAX_PATH))
-		{
-		char* p = strrchr(WORKDIR, '\\');
-		if (p == NULL) return;
-		*p = '\0';
-		}
-		strcpy_s(m_path,WORKDIR);
+		strcpy_s(m_path, winvncFolder);
 	}
 	else
 	strcpy_s(m_path,path);
@@ -306,14 +355,7 @@ char *VNCLog::GetPath()
 {
 	if (strlen(m_path)==0)
 	{
-		char WORKDIR[MAX_PATH];
-	if (GetModuleFileName(NULL, WORKDIR, MAX_PATH))
-		{
-		char* p = strrchr(WORKDIR, '\\');
-		if (p == NULL) return "";
-		*p = '\0';
-		}
-		strcpy_s(m_path,WORKDIR);
+		strcpy_s(m_path, winvncFolder);
 	}
 	
 	return m_path;

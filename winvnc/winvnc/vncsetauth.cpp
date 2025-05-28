@@ -1,9 +1,9 @@
+/////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //  Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
 //  Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
 //
-//  This file is part of the VNC system.
-//
-//  The VNC system is free software; you can redistribute it and/or modify
+//  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
@@ -18,9 +18,11 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the VNC system is not available from the place 
-// whence you received this file, check http://www.uk.research.att.com/vnc or contact
-// the authors on vnc@uk.research.att.com for information on obtaining it.
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
 
 
 // vncSetAuth.cpp
@@ -47,9 +49,8 @@ vncSetAuth::vncSetAuth()
 
 // Initialisation
 BOOL
-vncSetAuth::Init(vncServer *server)
+vncSetAuth::Init()
 {
-	m_server = server;
 	m_dlgvisible = FALSE;
 	return TRUE;
 }
@@ -83,6 +84,9 @@ BOOL CALLBACK vncSetAuth::DialogProc(HWND hwnd,UINT uMsg,WPARAM wParam,LPARAM lP
 
 	case WM_INITDIALOG:
 		{
+			HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_WINVNC));
+			SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+			SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
 			// Retrieve the Dialog box parameter and use it as a pointer
 			// to the calling vncProperties object
             helper::SafeSetWindowUserData(hwnd, lParam);

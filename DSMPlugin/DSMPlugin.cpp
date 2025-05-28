@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2013 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,11 +16,13 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check 
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
+
+
 //
 //
 // DSMPlugin.cpp: implementation of the CDSMPlugin class.
@@ -31,7 +33,7 @@
 // (third party dlls) that may be developed (written, exported and 
 // provided by authorized individuals - according to the law of their 
 // country) to alter/modify/process/encrypt rfb data streams between 
-// vnc viewer and vnc server.
+// UltraVNC Viewer and UltraVNC Server.
 //
 // The goal here is not to design and develop an extensive, versatile
 // and powerfull plugin system but to provide people a way
@@ -62,8 +64,8 @@
 //   - CreatePluginInterface -- returns a pointer to a new IPlugin-derived class,
 //       which is then used to transform and restore buffers in a threadsafe manner.
 // 
-// WARNING: For the moment, only ONE instance of this class must exist in Vncviewer and WinVNC
-// Consequently, WinVNc will impose all its clients to use the same plugin. Maybe we'll 
+// WARNING: For the moment, only ONE instance of this class must exist in UltraVNC Viewer and UltraVNC Server
+// Consequently, UltraVNC Server will impose all its clients to use the same plugin. Maybe we'll 
 // improve that soon. It depends on the demand/production of DSM plugins.
 
 #include <winsock2.h>
@@ -75,8 +77,15 @@
 #include <limits.h>
 #include <memory>
 #ifdef SC_20
-#include "../loadmemory/loadDllFromMemory.h"
+	#include "./winvnc/loadmemory/loadDllFromMemory.h"
+#endif // SC_20
+
+#ifndef _VIEWER
+#include "../winvnc/winvnc/vnclog.h"
+extern VNCLog vnclog;
+#define VNCLOG(s)	(__FUNCTION__ " : " s)
 #endif
+
 //
 // Utils
 //
@@ -103,7 +112,28 @@ BOOL MyStrToken(LPSTR szToken, LPSTR lpString, int nTokenNum, char cSep)
 	return FALSE;
 }
 
+#include <fstream>
+bool IsDll64Bit(const char* dllPath) {
+	std::ifstream file(dllPath, std::ios::binary | std::ios::in);
+	if (!file.is_open()) {
+		return false;
+	}
 
+	IMAGE_DOS_HEADER dosHeader;
+	file.read(reinterpret_cast<char*>(&dosHeader), sizeof(dosHeader));
+	if (dosHeader.e_magic != IMAGE_DOS_SIGNATURE) {
+		return false;
+	}
+
+	file.seekg(dosHeader.e_lfanew, std::ios::beg);
+	IMAGE_NT_HEADERS ntHeaders;
+	file.read(reinterpret_cast<char*>(&ntHeaders), sizeof(ntHeaders));
+	if (ntHeaders.Signature != IMAGE_NT_SIGNATURE) {
+		return false;
+	}
+
+	return ntHeaders.FileHeader.Machine == IMAGE_FILE_MACHINE_AMD64;
+}
 
 //
 //
@@ -287,7 +317,6 @@ int CDSMPlugin::ListPlugins(HWND hComboBox)
 	}
 	else
 		return 0;
-	// MessageBoxSecure(NULL, szCurrentDir, "Current directory", MB_OK);
 
     if (szCurrentDir[strlen(szCurrentDir) - 1] != '\\') strcat_s(szCurrentDir, "\\");
 	strcat_s(szCurrentDir, "*.dsm"); // The DSMplugin dlls must have this extension
@@ -333,7 +362,7 @@ bool CDSMPlugin::LoadPlugin(char* szPlugin, bool fAllowMulti)
 		char szCurrentDir_szDllCopyName[MAX_PATH];
 		while (!fDllCopyCreated)
 		{
-			strcpy_s(szDllCopyName, 260,szPlugin);
+			strcpy_s(szDllCopyName, 260, szPlugin);
 			szDllCopyName[strlen(szPlugin) - 4] = '\0'; //remove the ".dsm" extension
 			sprintf_s(szDllCopyName, "%s-tmp.d%d", szDllCopyName, i++);
 			//fDllCopyCreated = (FALSE != CopyFile(szPlugin, szDllCopyName, false));
@@ -345,35 +374,54 @@ bool CDSMPlugin::LoadPlugin(char* szPlugin, bool fAllowMulti)
 			//if (error==2)
 			{
 				if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
-					{
-						char* p = strrchr(szCurrentDir, '\\');
-						*p = '\0';
-					}
+				{
+					char* p = strrchr(szCurrentDir, '\\');
+					*p = '\0';
+				}
 				char lpPathBuffer[MAX_PATH];
-				DWORD dwBufSize=MAX_PATH;
+				DWORD dwBufSize = MAX_PATH;
 				DWORD dwRetVal;
-				dwRetVal = GetTempPath(dwBufSize,lpPathBuffer);
+				dwRetVal = GetTempPath(dwBufSize, lpPathBuffer);
 				if (dwRetVal > dwBufSize || (dwRetVal == 0))
 				{
-					strcpy_s(lpPathBuffer,szCurrentDir);
+					strcpy_s(lpPathBuffer, szCurrentDir);
 				}
 				else
 				{
-					
-				}
-				
-				strcpy_s(szCurrentDir_szPlugin,szCurrentDir);
-				strcat_s(szCurrentDir_szPlugin,"\\");
-				strcat_s(szCurrentDir_szPlugin,szPlugin);
 
-				strcpy_s(szCurrentDir_szDllCopyName,lpPathBuffer);
+				}
+
+				strcpy_s(szCurrentDir_szPlugin, szCurrentDir);
+				strcat_s(szCurrentDir_szPlugin, "\\");
+				strcat_s(szCurrentDir_szPlugin, szPlugin);
+
+				strcpy_s(szCurrentDir_szDllCopyName, lpPathBuffer);
 				//strcat_s(szCurrentDir_szDllCopyName,"\\");
-				strcat_s(szCurrentDir_szDllCopyName,szDllCopyName);
+				strcat_s(szCurrentDir_szDllCopyName, szDllCopyName);
 				fDllCopyCreated = (FALSE != CopyFile(szCurrentDir_szPlugin, szCurrentDir_szDllCopyName, false));
 			}
 			if (i > 99) break; // Just in case...
 		}
 		strcpy_s(m_szDllName, szCurrentDir_szDllCopyName);
+#ifdef _X64
+		if (!IsDll64Bit(m_szDllName)) {
+#ifdef _VIEWER
+			MessageBox(NULL, "plugin has wrong arch (x86)", "UltraVNC - Plugin", MB_ICONSTOP);
+#else
+			vnclog.Print(0, VNCLOG("The encryption plugin has wrong arch (x86) \n"));
+#endif
+			return false;
+		}
+#else
+		if (IsDll64Bit(m_szDllName)) {
+#ifdef _VIEWER
+			MessageBox(NULL, "plugin has wrong arch (x64)", "UltraVNC - Plugin", MB_ICONSTOP);
+#else
+			vnclog.Print(0, VNCLOG("The encryption plugin has wrong arch (x64) \n"));
+#endif
+			return false;
+		}
+#endif
 		m_hPDll = LoadLibrary(m_szDllName);
 	}
 	else // Use the original plugin dll
@@ -393,6 +441,25 @@ bool CDSMPlugin::LoadPlugin(char* szPlugin, bool fAllowMulti)
 			strcpy_s(szCurrentDir_szPlugin,szCurrentDir);
 			strcat_s(szCurrentDir_szPlugin,"\\");
 			strcat_s(szCurrentDir_szPlugin,szPlugin);
+#ifdef _X64
+			if (!IsDll64Bit(szCurrentDir_szPlugin)) {
+#ifdef _VIEWER
+				MessageBox(NULL, "The encryption plugin has wrong arch (x86)", "UltraVNC - Plugin", MB_ICONSTOP);
+#else
+				vnclog.Print(0, VNCLOG("The encryption plugin has wrong arch (x86) \n"));
+#endif
+				return false;
+			}
+#else
+			if (IsDll64Bit(szCurrentDir_szPlugin)) {
+#ifdef _VIEWER
+				MessageBox(NULL, "The encryption plugin has wrong arch (x64)", "UltraVNC - Plugin", MB_ICONSTOP);
+#else
+			vnclog.Print(0, VNCLOG("The encryption plugin has wrong arch (x64) \n"));
+#endif
+				return false;
+			}
+#endif
 			m_hPDll = LoadLibrary(szCurrentDir_szPlugin);
 		}
 	}
@@ -419,7 +486,7 @@ bool CDSMPlugin::LoadPlugin(char* szPlugin, bool fAllowMulti)
 	loadDllFromMemory->LoadPlugin(m_PDescription, m_PShutdown, m_PStartup, m_PSetParams, m_PGetParams,
 		m_PTransformBuffer, m_PRestoreBuffer, m_PFreeBuffer, m_PReset,
 		m_PCreatePluginInterface, m_PCreateIntegratedPluginInterface, m_PConfig);
-#endif
+#endif // SC_20
 
 	if (m_PStartup == NULL || m_PShutdown == NULL || m_PSetParams == NULL || m_PGetParams == NULL
 		|| m_PTransformBuffer == NULL || m_PRestoreBuffer == NULL || m_PFreeBuffer == NULL ||
@@ -429,7 +496,7 @@ bool CDSMPlugin::LoadPlugin(char* szPlugin, bool fAllowMulti)
 #ifndef SC_20
 		FreeLibrary(m_hPDll); 
 		if (*m_szDllName) DeleteFile(m_szDllName);
-#endif
+#endif // SC_20
 		return false;
 	}
 
@@ -459,7 +526,7 @@ bool CDSMPlugin::UnloadPlugin(void)
 #ifndef SC_20
 		fFreed = (FALSE != FreeLibrary(m_hPDll));
 		if (*m_szDllName) DeleteFile(m_szDllName);
-#endif
+#endif // SC_20
 		return fFreed;
 	}
 	else
@@ -506,12 +573,12 @@ bool CDSMPlugin::SupportsIntegrated()
 //
 BYTE* CDSMPlugin::TransformBuffer(BYTE* pDataBuffer, int nDataLen, int* pnTransformedDataLen)
 {
-	// FixME: possible pb with this mutex in WinVNC
+	// FixME: possible pb with this mutex in UltraVNC Server
 #ifdef _VIEWER
 	omni_mutex_lock l(m_TransMutex);
 #else
 	omni_mutex_lock l(m_TransMutex,105);
-#endif
+#endif // _VIEWER
 
 	m_pTransBuffer = (*m_PTransformBuffer)(pDataBuffer, nDataLen, pnTransformedDataLen);
 
@@ -706,4 +773,3 @@ ConfigHelper::~ConfigHelper()
 		m_szPassphrase = NULL;
 	}
 }
-

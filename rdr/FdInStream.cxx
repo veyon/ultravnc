@@ -1,5 +1,6 @@
-// Copyright (C) 2002 UltraVNC Team Members. All Rights Reserved.
-// Copyright (C) 2002 RealVNC Ltd.  All Rights Reserved.
+/////////////////////////////////////////////////////////////////////////////
+// Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
+// Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
 //
 // This is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,6 +16,13 @@
 // along with this software; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 // USA.
+//
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
+
 
 #include <stdio.h>
 #include <string.h>
@@ -57,6 +65,7 @@ FdInStream::FdInStream(int fd_, int timeout_, int bufSize_)
 	m_fReadFromNetRectBuf = false;
 	m_nNetRectBufOffset = 0;
 	m_nReadSize = 0;
+	m_pNetRectSavePtr = m_pNetRectSaveEnd = m_pNetRectSaveStart = NULL;
 
 	m_nBytesRead = 0; // For stats
 }
@@ -75,6 +84,7 @@ FdInStream::FdInStream(int fd_, void (*blockCallback_)(void*),
 	m_fReadFromNetRectBuf = false;
 	m_nNetRectBufOffset = 0;
 	m_nReadSize = 0;
+	m_pNetRectSavePtr = m_pNetRectSaveEnd = m_pNetRectSaveStart = NULL;
 }
 
 FdInStream::~FdInStream()
@@ -123,6 +133,15 @@ int FdInStream::overrun(int itemSize, int nItems)
 {
   if (itemSize > bufSize)
     throw Exception("FdInStream overrun: max itemSize exceeded");
+
+  if (!m_fReadFromNetRectBuf && m_pNetRectSaveStart)
+  {
+	  delete [] start;
+	  ptr = m_pNetRectSavePtr;
+	  end = m_pNetRectSaveEnd;
+	  start = m_pNetRectSaveStart;
+	  m_pNetRectSavePtr = m_pNetRectSaveEnd = m_pNetRectSaveStart = NULL;
+  }
 
   if (end - ptr != 0)
     memmove(start, ptr, end - ptr);
@@ -375,6 +394,13 @@ void FdInStream::SetReadFromMemoryBuffer(int nReadSize, char* pMemBuffer)
 	m_nNetRectBufOffset = 0;   // Initial offset
 
 	m_fReadFromNetRectBuf = true; // Order to read from the buffer
+	if (end - ptr > 0)
+	{
+		m_pNetRectSavePtr = ptr;
+		m_pNetRectSaveEnd = end;
+		m_pNetRectSaveStart = start;
+		ptr = end = start = new U8[bufSize];
+	}
 }
 
 

@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,9 +16,10 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check 
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+
 
 // vncListDlg.cpp
 
@@ -33,6 +34,7 @@
 
 // [v1.0.2-jp1 fix] Load resouce from dll
 extern HINSTANCE	hInstResDLL;
+HWND listDlgHwnd = NULL;
 
 //
 //
@@ -65,9 +67,7 @@ void vncListDlg::Display()
 {
 	if (!m_dlgvisible)
 	{
-		// [v1.0.2-jp1 fix] Load resouce from dll
-		//DialogBoxParam(	hAppInstance,
-		DialogBoxParam(	hInstResDLL,
+		DialogBoxParam(hInstResDLL,
 						MAKEINTRESOURCE(IDD_LIST_DLG), 
 						NULL,
 						(DLGPROC) DialogProc,
@@ -87,9 +87,12 @@ BOOL CALLBACK vncListDlg::DialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 
 	case WM_INITDIALOG:
 		{
+			HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_WINVNC));
+			SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+			SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
             helper::SafeSetWindowUserData(hwnd, lParam);
-			_this = (vncListDlg *) lParam;
-
+			_this = (vncListDlg *) lParam;	
+			listDlgHwnd = hwnd;
 			//vncClientList::iterator i;
 			HWND hList = GetDlgItem(hwnd, IDC_VIEWERS_LISTBOX);
 
@@ -108,7 +111,7 @@ BOOL CALLBACK vncListDlg::DialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 			}
 			else EnableWindow(GetDlgItem(hwnd, IDC_KILL_B), true);
 
-			// Allow TextChat if one client only
+			// Allow Text Chat if one client only
 			/*
 			EnableWindow(GetDlgItem(hwnd, IDC_TEXTCHAT_B),
 				         _this->m_pServer->AuthClientCount() == 1 ? TRUE : FALSE);
@@ -136,8 +139,8 @@ BOOL CALLBACK vncListDlg::DialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 				if (SendMessage(hList, LB_GETTEXT, nSelected, (LPARAM)szClient) > 0)
 					_this->m_pServer->KillClient(szClient);
 			}
-			EndDialog(hwnd, TRUE);
-			_this->m_dlgvisible = FALSE;
+			//EndDialog(hwnd, TRUE);
+			//_this->m_dlgvisible = FALSE;
 			return TRUE;
 			}
 			break;
@@ -152,14 +155,30 @@ BOOL CALLBACK vncListDlg::DialogProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM
 				if (SendMessage(hList, LB_GETTEXT, nSelected, (LPARAM)szClient) > 0)
 					_this->m_pServer->TextChatClient(szClient);
 			}
-			EndDialog(hwnd, TRUE);
-			_this->m_dlgvisible = FALSE;
+			//EndDialog(hwnd, TRUE);
+			//_this->m_dlgvisible = FALSE;
 			return TRUE;
 			}
-			break;
-
+			break;		
 		}
 		break;
+
+	case WM_UPDATEVIEWERS:
+	{
+		HWND hList = GetDlgItem(hwnd, IDC_VIEWERS_LISTBOX);
+		_this->m_pServer->ListAuthClients(hList);
+		SendMessage(hList, LB_SETCURSEL, -1, 0);
+		HWND hPendingList = GetDlgItem(hwnd, IDC_PENDING_LISTBOX);
+		_this->m_pServer->ListUnauthClients(hPendingList);
+
+		SetForegroundWindow(hwnd);
+		_this->m_dlgvisible = TRUE;
+		if (!settings->getAllowEditClients())
+			EnableWindow(GetDlgItem(hwnd, IDC_KILL_B), false);
+		else
+			EnableWindow(GetDlgItem(hwnd, IDC_KILL_B), true);
+		return TRUE;
+	}
 
 	case WM_DESTROY:
 		EndDialog(hwnd, FALSE);

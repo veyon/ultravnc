@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 // 
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,9 +16,9 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check 
-// http://www.uvnc.com
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
 
@@ -30,6 +30,9 @@
 #include "richedit.h"
 #include "common/win32_helpers.h"
 #include <rdr/Exception.h>
+#include "UltraVNCHelperFunctions.h"
+
+using namespace helper;
 
 #define TEXTMAXSIZE 16384
 #define MAXNAMESIZE	128 // MAX_COMPUTERNAME_LENGTH+1 (32)
@@ -87,8 +90,7 @@ TextChat::TextChat(VNCviewerApp *pApp, ClientConnection *pCC)
 	m_hRichEdit = LoadLibrary( "RICHED32.DLL" );
 	if (!m_hRichEdit)
 	{  
-		MessageBox( NULL, sz_E1,
-					sz_E2, MB_OK | MB_ICONEXCLAMATION );
+		yesUVNCMessageBox(m_hInstResDLL, NULL, sz_E1, sz_E2, MB_ICONEXCLAMATION );
 		// Todo: do normal edit instead (no colors)
 	}
 
@@ -158,13 +160,13 @@ void TextChat::ProcessTextChatMsg()
 	
 	if (len == CHAT_OPEN)
 	{
-		// Open TextChat Dialog
+		// Open Text Chat Dialog
 		PostMessage(m_pCC->m_hwndMain, WM_SYSCOMMAND, ID_TEXTCHAT, (LPARAM)0L);
 		return;
 	}
 	else if (len == CHAT_CLOSE)
 	{
-		// Close TextChat Dialog
+		// Close Text Chat Dialog
 		if (!m_fTextChatRunning) return;
 		PostMessage(m_hDlg, WM_COMMAND, IDOK, 0);
 		return;
@@ -264,7 +266,7 @@ void TextChat::PrintMessage(const char* szMessage,const char* szSender,DWORD dwC
 			SetTextFormat(false, false, 0x75, "MS Sans Serif", dwColor);
 		}
 		else{
-			SetTextFormat(false, false, 0xb4, "‚l‚r ‚oƒSƒVƒbƒN", dwColor);
+			SetTextFormat(false, false, 0xb4, "ï¼­ï¼³ ã‚´ã‚·ãƒƒã‚¯", dwColor);
 		}
 		// [<--v1.0.2-jp1 fix]
 
@@ -286,7 +288,7 @@ void TextChat::PrintMessage(const char* szMessage,const char* szSender,DWORD dwC
 			SetTextFormat(false, false, 0x75, "MS Sans Serif", dwColor != GREY ? BLACK : GREY);	
 		}
 		else{
-			SetTextFormat(false, false, 0xb4, "‚l‚r ‚oƒSƒVƒbƒN", dwColor != GREY ? BLACK : GREY);	
+			SetTextFormat(false, false, 0xb4, "ï¼­ï¼³ ã‚´ã‚·ãƒƒã‚¯", dwColor != GREY ? BLACK : GREY);
 		}
 		// [<--v1.0.2-jp1 fix]
 
@@ -301,10 +303,10 @@ void TextChat::PrintMessage(const char* szMessage,const char* szSender,DWORD dwC
     si.cbSize = sizeof(SCROLLINFO);
     si.fMask = SIF_RANGE|SIF_PAGE;
     GetScrollInfo(GetDlgItem(m_hDlg, IDC_CHATAREA_EDIT), SB_VERT, &si);
-	si.nPos = si.nMax - max(si.nPage - 1, 0);
+	si.nPos = si.nMax - maximum(si.nPage - 1, 0);
 	SendDlgItemMessage(m_hDlg, IDC_CHATAREA_EDIT, WM_VSCROLL, MAKELONG(SB_THUMBPOSITION, si.nPos), 0L);	// Scroll down the ch
 
-	// This line does the bottom scrolling correctly under NT4,W2K, XP...
+	// This line does the bottom scrolling correctly under Windows NT4, Windows 2000, Windows XP...
 	// SendDlgItemMessage(m_hDlg, IDC_CHATAREA_EDIT, WM_VSCROLL, SB_BOTTOM, 0L);
 
 }
@@ -430,6 +432,9 @@ BOOL CALLBACK TextChat::TextChatDlgProc(  HWND hWnd,  UINT uMsg,  WPARAM wParam,
 
 	case WM_INITDIALOG:
 		{
+			HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDR_TRAY));
+			SendMessage(hWnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+			SendMessage(hWnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
             helper::SafeSetWindowUserData(hWnd, lParam);
             TextChat *_this = (TextChat *) lParam;
 			if (_this->m_szLocalText == NULL || _this->m_szRemoteText == NULL)
@@ -465,7 +470,7 @@ BOOL CALLBACK TextChat::TextChatDlgProc(  HWND hWnd,  UINT uMsg,  WPARAM wParam,
 			const long lTitleBufSize=256;			
 			char szTitle[lTitleBufSize] = {};
 
-			_snprintf_s(szTitle, lTitleBufSize-1, _TRUNCATE, " Chat with <%s> - UltraVNC",_this->m_szRemoteName);
+			_snprintf_s(szTitle, lTitleBufSize-1, _TRUNCATE, "UltraVNC Viewer - Chat with <%s>",_this->m_szRemoteName);
 			SetWindowText(hWnd, szTitle);			
 
 			// Trunc the remote name for display in Chat Area before the first parenthesis, if any.
@@ -501,14 +506,14 @@ BOOL CALLBACK TextChat::TextChatDlgProc(  HWND hWnd,  UINT uMsg,  WPARAM wParam,
 			si.cbSize = sizeof(SCROLLINFO);
 			si.fMask = SIF_RANGE|SIF_PAGE;
 			GetScrollInfo(GetDlgItem(hWnd, IDC_CHATAREA_EDIT), SB_VERT, &si);
-			si.nPos = si.nMax - max(si.nPage - 1, 0);
+			si.nPos = si.nMax - maximum(si.nPage - 1, 0);
 			SendDlgItemMessage(hWnd, IDC_CHATAREA_EDIT, WM_VSCROLL, MAKELONG(SB_THUMBPOSITION, si.nPos), 0L);	
-			// This line does the bottom scrolling correctly under NT4,W2K, XP...
+			// This line does the bottom scrolling correctly under Windows NT4, Windows 2000, Windows XP...
 			// SendDlgItemMessage(m_hDlg, IDC_CHATAREA_EDIT, WM_VSCROLL, SB_BOTTOM, 0L);
 
 			// SendDlgItemMessage(hWnd, IDC_PERSISTENT_CHECK, BM_SETCHECK, _this->m_fPersistentTexts, 0);
 
-			// Tell the other side to open the TextChat Window
+			// Tell the other side to open the Text Chat Window
 			_this->SendTextChatRequest(CHAT_OPEN);
 
 			SetForegroundWindow(hWnd);
@@ -530,7 +535,7 @@ BOOL CALLBACK TextChat::TextChatDlgProc(  HWND hWnd,  UINT uMsg,  WPARAM wParam,
 		*/
 
 		case IDOK:
-			// Server orders to close TextChat 			
+			// Server orders to close Text Chat 			
 
 			// [v1.0.2-jp1 fix] UNSUBCLASS Split bar
             helper::SafeSetWindowProc(GetDlgItem(hWnd, IDC_STATIC_SPLIT), pDefSBProc);
@@ -539,7 +544,7 @@ BOOL CALLBACK TextChat::TextChatDlgProc(  HWND hWnd,  UINT uMsg,  WPARAM wParam,
 			return TRUE;
 
 		case IDCANCEL:			
-			_this->SendTextChatRequest(CHAT_CLOSE); // Server must close TextChat
+			_this->SendTextChatRequest(CHAT_CLOSE); // Server must close Text Chat
 
 			// [v1.0.2-jp1 fix] UNSUBCLASS Split bar
             helper::SafeSetWindowProc(GetDlgItem(hWnd, IDC_STATIC_SPLIT), pDefSBProc);

@@ -1,102 +1,225 @@
-zipunzip_src/unzip/windll/vc6/lib/Debug/
-zipunzip_src/zip20/windll/visualc/lib/Debug/
+## Ignore Visual Studio temporary files, build results
+
+# User-specific files
+*.suo
 *.user
-winvnc/Debug/
-winvnc/bin/
-vncviewer/omnithread/Debug/
-winvnc/.vs/
-vncviewer/Debug/
-vncviewer/bin/
-vncviewer/.vs/
-winvnc/omnithread/Debug/
-rdr/Debug/
-libjpeg-turbo-win/Debug/
-xz/windows/Debug/
-zlib/contrib/vstudio/vc15/x86/ZlibStatDebug/
-libjpeg-turbo-win/Release/
-libjpeg-turbo-win/x64/
-rdr/Release/
-*.obj
-*.log
-*.tlog
-*.lib
-*.pdb
-*.exe
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+build/
+
+# Visual Studio 2015/2017 cache/options directory
+.vs/
+
+# Visual Studio 2017 auto generated files
+Generated\ Files/
+
+# MSTest test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# Visual C++ cache files
+ipch/
+*.aps
+*.ncb
+*.opendb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db
+*.VC.VC.opendb
+
+# Visual Studio cache files
+# files ending in .cache can be ignored
+*.[Cc]ache
+# but keep track of directories ending in .cache
+# !?*.[Cc]ache/
+
+# Files built by Visual Studio
+*.ilk
 *.iobj
 *.ipdb
-*.res
-*.aps
-*.lastbuildstate
-*.ipch
-*.cache
-*.sbr
-vncviewer/x64/
-*.sdf
-zlib/.vs/
-zlib/lib/Win32/
-zlib/lib/x64/
-winvnc/winvnc/My Inspector Results - winvnc/
-winvnc/winvnc/x64/
-zipunzip_src/zip20/windll/visualc/lib/Release/
-winvnc/Release/
-zipunzip_src/unzip/windll/vc6/lib/x64/Debug/
-zipunzip_src/unzip/windll/vc6/lib/x64/Release/
-rdr/x64/Debug/
-rdr/x64/Release/
-vncviewer/omnithread/Release/
-vncviewer/omnithread/x64/Debug/
-vncviewer/omnithread/x64/Release/
-zlib/x64/Release/
-zlib/Debug/
-zipunzip_src/unzip/windll/vc6/lib/Release/
-xz/windows/Release/Win32/liblzma/
-winvnc/winvnc/Debug/
-zipunzip_src/zip20/windll/visualc/lib/x64/Debug/
-zipunzip_src/zip20/windll/visualc/lib/x64/Release/
-xz/windows/Release/
-winvnc/omnithread/x64/
-winvnc/winvnc/Release/
-zlib/x64/Debug/
-zlib/Release/
-winvnc/omnithread/Release/
-vncviewer/Release/
-repeater/.vs/
-winvnc/winvnc/VTune Profiler Results/
-Files/
-uvnc_settings2/.vs/
-uvnc_settings2/uvnc_settings/Release/
-uvnc_settings2/uvnc_settings/x64/Release/uvnc_settings.exe.recipe
-vncviewer/My Inspector Results - vncviewer/
-winvnc/GPUCache/
-vncviewer/GPUCache/
-GPUCache/
-winvnc/UltraVnc/.vs/
-uvnc_settings2/uvnc_settings/
-winvnc/x64/
-*FileListAbsolute.txt
-addon/ms-logon/authadm/x64/
-addon/ms-logon/authSSP/x64/
-addon/ms-logon/ldapauth/x64/Release/ldapauth.dll
-addon/ms-logon/ldapauth/x64/
-addon/ms-logon/ldapauth9x/x64/
-addon/ms-logon/ldapauthNT4/x64/
-addon/ms-logon/workgrpdomnt4/x64/
-winvnc/createpassword/x64/
-setpasswd/setpasswd/Debug/
-winvnc/createpassword/Debug/
-libjpeg-turbo-win/DebugLib-Static/
-*.recipe
+*.log
+*.obj
 *.pch
+*.pdb
+*.sbr
+*.tlog
+
+# Visual Studio 6 workspace and project file (working project files containing files to include in project)
+*.dsw
+*.dsp
+
+# file extensions
+*.bsc
+*.exe
 *.idb
-addon/ms-logon/logging/x64/
-*.suo
-udt4/win/.vs/
-udt4/win/x64/
-rdr/.vs/
-*.ilk
-zipunzip_src/zip20/windll/visualc/lib/.vs/
-vncviewer/VTune Profiler Results/
-winvnc/SC_20_DEBUG/
-winvnc/SC_20/workgrpdomnt4.exp
-winvnc/SC_20/
-winvnc/vnchooks/x64/
+*.lastbuildstate
+*.lib
+*.recipe
+*.res
+
+# Windows Installer files from build outputs
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+
+# vcpkg - Start
+/vcpkg_installed*/
+# vcpkg - End
+
+# File
+*FileListAbsolute.txt
+
+# Folders
+bin/
+GPUCache/
+IPV6/
+My Inspector Results - vncviewer/
+My Inspector Results - winvnc/
+NOacceleration/
+Rel_Vista/
+Rel_XP/
+Release64/
+Release86/
+Release_Vista/
+RelIPv6/
+SC_20/
+SC_20_DEBUG/
+udt.tlog/
+VTune Profiler Results/
+
+# OS generated files #
+# =========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+# =========================
+
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
+ehthumbs_vista.db
+
+# Folder config file
+Desktop.ini
+
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# Windows shortcuts
+*.lnk
+
+# =========================
+
+
+# CMakeSpecific Ignore configuration file  
+CMakeUserPresets.json
+
+
+# Qt Specific gitignore
+
+# Customized ignore section ---------------------------
+.qtc_clangd/
+
+build/
+
+addon/Debug/
+addon/eventMessageLogger/MSG00001.bin
+addon/ms-logon/MSLogonACL/buildtime.h
+addon/ms-logon/authSSP/buildtime.h
+
+cmake/CMakeUserPresets.json
+cmake/build/
+cmake/out/
+
+vcpkg-configuration.json
+
+zlib/
+zstd/
+
+# End Customized ignore section ----------------------
+
+# Comment the "Customized ignore section" upper if you want the original gitignore for Qt from GitHub
+
+# C++ objects and libs
+*.slo
+*.lo
+*.o
+*.a
+*.la
+*.lai
+*.so
+*.so.*
+*.dll
+*.dylib
+
+# Qt-es
+object_script.*.Release
+object_script.*.Debug
+*_plugin_import.cpp
+/.qmake.cache
+/.qmake.stash
+*.pro.user
+*.pro.user.*
+*.qbs.user
+*.qbs.user.*
+*.moc
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.qmlc
+*.jsc
+Makefile*
+*build-*
+*.qm
+*.prl
+
+# Qt unit tests
+target_wrapper.*
+
+# QtCreator
+*.autosave
+
+# QtCreator Qml
+*.qmlproject.user
+*.qmlproject.user.*
+
+# QtCreator CMake
+CMakeLists.txt.user*
+
+# QtCreator 4.8< compilation database
+compile_commands.json
+
+# QtCreator local machine specific files for imported projects
+*creator.user*
+
+*_qmlcache.qrc
+
+# End Qt Specific gitignore
+ultravnc_service/x64/
+ultravnc_service/src/.opencppcov/
+vncviewer/vcpkg_installed/
+winvnc/winvnc/vcpkg_installed/

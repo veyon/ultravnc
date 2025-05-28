@@ -1,10 +1,10 @@
+/////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //  Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
 //  Copyright (C) 2001 HorizonLive.com, Inc. All Rights Reserved.
 //  Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
 //
-//  This file is part of the VNC system.
-//
-//  The VNC system is free software; you can redistribute it and/or modify
+//  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
@@ -19,9 +19,11 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the VNC system is not available from the place 
-// whence you received this file, check http://www.uk.research.att.com/vnc or contact
-// the authors on vnc@uk.research.att.com for information on obtaining it.
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
 
 
 // VSocket.cpp
@@ -65,7 +67,7 @@ class VSocket;
 #include "vtypes.h"
 #include "SettingsManager.h"
 ////////////////////////////////////////////////////////
-// *** Lovely hacks to make Win32 work.  Hurrah!
+// *** Lovely hacks to make Win32 work. Hurrah!
 
 #ifdef __WIN32__
 #ifndef EWOULDBLOCK
@@ -131,13 +133,11 @@ int VSocket::m_defaultSocketKeepAliveTimeout = 10000;
 VSocket::VSocket()
 {
 	// Clear out the internal socket fields
-#ifdef IPV6V4
+
 	sock4 = INVALID_SOCKET;
 	sock6 = INVALID_SOCKET;
-#else
 	sock = INVALID_SOCKET;
 
-#endif
 #ifdef DSM_SUPPORT
 	//vnclog.Print(LL_SOCKINFO, VNCLOG("VSocket() m_pDSMPlugin = NULL \n"));
 	m_pDSMPlugin = NULL;
@@ -179,7 +179,6 @@ VSocket::~VSocket()
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 
-#ifdef IPV6V4
 VBool
 VSocket::CreateConnect(const VString address, const VCard port)
 {
@@ -358,13 +357,9 @@ VBool	VSocket::CreateBindListen(const VCard port, const VBool localOnly)
 	if (i == 0) return VFalse;
 	return VTrue;
 }
-#endif
+
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
-
-
-#ifdef IPV6V4
-#else
 VBool
 VSocket::Create()
 {
@@ -389,11 +384,11 @@ VSocket::Create()
   SetDefaultSocketOptions();
   return VTrue;
 }
-#endif
+
 ////////////////////////////
-#ifdef IPV6V4
+
 VBool
-VSocket::Close()
+VSocket::CloseIPV6()
 {
 	if (sock4 != INVALID_SOCKET) Close4();
 	if (sock6 != INVALID_SOCKET) Close6();
@@ -438,9 +433,9 @@ VSocket::Close6()
 
 	return VTrue;
 }
-#else
+
 VBool
-VSocket::Close()
+VSocket::CloseIPV4()
 {
   if (sock != INVALID_SOCKET)
     {
@@ -465,11 +460,22 @@ VSocket::Close()
 #endif
   return VTrue;
 }
-#endif
-////////////////////////////
-#ifdef IPV6V4
+
+
 VBool
-VSocket::Shutdown()
+VSocket::Close()
+{
+	if (settings->getIPV6())
+		return CloseIPV6();
+	else
+		return CloseIPV4();
+}
+
+
+////////////////////////////
+
+VBool
+VSocket::ShutdownIPV6()
 {
 	//shutdown both, if not used sock=-1
 	if (sock4 != INVALID_SOCKET) Shutdown4();
@@ -490,9 +496,9 @@ VSocket::Shutdown6()
 	shutdown(sock6, SD_BOTH);
 	return VTrue;
 }
-#else
+
 VBool
-VSocket::Shutdown()
+VSocket::ShutdownIPV4()
 {
   if (sock != INVALID_SOCKET)
     {
@@ -504,9 +510,17 @@ VSocket::Shutdown()
     }
   return VTrue;
 }
-#endif
+
+VBool
+VSocket::Shutdown()
+{
+	if (settings->getIPV6())
+		return ShutdownIPV6();
+	else
+		return ShutdownIPV4();
+}
 ////////////////////////////
-#ifdef IPV6V4
+
 VBool
 VSocket::Bind4(const VCard port, const VBool localOnly)
 {
@@ -556,7 +570,7 @@ VSocket::Bind6(const VCard port, const VBool localOnly)
 
 	return VTrue;
 }
-#else
+
 VBool
 VSocket::Bind(const VCard port, const VBool localOnly)
 {
@@ -580,11 +594,9 @@ VSocket::Bind(const VCard port, const VBool localOnly)
 
   return VTrue;
 }
-#endif
+
 
 ////////////////////////////
-#ifdef IPV6V4
-#else
 VBool
 VSocket::Connect(const VString address, const VCard port)
 {
@@ -627,10 +639,8 @@ VSocket::Connect(const VString address, const VCard port)
 
   return VTrue;
 }
-#endif
-////////////////////////////
 
-#ifdef IPV6V4
+////////////////////////////
 VBool
 VSocket::Listen4()
 {
@@ -657,7 +667,7 @@ VSocket::Listen6()
 
 	return VTrue;
 }
-#else
+
 VBool
 VSocket::Listen()
 {
@@ -671,11 +681,9 @@ VSocket::Listen()
 
   return VTrue;
 }
-#endif
 ////////////////////////////
-#ifdef IPV6V4
 VSocket *
-VSocket::Accept()
+VSocket::AcceptIPV6()
 {
 	fd_set SockSet;
 
@@ -783,9 +791,9 @@ VSocket::Accept6()
 	// Put the socket into non-blocking mode
 	return new_socket;
 }
-#else
+
 VSocket *
-VSocket::Accept()
+VSocket::AcceptIPV4()
 {
 	SOCKET new_socket_id;
 	VSocket * new_socket;
@@ -822,12 +830,21 @@ VSocket::Accept()
   // Put the socket into non-blocking mode
   return new_socket;
 }
-#endif
+
+VSocket*
+VSocket::Accept()
+{
+	if (settings->getIPV6())
+		return AcceptIPV6();
+	else
+		return AcceptIPV4();
+}
+
 ////////////////////////////
 ////////////////////////////
-#ifdef IPV6V4
+
 VString
-VSocket::GetPeerName(bool naam)
+VSocket::GetPeerNameIPV6(bool naam)
 {
 	if (sock4 != INVALID_SOCKET) return GetPeerName4(naam);
 	if (sock6 != INVALID_SOCKET) return GetPeerName6(naam);
@@ -870,9 +887,9 @@ VSocket::GetPeerName6(bool naam)
 	else
 		return straddr;
 }
-#else
+
 VString
-VSocket::GetPeerName(bool naam)
+VSocket::GetPeerNameIPV4(bool naam)
 {
 	// the lookup is to slow
 	naam = false;
@@ -901,11 +918,19 @@ VSocket::GetPeerName(bool naam)
 	else
 		return name;
 }
-#endif
-////////////////////////////
-#ifdef IPV6V4
+
+
 VString
-VSocket::GetSockName()
+VSocket::GetPeerName(bool naam)
+{
+	if (settings->getIPV6())
+		return GetPeerNameIPV6(naam);
+	else
+		return GetPeerNameIPV4(naam);
+}
+////////////////////////////
+VString
+VSocket::GetSockNameIPV6()
 {
 	if (sock4 != INVALID_SOCKET ) return GetSockName4();
 	if (sock6 != INVALID_SOCKET ) return GetSockName6();
@@ -950,9 +975,9 @@ VSocket::GetSockName6()
 	else
 		return straddr2;
 }
-#else
+
 VString
-VSocket::GetSockName()
+VSocket::GetSockNameIPV4()
 {
 	struct sockaddr_in	sockinfo;
 	struct in_addr		address;
@@ -969,9 +994,17 @@ VSocket::GetSockName()
 	else
 		return name;
 }
-#endif
+
+VString
+VSocket::GetSockName()
+{
+	if (settings->getIPV6())
+		return GetSockNameIPV6();
+	else
+		return GetSockNameIPV4();
+}
 // 25 January 2008 jdp
-#ifdef IPV6V4
+
 bool VSocket::GetPeerAddress4(char *address, int size)
 {
 	struct sockaddr_in addr;
@@ -1003,7 +1036,7 @@ bool VSocket::GetPeerAddress6(char *address, int size)
 
 	return true;
 }
-#else
+
 bool VSocket::GetPeerAddress(char *address, int size)
 {
     struct sockaddr_in addr;
@@ -1021,9 +1054,9 @@ bool VSocket::GetPeerAddress(char *address, int size)
 
     return true;
 }
-#endif
+
 ////////////////////////////
-#ifdef IPV6V4
+
 VCard32
 VSocket::Resolve4(const VString address)
 {
@@ -1101,7 +1134,7 @@ VSocket::Resolve6(const VString address, in6_addr *addr)
 
 	return IsIpv6;
 }
-#else
+
 VCard32
 VSocket::Resolve(const VString address)
 {
@@ -1129,11 +1162,9 @@ VSocket::Resolve(const VString address)
   // Return the resolved IP address as an integer
   return addr;
 }
-#endif
-////////////////////////////
 
+////////////////////////////
 // adzm 2010-08
-#ifdef IPV6V4
 VBool
 VSocket::SetDefaultSocketOptions4()
 {
@@ -1161,7 +1192,7 @@ VSocket::SetDefaultSocketOptions4()
 			keepalive_requested.onoff = 1;
 			keepalive_requested.keepalivetime = defaultSocketKeepAliveTimeout;
 			keepalive_requested.keepaliveinterval = 1000;
-			// 10 probes always used by default in Vista+; not changeable. 
+			// 10 probes always used by default in Windows Vista+; not changeable. 
 
 			if (0 != WSAIoctl(sock4, SIO_KEEPALIVE_VALS,
 				&keepalive_requested, sizeof(keepalive_requested),
@@ -1203,7 +1234,7 @@ VSocket::SetDefaultSocketOptions6()
 			keepalive_requested.onoff = 1;
 			keepalive_requested.keepalivetime = defaultSocketKeepAliveTimeout;
 			keepalive_requested.keepaliveinterval = 1000;
-			// 10 probes always used by default in Vista+; not changeable. 
+			// 10 probes always used by default in Windows Vista+; not changeable. 
 
 			if (0 != WSAIoctl(sock6, SIO_KEEPALIVE_VALS,
 				&keepalive_requested, sizeof(keepalive_requested),
@@ -1218,7 +1249,7 @@ VSocket::SetDefaultSocketOptions6()
 	assert(result);
 	return result;
 }
-#else
+
 VBool
 VSocket::SetDefaultSocketOptions()
 {
@@ -1245,7 +1276,7 @@ VSocket::SetDefaultSocketOptions()
 			keepalive_requested.onoff = 1;
 			keepalive_requested.keepalivetime = defaultSocketKeepAliveTimeout;
 			keepalive_requested.keepaliveinterval = 1000;
-			// 10 probes always used by default in Vista+; not changeable. 
+			// 10 probes always used by default in Windows Vista+; not changeable. 
 
 			if (0 != WSAIoctl(sock, SIO_KEEPALIVE_VALS, 
 					&keepalive_requested, sizeof(keepalive_requested), 
@@ -1258,11 +1289,10 @@ VSocket::SetDefaultSocketOptions()
 	}
 	return result;
 } 
-#endif
+
 ////////////////////////////
-#ifdef IPV6V4
 VBool
-VSocket::SetTimeout(VCard32 msecs)
+VSocket::SetTimeoutIPV6(VCard32 msecs)
 {
 	if (sock4 != INVALID_SOCKET) SetTimeout4(msecs);
 	if (sock6 != INVALID_SOCKET) SetTimeout6(msecs);
@@ -1286,7 +1316,7 @@ VSocket::SetTimeout4(VCard32 msecs)
 	return VTrue;
 }
 
-VBool VSocket::SetSendTimeout(VCard32 msecs)
+VBool VSocket::SetSendTimeoutIPV6(VCard32 msecs)
 {
 	if (sock4 != INVALID_SOCKET) SetTimeout4(msecs);
 	if (sock6 != INVALID_SOCKET) SetTimeout6(msecs);
@@ -1294,7 +1324,7 @@ VBool VSocket::SetSendTimeout(VCard32 msecs)
 
 }
 
-VBool VSocket::SetRecvTimeout(VCard32 msecs)
+VBool VSocket::SetRecvTimeoutIPV6(VCard32 msecs)
 {
 
 	if (sock4 != INVALID_SOCKET) SetTimeout4(msecs);
@@ -1337,9 +1367,9 @@ VBool VSocket::SetRecvTimeout6(VCard32 msecs)
 {
 	return SetTimeout6(msecs);
 }
-#else
+
 VBool
-VSocket::SetTimeout(VCard32 msecs)
+VSocket::SetTimeoutIPV4(VCard32 msecs)
 {
 	if (LOBYTE(winsockVersion) < 2)
 		return VFalse;
@@ -1355,20 +1385,44 @@ VSocket::SetTimeout(VCard32 msecs)
 	return VTrue;
 }
 
-VBool VSocket::SetSendTimeout(VCard32 msecs)
+VBool VSocket::SetSendTimeoutIPV4(VCard32 msecs)
 {
     return SetTimeout (msecs);
 }
 
-VBool VSocket::SetRecvTimeout(VCard32 msecs)
+VBool VSocket::SetRecvTimeoutIPV4(VCard32 msecs)
 {
     return SetTimeout (msecs);
 }
-#endif
+
+
+VBool
+VSocket::SetTimeout(VCard32 msecs)
+{
+	if (settings->getIPV6())
+		return SetTimeoutIPV6(msecs);
+	else
+		return SetTimeoutIPV4(msecs);
+}
+
+VBool VSocket::SetSendTimeout(VCard32 msecs)
+{
+	if (settings->getIPV6())
+		return SetSendTimeoutIPV6(msecs);
+	else
+		return SetSendTimeoutIPV4(msecs);
+}
+
+VBool VSocket::SetRecvTimeout(VCard32 msecs)
+{
+	if (settings->getIPV6())
+		return SetRecvTimeoutIPV6(msecs);
+	else
+		return SetRecvTimeoutIPV4(msecs);
+}
 ////////////////////////////
-#ifdef IPV6V4
 VInt
-VSocket::Send(const char *buff, const VCard bufflen)
+VSocket::SendIPV6(const char *buff, const VCard bufflen)
 {
 
 	if (sock4 != INVALID_SOCKET) return  SendSock(buff, bufflen, sock4);
@@ -1414,9 +1468,9 @@ VSocket::SendSock(const char *buff, const VCard bufflen, SOCKET allsock)
 	queuebuffersize=0;
 	return bufflen;
 }
-#else
+
 VInt
-VSocket::Send(const char *buff, const VCard bufflen)
+VSocket::SendIPV4(const char *buff, const VCard bufflen)
 {
 	//adzm 2010-08-01
 	m_LastSentTick = GetTickCount();
@@ -1454,11 +1508,20 @@ VSocket::Send(const char *buff, const VCard bufflen)
 	queuebuffersize=0;
 	return bufflen;
 }
-#endif
-////////////////////////////
-#ifdef IPV6V4
+
+
 VInt
-VSocket::SendQueued(const char *buff, const VCard bufflen)
+VSocket::Send(const char* buff, const VCard bufflen)
+{
+	if (settings->getIPV6())
+		return SendIPV6(buff, bufflen);
+	else
+		return SendIPV4(buff, bufflen);
+}
+
+////////////////////////////
+VInt
+VSocket::SendQueuedIPV6(const char *buff, const VCard bufflen)
 {
 	if (sock4 != INVALID_SOCKET) return  SendQueuedSock(buff, bufflen, sock4);
 	if (sock6 != INVALID_SOCKET) return SendQueuedSock(buff, bufflen, sock6);
@@ -1501,9 +1564,9 @@ VSocket::SendQueuedSock(const char *buff, const VCard bufflen, SOCKET allsock)
 	queuebuffersize+=bufflen2;
 	return bufflen;
 }
-#else
+
 VInt
-VSocket::SendQueued(const char *buff, const VCard bufflen)
+VSocket::SendQueuedIPV4(const char *buff, const VCard bufflen)
 {
 	unsigned int newsize=queuebuffersize+bufflen;
 	char *buff2;
@@ -1538,13 +1601,21 @@ VSocket::SendQueued(const char *buff, const VCard bufflen)
 	queuebuffersize+=bufflen2;
 	return bufflen;
 }
-#endif
+
+
+VInt
+VSocket::SendQueued(const char* buff, const VCard bufflen)
+{
+	if (settings->getIPV6())
+		return SendQueuedIPV6(buff, bufflen);
+	else
+		return SendQueuedIPV4(buff, bufflen);
+}
 /////////////////////////////
 
 // sf@2002 - DSMPlugin
-#ifdef IPV6V4
 VBool
-VSocket::SendExact(const char *buff, const VCard bufflen, unsigned char msgType)
+VSocket::SendExactIPV6(const char *buff, const VCard bufflen, unsigned char msgType)
 {
 	if (sock4 != INVALID_SOCKET) return SendExactSock(buff, bufflen, msgType, sock4);
 	if (sock6 != INVALID_SOCKET) return SendExactSock(buff, bufflen, msgType, sock6);
@@ -1571,9 +1642,9 @@ VSocket::SendExactSock(const char *buff, const VCard bufflen, unsigned char msgT
 
 	return VTrue;
 }
-#else
+
 VBool
-VSocket::SendExact(const char *buff, const VCard bufflen, unsigned char msgType)
+VSocket::SendExactIPV4(const char *buff, const VCard bufflen, unsigned char msgType)
 {
 	if (sock==-1) return VFalse;
 	//vnclog.Print(LL_SOCKERR, VNCLOG("SendExactMsg %i\n") ,bufflen);
@@ -1593,11 +1664,19 @@ VSocket::SendExact(const char *buff, const VCard bufflen, unsigned char msgType)
 
 	return VTrue;
 }
-#endif
 
-#ifdef IPV6V4
+VInt
+VSocket::SendExact(const char* buff, const VCard bufflen, unsigned char msgType)
+{
+	if (settings->getIPV6())
+		return SendExactIPV6(buff, bufflen, msgType);
+	else
+		return SendExactIPV4(buff, bufflen, msgType);
+}
+
+
 VBool 
-VSocket::SendExactQueue(const char *buff, const VCard bufflen, unsigned char msgType)
+VSocket::SendExactQueueIPV6(const char *buff, const VCard bufflen, unsigned char msgType)
 {
 	if (sock4 != INVALID_SOCKET) return SendExactQueueSock(buff, bufflen, msgType, sock4);
 	if (sock6 != INVALID_SOCKET) return SendExactQueueSock(buff, bufflen, msgType, sock6);
@@ -1624,10 +1703,10 @@ VSocket::SendExactQueueSock(const char *buff, const VCard bufflen, unsigned char
 
 	return VTrue;
 }
-#else
+
 //adzm 2010-09 - minimize packets. SendExact flushes the queue.
 VBool 
-VSocket::SendExactQueue(const char *buff, const VCard bufflen, unsigned char msgType)
+VSocket::SendExactQueueIPV4(const char *buff, const VCard bufflen, unsigned char msgType)
 {
 	if (sock==-1) return VFalse;
 	//vnclog.Print(LL_SOCKERR, VNCLOG("SendExactMsg %i\n") ,bufflen);
@@ -1647,11 +1726,19 @@ VSocket::SendExactQueue(const char *buff, const VCard bufflen, unsigned char msg
 
 	return VTrue;
 }
-#endif
+
+
+VInt
+VSocket::SendExactQueue(const char* buff, const VCard bufflen, unsigned char msgType)
+{
+	if (settings->getIPV6())
+		return SendExactQueueIPV6(buff, bufflen, msgType);
+	else
+		return SendExactQueueIPV4(buff, bufflen, msgType);
+}
 //////////////////////////////////////////
-#ifdef IPV6V4
 VBool
-VSocket::SendExact(const char *buff, const VCard bufflen)
+VSocket::SendExactIPV6(const char *buff, const VCard bufflen)
 {
 	if (sock4 != INVALID_SOCKET) return SendExactSock(buff, bufflen, sock4);
 	if (sock6 != INVALID_SOCKET) return SendExactSock(buff, bufflen, sock6);
@@ -1702,9 +1789,9 @@ VSocket::SendExactSock(const char *buff, const VCard bufflen, SOCKET allsock)
 	VInt result=Send(pBuffer, nBufflen);
   return result == (VInt)nBufflen;
 }
-#else
+
 VBool
-VSocket::SendExact(const char *buff, const VCard bufflen)
+VSocket::SendExactIPV4(const char *buff, const VCard bufflen)
 {	
 	if (sock==-1) return VFalse;
 	//adzm 2010-09
@@ -1747,11 +1834,20 @@ VSocket::SendExact(const char *buff, const VCard bufflen)
 	VInt result=Send(pBuffer, nBufflen);
   return result == (VInt)nBufflen;
 }
-#endif
+
+
+VInt
+VSocket::SendExact(const char* buff, const VCard bufflen)
+{
+	if (settings->getIPV6())
+		return SendExactIPV6(buff, bufflen);
+	else
+		return SendExactIPV4(buff, bufflen);
+}
 ///////////////////////////////////////
-#ifdef IPV6V4
+
 VBool
-VSocket::SendExactQueue(const char *buff, const VCard bufflen)
+VSocket::SendExactQueueIPV6(const char *buff, const VCard bufflen)
 {
 	if (sock4 != INVALID_SOCKET) return SendExactQueueSock(buff, bufflen, sock4);
 	if (sock6 != INVALID_SOCKET) return SendExactQueueSock(buff, bufflen, sock6);
@@ -1802,9 +1898,9 @@ VSocket::SendExactQueueSock(const char *buff, const VCard bufflen, SOCKET allsoc
 	VInt result = SendQueued(pBuffer, nBufflen);
 	return result == (VInt)nBufflen;
 }
-#else
+
 VBool
-VSocket::SendExactQueue(const char *buff, const VCard bufflen)
+VSocket::SendExactQueueIPV4(const char *buff, const VCard bufflen)
 {
 	if (sock==-1) return VFalse;
 	//adzm 2010-09
@@ -1848,11 +1944,18 @@ VSocket::SendExactQueue(const char *buff, const VCard bufflen)
 	VInt result=SendQueued(pBuffer, nBufflen);
   return result == (VInt)nBufflen;
 }
-#endif
+
+VInt
+VSocket::SendExactQueue(const char* buff, const VCard bufflen)
+{
+	if (settings->getIPV6())
+		return SendExactQueueIPV6(buff, bufflen);
+	else
+		return SendExactQueueIPV4(buff, bufflen);
+}
 ///////////////////////////////
-#ifdef IPV6V4
 VBool
-VSocket::ClearQueue()
+VSocket::ClearQueueIPV6()
 {
 	if (sock4 != INVALID_SOCKET) return ClearQueueSock(sock4);
 	if (sock6 != INVALID_SOCKET) return ClearQueueSock(sock6);
@@ -1875,9 +1978,8 @@ VSocket::ClearQueueSock(SOCKET allsock)
 	GetOptimalSndBuf();
 	return VTrue;
 }
-#else
 VBool
-VSocket::ClearQueue()
+VSocket::ClearQueueIPV4()
 {
 	if (sock==-1) return VFalse;
 	if (queuebuffersize!=0)
@@ -1892,11 +1994,18 @@ VSocket::ClearQueue()
   GetOptimalSndBuf();
   return VTrue;
 }
-#endif
-////////////////////////////
-#ifdef IPV6V4
+
 VInt
-VSocket::Read(char *buff, const VCard bufflen)
+VSocket::ClearQueue()
+{
+	if (settings->getIPV6())
+		return ClearQueueIPV6();
+	else
+		return ClearQueueIPV4();
+}
+////////////////////////////
+VInt
+VSocket::ReadIPV6(char *buff, const VCard bufflen)
 {
 	if (sock4 != INVALID_SOCKET) return ReadSock(buff, bufflen, sock4);
 	if (sock6 != INVALID_SOCKET) return ReadSock(buff, bufflen, sock6);
@@ -1911,20 +2020,29 @@ VSocket::ReadSock(char *buff, const VCard bufflen, SOCKET allsock)
 	s = recv(allsock, buff, bufflen, 0);
 	return s;
 }
-#else
+
 VInt
-VSocket::Read(char *buff, const VCard bufflen)
+VSocket::ReadIPV4(char *buff, const VCard bufflen)
 {
 	if (sock==-1) return -1;
 	int s = 0;
 	s = recv(sock, buff, bufflen, 0);
 	return s;
 }
-#endif
+
+
+VInt
+VSocket::Read(char* buff, const VCard bufflen)
+{
+	if (settings->getIPV6())
+		return ReadIPV6(buff, bufflen);
+	else
+		return ReadIPV4(buff, bufflen);
+}
 ////////////////////////////
-#ifdef IPV6V4
+
 VBool
-VSocket::ReadExact(char *buff, const VCard bufflen)
+VSocket::ReadExactIPV6(char *buff, const VCard bufflen)
 {
 	if (sock4 != INVALID_SOCKET) return ReadExactSock(buff, bufflen, sock4);
 	if (sock6 != INVALID_SOCKET) return ReadExactSock(buff, bufflen, sock6);
@@ -2033,9 +2151,9 @@ VSocket::ReadExactSock(char *buff, const VCard bufflen, SOCKET allsock)
 
 	return VTrue;
 }
-#else
+
 VBool
-VSocket::ReadExact(char *buff, const VCard bufflen)
+VSocket::ReadExactIPV4(char *buff, const VCard bufflen)
 {	
 	if (sock==-1) 
 		return VFalse;
@@ -2132,7 +2250,17 @@ VSocket::ReadExact(char *buff, const VCard bufflen)
 
 return VTrue;
 }
-#endif
+
+
+
+VBool
+VSocket::ReadExact(char* buff, const VCard bufflen)
+{
+	if (settings->getIPV6())
+		return ReadExactIPV6(buff, bufflen);
+	else
+		return ReadExactIPV4(buff, bufflen);
+}
 
 #ifdef DSM_SUPPORT
 //
@@ -2283,14 +2411,15 @@ VSocket::ReadExactHTTP(char *buff, const VCard bufflen)
 
 	return VTrue;
 }
-#ifdef IPV6V4
+
 VBool
-VSocket::ReadSelect(VCard to)
+VSocket::ReadSelectIPV6(VCard to)
 {
 	if (sock4 != INVALID_SOCKET) return ReadSelectSock(to, sock4);
 	if (sock6 != INVALID_SOCKET) return ReadSelectSock(to, sock6);
 	return false;
 }
+
 VBool
 VSocket::ReadSelectSock(VCard to, SOCKET allsock)
 {
@@ -2304,9 +2433,9 @@ VSocket::ReadSelectSock(VCard to, SOCKET allsock)
 	if (rc>0) return true;
 	return false;
 }
-#else
+
 VBool
-VSocket::ReadSelect(VCard to)
+VSocket::ReadSelectIPV4(VCard to)
  {
  	fd_set fds;
  	FD_ZERO(&fds);
@@ -2318,7 +2447,17 @@ VSocket::ReadSelect(VCard to)
  	if (rc>0) return true;
  	return false;
  }
-#endif
+
+VBool
+VSocket::ReadSelect(VCard to)
+{
+	if (settings->getIPV6())
+		return ReadSelectIPV6(to);
+	else
+		return ReadSelectIPV4(to);
+}
+
+
 extern bool			fShutdownOrdered;
 bool
 sendall(SOCKET RemoteSocket,char *buff,unsigned int bufflen,int dummy)

@@ -1,8 +1,8 @@
+/////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //  Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
 //
-//  This file is part of the VNC system.
-//
-//  The VNC system is free software; you can redistribute it and/or modify
+//  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
@@ -17,9 +17,11 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the VNC system is not available from the place 
-// whence you received this file, check http://www.uk.research.att.com/vnc or contact
-// the authors on vnc@uk.research.att.com for information on obtaining it.
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
 
 
 // vncMenu
@@ -34,8 +36,7 @@ class vncMenu;
 #include "stdhdrs.h"
 #include <lmcons.h>
 #include "vncserver.h"
-#include "vncproperties.h"
-#include "vncpropertiesPoll.h"
+#include "PropertiesDialog.h"
 #include "vncabout.h"
 #include "vncListDlg.h"
 #include "CloudDialog.h"
@@ -51,6 +52,10 @@ public:
 
 	// adzm 2009-07-05 - Tray icon balloon tips
 	static void NotifyBalloon(wchar_t* szInfo, wchar_t* szTitle = NULL);
+	static void updateList();
+	static void updateMenu();
+	void updateUser(HWND hwnd);
+	static HMENU m_hmenu;
 
 protected:
 	// Tray icon handling
@@ -77,12 +82,11 @@ protected:
 	// Check that the password has been set
 	void CheckPassword();
 
-	// The server that this tray icon handles
+	// The server that this Tray icon handles
 	vncServer		*m_server;
 
 	// Properties object for this server
-	vncProperties	m_properties;
-	vncPropertiesPoll	m_propertiesPoll;
+	PropertiesDialog	m_properties;
 
 	// About dialog for this server
 	vncAbout		m_about;
@@ -91,7 +95,6 @@ protected:
 	vncListDlg		m_ListDlg;
 
 	HWND			m_hwnd;
-	HMENU			m_hmenu;
 
 	NOTIFYICONDATAW	m_nid{};
 	omni_mutex		m_mutexTrayIcon; // adzm 2009-07-05
@@ -114,6 +117,8 @@ protected:
 	int IconFaultCounter;
 	bool balloonset = false;
 	wchar_t m_tooltip[128]{};
+	int authClientCount = -1;
+	static char exe_file_name[MAX_PATH];
 };
 
 

@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2013 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,11 +16,12 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
+
 
 #include "stdhdrs.h"
 #include "lmcons.h"
@@ -29,9 +30,11 @@
 #include "SettingsManager.h"
 #include "credentials.h"
 
-DWORD Credentials::GetCurrentUserToken(HANDLE& process, HANDLE& Token)
+DesktopUsersToken* DesktopUsersToken::instance = nullptr;
+
+DWORD Credentials::GetCurrentUserToken(HANDLE& process, HANDLE& Token, bool RunningFromExternalService)
 {
-	if (!settings->RunningFromExternalService()) {
+	if (!RunningFromExternalService) {
 		if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ALL_ACCESS, &Token))
 			return 0;
 		return 2;
@@ -51,71 +54,56 @@ DWORD Credentials::GetCurrentUserToken(HANDLE& process, HANDLE& Token)
 	return 2;
 }
 
-bool Credentials::RunningAsAdministrator()
+#ifndef ULTRAVNC_VEYON_SUPPORT
+bool Credentials::RunningAsAdministrator(bool RunningFromExternalService)
 {
-	BOOL   fAdmin{};
-	TOKEN_GROUPS* ptg = NULL;
-	DWORD  cbTokenGroups{};
-	DWORD  dwGroup{};
-	PSID   psidAdmin{};
+	BOOL   fAdmin = FALSE;
+	TOKEN_GROUPS* ptg = nullptr;
+	DWORD  cbTokenGroups = 0;
+	DWORD  dwGroup = 0;
+	PSID   psidAdmin = nullptr;
 	SetLastError(0);
-	HANDLE process = 0;
-	HANDLE Token = NULL;
+	HANDLE process = nullptr;
+	HANDLE Token = nullptr;
 
-	if (GetCurrentUserToken(process, Token) == 1)
-		return true;
+	if (!GetCurrentUserToken(process, Token, RunningFromExternalService) == 1)
+		return false;
 
 	ON_BLOCK_EXIT(CloseHandle, process);
 	ON_BLOCK_EXIT(CloseHandle, Token);
 
 	SID_IDENTIFIER_AUTHORITY SystemSidAuthority = SECURITY_NT_AUTHORITY;
 
-	// Then we must query the size of the group information associated with
-	// the token. Note that we expect a FALSE result from GetTokenInformation
-	// because we've given it a NULL buffer. On exit cbTokenGroups will tell
-	// the size of the group information.
-
-	if (GetTokenInformation(Token, TokenGroups, NULL, 0, &cbTokenGroups))
-		return (FALSE);
-
-	// Here we verify that GetTokenInformation failed for lack of a large
-	// enough buffer.
-	DWORD errorcode = GetLastError();
-	if (errorcode != ERROR_INSUFFICIENT_BUFFER)
-		return (FALSE);
-
-	// Now we allocate a buffer for the group information.
-	// Since _alloca allocates on the stack, we don't have
-	// to explicitly deallocate it. That happens automatically
-	// when we exit this function.
-
-	if (!(ptg = (_TOKEN_GROUPS*)_malloca(cbTokenGroups)))
-		return (FALSE);
-
-	// Now we ask for the group information again.
-	// This may fail if an administrator has added this account
-	// to an additional group between our first call to
-	// GetTokenInformation and this one.
-
-	if (!GetTokenInformation(Token, TokenGroups, ptg, cbTokenGroups,
-		&cbTokenGroups)) {
-		_freea(ptg);
-		return (FALSE);
+	// Get size of the group information
+	if (!GetTokenInformation(Token, TokenGroups, nullptr, 0, &cbTokenGroups)) {
+		if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+			return false;
+		}
 	}
 
-	// Now we must create a System Identifier for the Admin group.
-
-	if (!AllocateAndInitializeSid(&SystemSidAuthority, 2, SECURITY_BUILTIN_DOMAIN_RID,
-		DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0, 0, &psidAdmin)) {
-		_freea(ptg);
-		return (FALSE);
+	// Allocate memory for group information
+	ptg = (TOKEN_GROUPS*)_malloca(cbTokenGroups);
+	if (!ptg) {
+		return false;
 	}
 
-	// Finally we'll iterate through the list of groups for this access
-	// token looking for a match against the SID we created above.
+	// Retrieve group information
+	if (!GetTokenInformation(Token, TokenGroups, ptg, cbTokenGroups, &cbTokenGroups)) {
+		return false;
+	}
 
-	fAdmin = FALSE;
+	// Create SID for Administrators group
+	if (!AllocateAndInitializeSid(
+		&SystemSidAuthority,
+		2,
+		SECURITY_BUILTIN_DOMAIN_RID,
+		DOMAIN_ALIAS_RID_ADMINS,
+		0, 0, 0, 0, 0, 0,
+		&psidAdmin)) {
+		return false;
+	}
 
+	// Check group membership
 	for (dwGroup = 0; dwGroup < ptg->GroupCount; dwGroup++) {
 		if (EqualSid(ptg->Groups[dwGroup].Sid, psidAdmin)) {
 			fAdmin = TRUE;
@@ -123,23 +111,26 @@ bool Credentials::RunningAsAdministrator()
 		}
 	}
 
-	// Before we exit we must explicity deallocate the SID we created.
-	_freea(ptg);
-	FreeSid(psidAdmin);
-	return (FALSE != fAdmin);
+	/// Cleanup SID
+	if (psidAdmin) {
+		FreeSid(psidAdmin);
+	}
+
+	return fAdmin;
+}
+#endif
+
+DesktopUsersToken* DesktopUsersToken::getInstance() {
+	if (instance == nullptr) {
+		instance = new DesktopUsersToken();
+	}
+	return instance;
 }
 
 DesktopUsersToken::DesktopUsersToken()
 {
 	hProcess = NULL;
 	hPToken = NULL;
-	DWORD dwExplorerLogonPid = processHelper::GetExplorerLogonPid();
-	if (dwExplorerLogonPid != 0) {
-		hProcess = OpenProcess(MAXIMUM_ALLOWED, FALSE, dwExplorerLogonPid);
-		OpenProcessToken(hProcess, TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY
-			| TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | TOKEN_ADJUST_SESSIONID
-			| TOKEN_READ | TOKEN_WRITE, &hPToken);
-	}
 }
 
 DesktopUsersToken::~DesktopUsersToken()
@@ -152,5 +143,69 @@ DesktopUsersToken::~DesktopUsersToken()
 
 HANDLE DesktopUsersToken::getDesktopUsersToken()
 {
+	DWORD explorerLogonPid = processHelper::GetExplorerLogonPid();
+	if (explorerLogonPid == 0) 
+		vnclog.Print(LL_LOGSCREEN, "explorer shell NOT found");
+
+	
+	if (explorerLogonPid != 0 && dwExplorerLogonPid != explorerLogonPid) {
+		vnclog.Print(LL_INTWARN, VNCLOG("DesktopUsersToken failed OpenProcess error %i\n"), GetLastError());
+
+		vnclog.Print(LL_INTWARN, VNCLOG("GetExplorerLogonPid %i\n"), explorerLogonPid);
+		hProcess = OpenProcess(MAXIMUM_ALLOWED, FALSE, explorerLogonPid);
+		if (hProcess == NULL) {
+			vnclog.Print(LL_LOGSCREEN, "UsersToken Failed");
+			vnclog.Print(LL_INTWARN, VNCLOG("DesktopUsersToken failed OpenProcess error %i\n"), GetLastError());
+			return NULL;
+		}
+		vnclog.Print(LL_LOGSCREEN, "UsersToken found");
+		if (!OpenProcessToken(hProcess, TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY
+			| TOKEN_DUPLICATE | TOKEN_ASSIGN_PRIMARY | TOKEN_ADJUST_SESSIONID
+			| TOKEN_READ | TOKEN_WRITE, &hPToken)) {
+			vnclog.Print(LL_INTWARN, VNCLOG("OpenProcessToken failed  %i\n"), GetLastError());
+			vnclog.Print(LL_LOGSCREEN, "OpenProcessToken Failed");
+			return NULL;
+		}
+		vnclog.Print(LL_LOGSCREEN, "OpenProcessToken OK");
+	}
+
+
+	dwExplorerLogonPid = explorerLogonPid;
 	return hPToken;
+}
+
+bool DesktopUsersToken::GetConsoleUser(char* buffer, UINT size)
+{
+	HANDLE hPToken = DesktopUsersToken::getInstance()->getDesktopUsersToken();
+	if (hPToken == NULL) {
+		strcpy_s(buffer, UNLEN + 1, "");
+		return 0;
+	}
+
+	if (hPToken == save_hPtoken) {
+		strcpy_s(buffer, UNLEN + 1, username);
+		return strlen(username) != 0;
+	}
+
+	save_hPtoken = hPToken;
+	char aa[16384]{};
+	// token user
+	TOKEN_USER* ptu;
+	DWORD needed;
+	ptu = (TOKEN_USER*)aa;
+	if (GetTokenInformation(hPToken, TokenUser, ptu, 16384, &needed))
+	{
+		char  DomainName[64];
+		memset(DomainName, 0, sizeof(DomainName));
+		DWORD DomainSize;
+		DomainSize = sizeof(DomainName) - 1;
+		SID_NAME_USE SidType;
+		DWORD dwsize = size;
+		LookupAccountSid(NULL, ptu->User.Sid, buffer, &dwsize, DomainName, &DomainSize, &SidType);
+		strcpy_s(username, UNLEN + 1, buffer);
+		return 1;
+	}
+	strcpy_s(buffer, UNLEN + 1, "");
+	strcpy_s(username, UNLEN + 1, "");
+	return 0;
 }

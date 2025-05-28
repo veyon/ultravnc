@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2013 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,9 +16,9 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
 
@@ -29,11 +29,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "SettingsManager.h"
+#include "winvnc.h"
 
 // Marscha@2004 - authSSP: from stdhdrs.h, required for logging
 #include "vnclog.h"
 extern VNCLog vnclog;
-#include "inifile.h"
+#include "common/inifile.h"
 
 // Marscha@2004 - authSSP: end of change
 
@@ -47,7 +48,7 @@ int CheckUserGroupPasswordUni2(char* userin, char* password, const char* machine
 // Marscha@2004 - authSSP: if "New MS-Logon" is checked, call CheckUserPasswordSDUni
 BOOL IsNewMSLogon();
 //char *AddToModuleDir(char *filename, int length);
-typedef int (*CheckUserPasswordSDUniFn)(const char* userin, const char* password, const char* machine);
+typedef int (*CheckUserPasswordSDUniFn)(const char* userin, const char* password, const char* machine, TCHAR* szMslogonLog);
 CheckUserPasswordSDUniFn CheckUserPasswordSDUni = 0;
 
 #define MAXSTRING 254
@@ -103,23 +104,21 @@ int CheckUserGroupPasswordUni(char* userin, char* password, const char* machine)
 {
 	int result = 0;
 	HMODULE hModuleAuthSSP = NULL;
-	// Marscha@2004 - authSSP: if "New MS-Logon" is checked, call CUPSD in authSSP.dll,
-	// else call "old" mslogon method.
+	// Marscha@2004 - authSSP: if "New MS-Logon" is checked, call CUPSDV2 in authSSP.dll,
+	// else call "old" MS-Logon method.
 	if (IsNewMSLogon()) {
 		char szCurrentDir[MAX_PATH];
-		if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH)) {
-			char* p = strrchr(szCurrentDir, '\\');
-			*p = '\0';
-			strcat_s(szCurrentDir, "\\authSSP.dll");
-		}
+		strcpy_s(szCurrentDir, winvncFolder);
+		strcat_s(szCurrentDir, "\\authSSP.dll");
+		
 		hModuleAuthSSP = LoadLibrary(szCurrentDir);
 		if (hModuleAuthSSP) {
 			static omni_mutex authSSPMutex;
 			omni_mutex_lock l( authSSPMutex );
-			CheckUserPasswordSDUni = (CheckUserPasswordSDUniFn)GetProcAddress(hModuleAuthSSP, "CUPSD");
+			CheckUserPasswordSDUni = (CheckUserPasswordSDUniFn)GetProcAddress(hModuleAuthSSP, "CUPSDV2");
 			vnclog.Print(LL_INTINFO, VNCLOG("GetProcAddress"));
 			CoInitialize(NULL);
-			result = CheckUserPasswordSDUni(userin, password, machine);
+			result = CheckUserPasswordSDUni(userin, password, machine, settings->getLogFile());
 			vnclog.Print(LL_INTINFO, "CheckUserPasswordSDUni result=%i", result);
 			CoUninitialize();
 			FreeLibrary(hModuleAuthSSP);
@@ -127,7 +126,7 @@ int CheckUserGroupPasswordUni(char* userin, char* password, const char* machine)
 		}
 		else {
 			LPCTSTR sz_ID_AUTHSSP_NOT_FO = // to be moved to localization.h
-				"You selected ms-logon, but authSSP.dll\nwas not found.Check you installation";
+				"You selected MS-Logon, but authSSP.dll\nwas not found.Check you installation";
 			MessageBoxSecure(NULL, sz_ID_AUTHSSP_NOT_FO, sz_ID_WARNING, MB_OK);
 		}
 	}
@@ -174,63 +173,43 @@ int CheckUserGroupPasswordUni2(char* userin, char* password, const char* machine
 		W2KOS = true;
 	}
 
-
 	char szCurrentDir[MAX_PATH];
-	if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
-	{
-		char* p = strrchr(szCurrentDir, '\\');
-		if (p == NULL) return false;
-		*p = '\0';
-		strcat_s(szCurrentDir, "\\authadmin.dll");
-	}
+	strcpy_s(szCurrentDir, winvncFolder);
+	strcat_s(szCurrentDir, "\\authadmin.dll");
+	
 	hModuleAdmin = LoadLibrary(szCurrentDir);
 	if (hModuleAdmin)
 	{
 		CheckUserGroupPasswordAdmin = (CheckUserGroupPasswordFn)GetProcAddress(hModuleAdmin, "CUGP");
 	}
-	if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
-	{
-		char* p = strrchr(szCurrentDir, '\\');
-		if (p == NULL) return false;
-		*p = '\0';
-		strcat_s(szCurrentDir, "\\workgrpdomnt4.dll");
-	}
+
+	strcpy_s(szCurrentDir, winvncFolder);
+	strcat_s(szCurrentDir, "\\workgrpdomnt4.dll");
+	
 	hModuleWorkgroup = LoadLibrary(szCurrentDir);
 	if (hModuleWorkgroup)
 	{
 		CheckUserGroupPasswordWorkgroup = (CheckUserGroupPasswordFn)GetProcAddress(hModuleWorkgroup, "CUGP");
 	}
-	if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
-	{
-		char* p = strrchr(szCurrentDir, '\\');
-		if (p == NULL) return false;
-		*p = '\0';
-		strcat_s(szCurrentDir, "\\ldapauth.dll");
-	}
+	strcpy_s(szCurrentDir, winvncFolder);
+	strcat_s(szCurrentDir, "\\ldapauth.dll");
+	
 	hModuleLdapAuth = LoadLibrary(szCurrentDir);
 	if (hModuleLdapAuth)
 	{
 		CheckUserGroupPasswordLdapAuth = (CheckUserGroupPasswordFn)GetProcAddress(hModuleLdapAuth, "CUGP");
 	}
-	if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
-	{
-		char* p = strrchr(szCurrentDir, '\\');
-		if (p == NULL) return false;
-		*p = '\0';
-		strcat_s(szCurrentDir, "\\ldapauthnt4.dll");
-	}
+	strcpy_s(szCurrentDir, winvncFolder);
+	strcat_s(szCurrentDir, "\\ldapauthnt4.dll");
+
 	hModuleLdapAuthNT4 = LoadLibrary(szCurrentDir);
 	if (hModuleLdapAuthNT4)
 	{
 		CheckUserGroupPasswordLdapAuthNT4 = (CheckUserGroupPasswordFn)GetProcAddress(hModuleLdapAuthNT4, "CUGP");
 	}
-	if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
-	{
-		char* p = strrchr(szCurrentDir, '\\');
-		if (p == NULL) return false;
-		*p = '\0';
-		strcat_s(szCurrentDir, "\\ldapauth9x.dll");
-	}
+	strcpy_s(szCurrentDir, winvncFolder);
+	strcat_s(szCurrentDir, "\\ldapauth9x.dll");
+
 	hModuleLdapAuth9x = LoadLibrary(szCurrentDir);
 	if (hModuleLdapAuth9x)
 	{
@@ -241,9 +220,9 @@ int CheckUserGroupPasswordUni2(char* userin, char* password, const char* machine
 	//////////////////////////////////////////////////
 
 	//////////////////////////////////////////////////
-	// logon user only works on NT>
-	// NT4/w2k only as service (system account)
-	// XP> works also as application
+	// logon user only works on Windows NT>
+	// Windows NT4/Windows 2000 only as service (system account)
+	// Windows XP> works also as application
 	// Group is not used...admin access rights is needed
 	// MS keep changes there security model for each version....
 	//////////////////////////////////////////////////
@@ -510,20 +489,17 @@ int CheckUserGroupPasswordUni2(char* userin, char* password, const char* machine
 	// If we reach this place auth failed
 	/////////////////////////////////////////////////
 	{
-		typedef BOOL(*LogeventFn)(char* machine, char* user);
+		typedef BOOL(*LogeventFn)(char* machine, char* user, char* szMslogonLog);
 		LogeventFn Logevent = 0;
 		char szCurrentDir[MAX_PATH];
-		if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
-		{
-			char* p = strrchr(szCurrentDir, '\\');
-			*p = '\0';
-			strcat_s(szCurrentDir, "\\logging.dll");
-		}
+		strcpy_s(szCurrentDir, winvncFolder);
+		strcat_s(szCurrentDir, "\\logging.dll");
+		
 		HMODULE hModule = LoadLibrary(szCurrentDir);
 		if (hModule)
 		{
-			Logevent = (LogeventFn)GetProcAddress(hModule, "LOGFAILEDUSER");
-			Logevent((char*)clientname, userin);
+			Logevent = (LogeventFn)GetProcAddress(hModule, "LOGFAILEDUSERV2");
+			Logevent((char*)clientname, userin, settings->getLogFile());
 			FreeLibrary(hModule);
 		}
 		if (hModuleAdmin) FreeLibrary(hModuleAdmin);
@@ -541,20 +517,17 @@ int CheckUserGroupPasswordUni2(char* userin, char* password, const char* machine
 
 accessOK://full access
 	{
-		typedef BOOL(*LogeventFn)(char* machine, char* user);
+		typedef BOOL(*LogeventFn)(char* machine, char* user, char* szMslogonLog);
 		LogeventFn Logevent = 0;
 		char szCurrentDir[MAX_PATH];
-		if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
-		{
-			char* p = strrchr(szCurrentDir, '\\');
-			*p = '\0';
-			strcat_s(szCurrentDir, "\\logging.dll");
-		}
+		strcpy_s(szCurrentDir, winvncFolder);
+		strcat_s(szCurrentDir, "\\logging.dll");
+		
 		HMODULE hModule = LoadLibrary(szCurrentDir);
 		if (hModule)
 		{
-			Logevent = (LogeventFn)GetProcAddress(hModule, "LOGLOGONUSER");
-			Logevent((char*)clientname, userin);
+			Logevent = (LogeventFn)GetProcAddress(hModule, "LOGLOGONUSERV2");
+			Logevent((char*)clientname, userin, settings->getLogFile());
 			FreeLibrary(hModule);
 		}
 
@@ -575,20 +548,17 @@ accessOK://full access
 
 accessOK2://readonly
 	{
-		typedef BOOL(*LogeventFn)(char* machine, char* user);
+		typedef BOOL(*LogeventFn)(char* machine, char* user, char* szMslogonLog);
 		LogeventFn Logevent = 0;
 		char szCurrentDir[MAX_PATH];
-		if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
-		{
-			char* p = strrchr(szCurrentDir, '\\');
-			*p = '\0';
-			strcat_s(szCurrentDir, "\\logging.dll");
-		}
+		strcpy_s(szCurrentDir, winvncFolder);
+		strcat_s(szCurrentDir, "\\logging.dll");
+
 		HMODULE hModule = LoadLibrary(szCurrentDir);
 		if (hModule)
 		{
-			Logevent = (LogeventFn)GetProcAddress(hModule, "LOGLOGONUSER");
-			Logevent((char*)clientname, userin);
+			Logevent = (LogeventFn)GetProcAddress(hModule, "LOGLOGONUSERV2");
+			Logevent((char*)clientname, userin, settings->getLogFile());
 			FreeLibrary(hModule);
 		}
 		if (hModuleAdmin) FreeLibrary(hModuleAdmin);

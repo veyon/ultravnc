@@ -1,12 +1,11 @@
-//  Copyright (C) 2020 UltraVNC Team Members. All Rights Reserved.
+/////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //  Copyright (C) 2015 D. R. Commander. All Rights Reserved.
 //  Copyright (C) 2000-2002 Const Kaplinsky. All Rights Reserved.
 //  Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
 //  Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
 //
-//  This file is part of the VNC system.
-//
-//  The VNC system is free software; you can redistribute it and/or modify
+//  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
@@ -21,13 +20,16 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the VNC system is not available from the place
-// whence you received this file, check http://www.uk.research.att.com/vnc or contact
-// the authors on vnc@uk.research.att.com for information on obtaining it.
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
+
 
 // vncClient.cpp
 
-// The per-client object.  This object takes care of all per-client stuff,
+// The per-client object. This object takes care of all per-client stuff,
 // such as socket input and buffering of updates.
 
 // vncClient class handles the following functions:
@@ -60,8 +62,11 @@
 #include "rfb/dh.h"
 #include "vncauth.h"
 
-#ifdef ULTRAVNC_VEYON_SUPPORT
+#ifdef _VCPKG
 #include <zlib.h>
+#ifndef ULTRAVNC_VEYON_SUPPORT
+#include <zstd.h>
+#endif
 #else
 #include "../zlib/zlib.h"
 #include "../zstd/lib/zstd.h"
@@ -74,6 +79,7 @@
 #include <string>
 #include <iterator>
 #include <shlobj.h>
+#include <userenv.h>
 #include "vncOSVersion.h"
 #include "common/win32_helpers.h"
 #include "uvncUiAccess.h"
@@ -83,6 +89,7 @@
 #include<map>
 #include "SettingsManager.h"
 #include "credentials.h"
+#include "winvnc.h"
 using namespace std;
 
 #pragma comment(lib, "mpr.lib") //for getting full mapped drive
@@ -254,7 +261,7 @@ void SplitTransferredFileNameAndDate(char* szFileAndDate, char* filetime)
 /*
  * File transfer event hooks
  *
- * The following functions are called from various points in the file transfer
+ * The following functions are called from various points in the File Transfer
  * process. They are notification hooks; the hook function cannot affect the
  * file operation. One possible use of these hooks is to implement auditing
  * of file operations on the server side.
@@ -284,7 +291,7 @@ void vncClient::FTUploadFailureHook()
 {
 }
 
-// Called after the file is successfully uploaded. At this point the file transfer is complete.
+// Called after the file is successfully uploaded. At this point the File Transfer is complete.
 void vncClient::FTUploadCompleteHook()
 {
 }
@@ -305,7 +312,7 @@ void vncClient::FTDownloadFailureHook()
 {
 }
 
-// Called after the file is successfully downloaded. At this point the file transfer is complete.
+// Called after the file is successfully downloaded. At this point the File Transfer is complete.
 void vncClient::FTDownloadCompleteHook()
 {
 }
@@ -347,7 +354,6 @@ vncClientUpdateThread::~vncClientUpdateThread()
 {
 	if (m_signal) delete m_signal;
 	if (m_sync_sig) delete m_sync_sig;
-	vnclog.Print(LL_INTINFO, VNCLOG("update thread gone\n"));
 	m_client->m_updatethread = NULL;
 }
 
@@ -364,8 +370,6 @@ vncClientUpdateThread::Trigger()
 void
 vncClientUpdateThread::Kill()
 {
-	vnclog.Print(LL_INTINFO, VNCLOG("kill update thread\n"));
-
 	omni_mutex_lock l(m_client->GetUpdateLock(), 81);
 	m_active = FALSE;
 	m_signal->signal();
@@ -398,13 +402,6 @@ void
 vncClientUpdateThread::EnableUpdates(BOOL enable)
 {
 	// ALWAYS call this with the UpdateLock held!
-	if (enable) {
-		vnclog.Print(LL_INTINFO, VNCLOG("enable update thread\n"));
-	}
-	else {
-		vnclog.Print(LL_INTINFO, VNCLOG("disable update thread\n"));
-	}
-
 	m_enable = enable;
 	m_signal->signal();
 	//unsigned long now_sec, now_nsec;
@@ -424,7 +421,6 @@ vncClientUpdateThread::EnableUpdates(BOOL enable)
 //			m_signal->signal();
 			vnclog.Print(LL_INTINFO, VNCLOG("thread timeout\n"));
 		} */
-	vnclog.Print(LL_INTINFO, VNCLOG("enable/disable synced\n"));
 }
 
 extern bool g_DesktopThread_running;
@@ -579,7 +575,7 @@ vncClientUpdateThread::run_undetached(void* arg)
 			// SEND THE CLIPBOARD
 			// If there is clipboard text to be sent then send it
 			// Also allow in loopbackmode
-			// Loopback mode with winvncviewer will cause a loping
+			// Loopback mode with VNC Viewer will cause a loping
 			// But ssh is back working
 #ifdef FILETRANSFER_SUPPORT
 			if (!m_client->m_fFileSessionOpen) {
@@ -710,7 +706,6 @@ vncClientUpdateThread::run_undetached(void* arg)
 		yield();
 	}
 
-	vnclog.Print(LL_INTINFO, VNCLOG("stopping update thread\n"));
 	return 0;
 }
 
@@ -783,16 +778,13 @@ vncClientThread::InitVersion()
 				// RDV 2010-6-10
 				int Send_OK = 0;
 				int Recv_OK = 0;
-				vnclog.Print(LL_STATE, VNCLOG("Send protocolMsg\n"));
 				Send_OK = m_socket->SendExact((char*)&protocolMsg, sz_rfbProtocolVersionMsg);
 				if (Send_OK == 1)
 				{
-					vnclog.Print(LL_STATE, VNCLOG("Send_OK\n"));
 					Recv_OK = m_socket->ReadExact((char*)&protocol_ver, sz_rfbProtocolVersionMsg);
 				}
 				// Send our protocol version, and get the client's protocol version
 				if (!Send_OK || !Recv_OK) {
-					if (!Recv_OK) vnclog.Print(LL_STATE, VNCLOG("!Send_OK || !Recv_OK\n"));
 					bReady = false;
 					// we need to reconnect!
 
@@ -828,7 +820,7 @@ vncClientThread::InitVersion()
 		}
 	}
 
-	// sf@2006 - Trying to fix neverending authentication bug - Check if this is RFB protocole
+	// sf@2006 - Trying to fix neverending authentication bug - Check if this is RFB protocol
 	if (strncmp(protocol_ver, "RFB", 3) != 0)
 		return FALSE;
 
@@ -839,7 +831,6 @@ vncClientThread::InitVersion()
 
 #ifdef AUTH_MS_LOGON_SUPPORT
 	m_ms_logon = settings->getRequireMSLogon();
-	vnclog.Print(LL_INTINFO, VNCLOG("m_ms_logon set to %s"), m_ms_logon ? "true" : "false");
 #endif
 
 #ifdef AUTH_ULTRA_SUPPORT
@@ -947,7 +938,7 @@ vncClientThread::FilterClients_Ask_Permission()
 	return TRUE;
 #endif
 }
-#endif
+#endif // SC_20
 
 // RDV 2010-4-10
 // Filter Blacklisted are refused connection
@@ -978,7 +969,7 @@ BOOL vncClientThread::CheckEmptyPasswd()
 	if ((strlen(plain) == 0) && settings->getAuthRequired())
 	{
 		vnclog.Print(LL_CONNERR, VNCLOG("no password specified for server - client rejected\n"));
-		SendConnFailed("This server does not have a valid password enabled.  "
+		SendConnFailed("This server does not have a valid password enabled."
 			"Until a password is set, incoming connections cannot be accepted.");
 		return FALSE;
 	}
@@ -1008,7 +999,6 @@ vncClientThread::CheckLoopBack()
 
 			if (!ok)
 			{
-				vnclog.Print(LL_CONNERR, VNCLOG("loopback connection attempted - client rejected\n"));
 				SendConnFailed("Local loop-back connections are disabled.");
 				return FALSE;
 			}
@@ -1035,7 +1025,6 @@ vncClientThread::CheckLoopBack()
 
 			if (!ok)
 			{
-				vnclog.Print(LL_CONNERR, VNCLOG("loopback connection attempted - client accepted\n"));
 				m_client->m_IsLoopback = true;
 			}
 		}
@@ -1074,20 +1063,16 @@ void vncClientThread::LogAuthResult(bool success, bool isconnected)
 	{
 		vnclog.Print(LL_CONNERR, VNCLOG("authentication failed\n"));
 #ifndef ULTRAVNC_VEYON_SUPPORT
-		typedef BOOL(*LogeventFn)(char* machine);
+		typedef BOOL(*LogeventFn)(char* machine, char* szMslogonLog);
 		LogeventFn Logevent = 0;
 		char szCurrentDir[MAX_PATH];
-		if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
-		{
-			char* p = strrchr(szCurrentDir, '\\');
-			*p = '\0';
-			strcat_s(szCurrentDir, "\\logging.dll");
-		}
+		strcpy_s(szCurrentDir, winvncFolder);
+		strcat_s(szCurrentDir, "\\logging.dll");
 		HMODULE hModule = LoadLibrary(szCurrentDir);
 		if (hModule)
 		{
-			Logevent = (LogeventFn)GetProcAddress(hModule, "LOGFAILED");
-			Logevent((char*)m_client->GetClientNameName());
+			Logevent = (LogeventFn)GetProcAddress(hModule, "LOGFAILEDV2");
+			Logevent((char*)m_client->GetClientNameName(), settings->getLogFile());
 			FreeLibrary(hModule);
 		}
 #endif
@@ -1097,29 +1082,25 @@ void vncClientThread::LogAuthResult(bool success, bool isconnected)
 #ifdef ULTRAVNC_VEYON_SUPPORT
 		vnclog.Print(LL_INTINFO, VNCLOG("authentication succeeded\n"));
 #else
-		typedef BOOL(*LogeventFn)(char* machine, int clientId, bool isinteractive);
+		typedef BOOL(*LogeventFn)(char* machine, int clientId, bool isinteractive, char* szMsLogonLog);
 		LogeventFn Logevent = 0;
 		char szCurrentDir[MAX_PATH];
-		if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
-		{
-			char* p = strrchr(szCurrentDir, '\\');
-			*p = '\0';
-			strcat_s(szCurrentDir, "\\logging.dll");
-		}
+		strcpy_s(szCurrentDir, winvncFolder);
+		strcat_s(szCurrentDir, "\\logging.dll");
 		HMODULE hModule = LoadLibrary(szCurrentDir);
 		if (hModule)
 		{
 			if (!isconnected) {
-				Logevent = (LogeventFn)GetProcAddress(hModule, "LOGCONN");
+				Logevent = (LogeventFn)GetProcAddress(hModule, "LOGCONNV2");
 			} else {
-				Logevent = (LogeventFn)GetProcAddress(hModule, "LOGLOGON");
+				Logevent = (LogeventFn)GetProcAddress(hModule, "LOGLOGONV2");
 			}
-			Logevent((char*)m_client->GetClientNameName(), m_client->GetClientId(), m_client->m_keyboardenabled && m_client->m_pointerenabled);
+			Logevent((char*)m_client->GetClientNameName(), m_client->GetClientId(), m_client->m_keyboardenabled && m_client->m_pointerenabled, settings->getLogFile());
 			FreeLibrary(hModule);
 		}
 #endif
 	}
-#endif
+#endif // SC_20
 }
 
 BOOL
@@ -1130,7 +1111,8 @@ vncClientThread::InitAuthenticate()
 	// Split Filter in desktop in/depended
 	if (!FilterClients_Blacklist())
 	{
-		SendConnFailed("Your connection has been rejected.");
+		vnclog.Print(LL_LOGSCREEN, "Blacklisten: connection has been rejected");
+		SendConnFailed("Your connection has been rejected to many attempts.");
 		return FALSE;
 	}
 	if (!CheckEmptyPasswd()) return FALSE;
@@ -1154,7 +1136,7 @@ vncClientThread::InitAuthenticate()
 			SendConnFailed("Your connection has been rejected.");
 			return FALSE;
 		}
-#endif
+#endif // SC_20
 		if (!AuthenticateLegacyClient(true)) {
 			return FALSE;
 		}
@@ -1199,22 +1181,18 @@ vncClientThread::InitAuthenticate()
 	// Check the FilterClients thing after final auth
 	if (strlen(m_client->infoMsg) > 0)
 	{
-		typedef BOOL(*LogeventFn)(char* info);
+		typedef BOOL(*LogeventFn)(char* info, char* szMslogonLog);
 		LogeventFn Logevent = NULL;
 		char szCurrentDir[MAX_PATH];
-		if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
-		{
-			char* p = strrchr(szCurrentDir, '\\');
-			*p = '\0';
-			strcat_s(szCurrentDir, "\\logging.dll");
-		}
+		strcpy_s(szCurrentDir, winvncFolder);
+		strcat_s(szCurrentDir, "\\logging.dll");
 		HMODULE hModule = LoadLibrary(szCurrentDir);
 		if (hModule)
 		{
-			Logevent = (LogeventFn)GetProcAddress(hModule, "LOGEXTRAINFO");
+			Logevent = (LogeventFn)GetProcAddress(hModule, "LOGEXTRAINFOV2");
 			
 			if (Logevent)
-				Logevent((char*)m_client->infoMsg);
+				Logevent((char*)m_client->infoMsg, settings->getLogFile());
 			FreeLibrary(hModule);
 		}
 	}
@@ -1223,7 +1201,7 @@ vncClientThread::InitAuthenticate()
 		vnclog.Print(LL_CLIENTS, VNCLOG("Your connection has been rejected.\n"));
 		return FALSE;
 	}
-#endif
+#endif // SC_20
 
 	// If the client wishes to have exclusive access then remove other clients
 	if (settings->getConnectPriority() == 3 && !m_shared)
@@ -1258,7 +1236,6 @@ vncClientThread::InitAuthenticate()
 	}
 #endif
 
-	vnclog.Print(LL_CLIENTS, VNCLOG("Leaving InitAuthenticate\n"));
 	// Tell the server that this client is ok
 	return m_server->Authenticated(m_client->GetClientId());
 }
@@ -1283,7 +1260,7 @@ BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth, bool 
 
 #ifdef AUTH_ULTRA_SUPPORT
 	if (current_auth.empty()) {
-		// send the UltraVNC auth type to identify ourselves as an UltraVNC server, but only initially
+		// send the UltraVNC auth type to identify ourselves as an UltraVNC Server, but only initially
 		auth_types.push_back(rfbUltraVNC);
 		auth_types.push_back(rfbClientInitExtraMsgSupportNew);
 	}	
@@ -1292,7 +1269,7 @@ BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth, bool 
 #ifdef DSM_SUPPORT
 	// encryption takes priority over everything, for now at least.
 	// would be useful to have a host list to configure these settings.
-	// Include the SecureVNCPluginAuth type for those that support it but are not UltraVNC viewers
+	// Include the SecureVNCPluginAuth type for those that support it but are not UltraVNC Viewers
 	if (!bSecureVNCPluginActive && m_socket->IsUsePluginEnabled() && m_server->GetDSMPluginPointer()->IsEnabled() && m_socket->GetIntegratedPlugin() != NULL)
 	{
 		auth_types.push_back(rfbUltraVNC_SecureVNCPluginAuth_new);
@@ -1368,8 +1345,8 @@ BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth, bool 
 		return FALSE;
 	}
 
-	// mslogonI never seems to be used anymore -- the old code would say if (m_ms_logon) AuthMsLogon (II) else AuthVnc
-	// and within AuthVnc would be if (m_ms_logon) { /* mslogon code */ }. THat could never be hit since the first case
+	// MS-Logon I never seems to be used anymore -- the old code would say if (m_ms_logon) AuthMsLogon (II) else AuthVnc
+	// and within AuthVnc would be if (m_ms_logon) { /* MS-Logon code */ }. THat could never be hit since the first case
 	// would always match!
 
 	// Authenticate the connection, if required
@@ -1382,12 +1359,14 @@ BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth, bool 
 #ifdef AUTH_ULTRA_SUPPORT
 	case rfbUltraVNC:
 		m_client->SetUltraViewer(true);
+		vnclog.Print(LL_LOGSCREEN, "UltraVNC Viewer");
 		auth_success = true;
 		break;
 #endif
 #ifdef DSM_SUPPORT
 	case rfbUltraVNC_SecureVNCPluginAuth_new:
 		auth_success = AuthSecureVNCPlugin(auth_message);
+		vnclog.Print(LL_LOGSCREEN, "AuthSecureVNCPlugin success = %d", auth_success);
 		break;
 	case rfbUltraVNC_SecureVNCPluginAuth:
 		auth_success = AuthSecureVNCPlugin_old(auth_message);
@@ -1398,6 +1377,7 @@ BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth, bool 
 #ifdef AUTH_MS_LOGON_SUPPORT
 	case rfbUltraVNC_MsLogonIIAuth:
 		auth_success = AuthMsLogon(auth_message);
+		vnclog.Print(LL_LOGSCREEN, "MsLogonII success = %d", auth_success);
 		if (auth_success) {
 			auth_is_mslogon = TRUE;
 		}
@@ -1405,6 +1385,7 @@ BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth, bool 
 #endif
 	case rfbVncAuth:
 		auth_success = AuthVnc(auth_message);
+		vnclog.Print(LL_LOGSCREEN, "Vnc password success = %d", auth_success);
 		break;
 	case rfbNoAuth:
 		auth_success = TRUE;
@@ -1435,7 +1416,7 @@ BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth, bool 
 	if (auth_success) {
 		current_auth.push_back(auth_accepted);
 
-		// continue the authentication if mslogon is enabled. any method of authentication should
+		// continue the authentication if MS-Logon is enabled. any method of authentication should
 		// work out fine with this method. Currently we limit ourselves to only one layer beyond
 		// the plugin to avoid deep recursion, but that can easily be changed if necessary.
 #ifdef DSM_SUPPORT
@@ -1487,6 +1468,7 @@ BOOL vncClientThread::AuthenticateClient(std::vector<CARD8>& current_auth, bool 
 	// Send a failure reason
 	if (!auth_success && !version_warning) {
 		if (auth_message.empty()) {
+			vnclog.Print(LL_LOGSCREEN, "Authentication failed");
 			auth_message = "authentication rejected";
 		}
 		CARD32 auth_message_length = Swap32IfLE(auth_message.length());
@@ -1582,7 +1564,7 @@ BOOL vncClientThread::AuthenticateLegacyClient(bool isconnected)
 #ifdef DSM_SUPPORT
 	case rfbLegacy_SecureVNCPlugin:
 		auth_success = AuthSecureVNCPlugin(auth_message);
-		// adzm 2010-11 - Legacy 1.0.8.2 special build will continue here with mslogon
+		// adzm 2010-11 - Legacy 1.0.8.2 special build will continue here with MS-Logon
 		if (auth_success && m_ms_logon) {
 			CARD32 auth_result_msg = Swap32IfLE(rfbLegacy_MsLogon);
 			if (!m_socket->SendExact((char*)&auth_result_msg, sizeof(auth_result_msg)))
@@ -1657,6 +1639,7 @@ BOOL vncClientThread::AuthSecureVNCPlugin(std::string& auth_message)
 {
 	bool bPassphrase = false;
 	vncPasswd::ToText plain(settings->getPasswd(), settings->getSecure());
+	vncPasswd::ToText plainViewOnly(settings->getPasswdViewOnly(), settings->getSecure());
 	ConfigHelper ConfigHelpervar(settings->getDSMPluginConfig());
 	if (strlen(ConfigHelpervar.m_szPassphrase) > 0)
 	{
@@ -1672,6 +1655,7 @@ BOOL vncClientThread::AuthSecureVNCPlugin(std::string& auth_message)
 	BOOL auth_ok = FALSE;
 
 	const char* plainPassword = plain;
+	const char* plainPasswordViewOnly = plainViewOnly;
 	/*if (!m_ms_logon && plainPassword && strlen(plainPassword) > 0) {
 		m_socket->GetIntegratedPlugin()->SetPasswordData((const BYTE*)plainPassword, strlen(plainPassword));
 	}*/
@@ -1733,7 +1717,7 @@ BOOL vncClientThread::AuthSecureVNCPlugin(std::string& auth_message)
 
 		m_socket->GetIntegratedPlugin()->SetHandshakeComplete();
 
-		if (!m_ms_logon && strlen(plainPassword) != 0)
+		if (!m_ms_logon && (strlen(plainPassword) != 0 || strlen(plainPasswordViewOnly) != 0))
 		{
 			if (!m_socket->ReadExact((char*)&wResponseLength, sizeof(wResponseLength))) {
 				return FALSE;
@@ -1747,7 +1731,14 @@ BOOL vncClientThread::AuthSecureVNCPlugin(std::string& auth_message)
 			}
 			if (bPassphrase == false)
 			{
-				if (memcmp(plain, pResponseData, strlen(plain))) auth_ok = false;
+				if (memcmp(plain, pResponseData, strlen(plain))) 
+						auth_ok = false;
+				if (auth_ok == false && !memcmp(plainViewOnly, pResponseData, strlen(plainViewOnly))) {
+					m_client->EnableKeyboard(false); //PGM
+					m_client->EnablePointer(false); //PGM
+					m_client->EnableGii(false);
+					auth_ok = true;
+				}
 			}
 			else if (memcmp(ConfigHelpervar.m_szPassphrase, pResponseData, strlen(ConfigHelpervar.m_szPassphrase))) auth_ok = false;
 			delete[] pResponseData;
@@ -1904,7 +1895,7 @@ BOOL vncClientThread::AuthVnc(std::string& auth_message)
 		memcpy(challenge2, challenge, 16); //PGM
 
 		{
-			vnclog.Print(LL_INTINFO, "password authentication");
+			vnclog.Print(LL_INTINFO, "password authentication\n");
 			if (!m_socket->SendExact(challenge, sizeof(challenge)))
 			{
 				vnclog.Print(LL_SOCKERR, VNCLOG("Failed to send challenge to client\n"));
@@ -1930,13 +1921,13 @@ BOOL vncClientThread::AuthVnc(std::string& auth_message)
 					break;
 				}
 			}
-#ifdef ULTRAVNC_VEYON_SUPPORT
+#ifndef ULTRAVNC_VEYON_SUPPORT
 			if (!auth_ok) //PGM
 			{ //PGM
-				vncPasswd::ToText plain2(settings->getPasswd2(), settings->getSecure()); //PGM
+				vncPasswd::ToText plain2(settings->getPasswdViewOnly(), settings->getSecure()); //PGM
 				if ((strlen(plain2) > 0)) //PGM
 				{ //PGM
-					vnclog.Print(LL_INTINFO, "View-only password authentication"); //PGM
+					vnclog.Print(LL_INTINFO, "View-only password authentication\n"); //PGM
 					m_client->EnableKeyboard(false); //PGM
 					m_client->EnablePointer(false); //PGM
 					m_client->EnableGii(false);
@@ -2067,57 +2058,28 @@ void GetIPString(char* buffer, int buflen)
 		strncpy_s(buffer, buflen, "Host name unavailable", buflen);
 		return;
 	}
-#ifdef IPV6V4
-	* buffer = '\0';
+	if (settings->getIPV6()) {
+		*buffer = '\0';
 
-	LPSOCKADDR sockaddr_ip;
-	struct addrinfo hint;
-	struct addrinfo* serverinfo = 0;
-	memset(&hint, 0, sizeof(hint));
-	hint.ai_family = AF_UNSPEC;
-	hint.ai_socktype = SOCK_STREAM;
-	hint.ai_protocol = IPPROTO_TCP;
-	struct sockaddr_in6* pIpv6Addr;
-	struct sockaddr_in* pIpv4Addr;
-	struct sockaddr_in6 Ipv6Addr;
-	struct sockaddr_in Ipv4Addr;
-	memset(&Ipv6Addr, 0, sizeof(Ipv6Addr));
-	memset(&Ipv4Addr, 0, sizeof(Ipv4Addr));
+		LPSOCKADDR sockaddr_ip;
+		struct addrinfo hint;
+		struct addrinfo* serverinfo = 0;
+		memset(&hint, 0, sizeof(hint));
+		hint.ai_family = AF_UNSPEC;
+		hint.ai_socktype = SOCK_STREAM;
+		hint.ai_protocol = IPPROTO_TCP;
+		struct sockaddr_in6* pIpv6Addr;
+		struct sockaddr_in* pIpv4Addr;
+		struct sockaddr_in6 Ipv6Addr;
+		struct sockaddr_in Ipv4Addr;
+		memset(&Ipv6Addr, 0, sizeof(Ipv6Addr));
+		memset(&Ipv4Addr, 0, sizeof(Ipv4Addr));
 
-	//make sure the buffer is not overwritten
+		//make sure the buffer is not overwritten
 
-	if (getaddrinfo(namebuf, 0, &hint, &serverinfo) == 0)
-	{
-		struct addrinfo* p;
-		if (!settings->getIPV6())
+		if (getaddrinfo(namebuf, 0, &hint, &serverinfo) == 0)
 		{
-			p = serverinfo;
-			for (p = serverinfo; p != NULL; p = p->ai_next) {
-				switch (p->ai_family) {
-				case AF_INET:
-				{
-					pIpv4Addr = (struct sockaddr_in*)p->ai_addr;
-					memcpy(&Ipv4Addr, pIpv4Addr, sizeof(Ipv4Addr));
-					Ipv4Addr.sin_family = AF_INET;
-					char			szText[256];
-					sprintf_s(szText, "%s-", inet_ntoa(Ipv4Addr.sin_addr));
-					int len = strlen(buffer);
-					int len2 = strlen(szText);
-					if (len + len2 < buflen) strcat_s(buffer, buflen, szText);
-					break;
-				}
-				case AF_INET6:
-				{
-					break;
-				}
-				default:
-					break;
-				}
-			}
-		}
-
-		if (settings->getIPV6())
-		{
+			struct addrinfo* p;
 			p = serverinfo;
 			for (p = serverinfo; p != NULL; p = p->ai_next) {
 				switch (p->ai_family) {
@@ -2152,32 +2114,33 @@ void GetIPString(char* buffer, int buflen)
 					break;
 				}
 			}
-		}
-	}
-	freeaddrinfo(serverinfo);
-#else
-	HOSTENT* ph = NULL;
-	ph = gethostbyname(namebuf);
-	if (!ph)
-	{
-		strncpy_s(buffer, buflen, "IP address unavailable", buflen);
-		return;
-	}
 
-	*buffer = '\0';
-	char digtxt[5];
-	for (int i = 0; ph->h_addr_list[i]; i++)
-	{
-		for (int j = 0; j < ph->h_length; j++)
-		{
-			sprintf_s(digtxt, "%d.", (unsigned char)ph->h_addr_list[i][j]);
-			strncat_s(buffer, buflen, digtxt, (buflen - 1) - strlen(buffer));
 		}
-		buffer[strlen(buffer) - 1] = '\0';
-		if (ph->h_addr_list[i + 1] != 0)
-			strncat_s(buffer, buflen, ", ", (buflen - 1) - strlen(buffer));
+		freeaddrinfo(serverinfo);
 	}
-#endif
+	else {
+		HOSTENT* ph = NULL;
+		ph = gethostbyname(namebuf);
+		if (!ph)
+		{
+			strncpy_s(buffer, buflen, "IP address unavailable", buflen);
+			return;
+		}
+
+		*buffer = '\0';
+		char digtxt[5];
+		for (int i = 0; ph->h_addr_list[i]; i++)
+		{
+			for (int j = 0; j < ph->h_length; j++)
+			{
+				sprintf_s(digtxt, "%d.", (unsigned char)ph->h_addr_list[i][j]);
+				strncat_s(buffer, buflen, digtxt, (buflen - 1) - strlen(buffer));
+			}
+			buffer[strlen(buffer) - 1] = '\0';
+			if (ph->h_addr_list[i + 1] != 0)
+				strncat_s(buffer, buflen, ", ", (buflen - 1) - strlen(buffer));
+		}
+	}
 }
 
 // adzm 2010-08
@@ -2202,10 +2165,6 @@ bool vncClientThread::InitSocket()
 	if (m_server->GetDSMPluginPointer() != NULL)
 	{
 		m_socket->SetDSMPluginPointer(m_server->GetDSMPluginPointer());
-		vnclog.Print(LL_INTINFO, VNCLOG("DSMPlugin Pointer to socket OK\n"));
-
-		//adzm 2010-05-12 - dsmplugin config
-		//m_socket->SetDSMPluginConfig(m_server->GetDSMPluginConfig());
 	}
 	else
 	{
@@ -2218,7 +2177,7 @@ bool vncClientThread::InitSocket()
 	// updates and suchlike interfering with the initial protocol negotiations.
 
 	// sf@2002 - DSMPlugin
-	// Use Plugin only from this point (now BEFORE Protocole handshaking)
+	// Use Plugin only from this point (now BEFORE Protocol handshaking)
 	if (m_server->GetDSMPluginPointer()->IsEnabled())
 	{
 		// sf@2007 - Current DSM code does not support multithreading
@@ -2274,16 +2233,17 @@ bool vncClientThread::TryReconnect()
 		m_client->m_socket = tmpsock;
 	}
 
-	// Connect out to the specified host on the VNCviewer listen port
+	// Connect out to the specified host on the UltraVNC Viewer listen port
 	// To be really good, we should allow a display number here but
 	// for now we'll just assume we're connecting to display zero
-#ifdef IPV6V4
-	if (m_socket->CreateConnect(m_client->GetHost(), m_client->GetHostPort()))
-#else
-	m_socket->Create();
-	if (m_socket->Connect(m_client->GetHost(), m_client->GetHostPort()))
-#endif
-	{
+	bool result;
+	if (settings->getIPV6())
+		result = m_socket->CreateConnect(m_client->GetHost(), m_client->GetHostPort());
+	else {
+		m_socket->Create();
+		result = m_socket->Connect(m_client->GetHost(), m_client->GetHostPort());
+	}
+	if (result) {
 		if (m_client->GetRepeaterID()) {
 			char finalidcode[_MAX_PATH];
 			//adzm 2010-08 - this was sending uninitialized data over the wire
@@ -2367,11 +2327,10 @@ vncClientThread::run(void* arg)
 			m_server->AutoReconnectPort(m_AutoReconnectPort);
 			m_server->AutoReconnectAdr(m_szAutoReconnectAdr);
 			m_server->AutoReconnectId(m_szAutoReconnectId);
-#ifdef IPV6V4
-			postHelper::PostAddNewClient4(1111, 1111);
-#else
-			postHelper::PostAddNewClient(1111, 1111);
-#endif
+			if (settings->getIPV6())
+				postHelper::PostAddNewClient4(1111, 1111);
+			else
+				postHelper::PostAddNewClient(1111, 1111);
 		}
 #endif
 		m_server->RemoveClient(m_client->GetClientId());
@@ -2393,11 +2352,10 @@ vncClientThread::run(void* arg)
 				m_server->AutoReconnectPort(m_AutoReconnectPort);
 				m_server->AutoReconnectAdr(m_szAutoReconnectAdr);
 				m_server->AutoReconnectId(m_szAutoReconnectId);
-#ifdef IPV6V4
-				postHelper::PostAddNewClient4(1111, 1111);
-#else
-				postHelper::PostAddNewClient(1111, 1111);
-#endif
+				if (settings->getIPV6())
+					postHelper::PostAddNewClient4(1111, 1111);
+				else
+					postHelper::PostAddNewClient(1111, 1111);
 			}
 		}
 #endif
@@ -2529,6 +2487,7 @@ vncClientThread::run(void* arg)
 	bool need_first_keepalive = false;
 	bool need_keepalive = false;
 	bool need_first_idletime = false;
+	bool need_monitor_info = false;
 	bool firstrun = true;
 	bool need_ft_version_msg = false;
 	// adzm - 2010-07 - Extended clipboard
@@ -2601,6 +2560,13 @@ vncClientThread::run(void* arg)
 			need_first_idletime = false;
 		}
 
+		if (need_monitor_info)
+		{
+			// send idletime to let the client know we accepted the encoding request
+			m_client->SendMonitorInfo();
+			need_monitor_info = false;
+		}
+
 		if (m_client->m_want_update_state && m_client->m_Support_rfbSetServerInput)
 		{
 			m_client->m_want_update_state = false;
@@ -2616,7 +2582,7 @@ vncClientThread::run(void* arg)
 #ifdef FILETRANSFER_SUPPORT
 		if (need_ft_version_msg)
 		{
-			// send a ft protocol message to client.
+			// send a File Transfer Protocol message to client.
 			m_client->SendFTProtocolMsg();
 			need_ft_version_msg = false;
 		}
@@ -2913,6 +2879,12 @@ vncClientThread::run(void* arg)
 					}
 #endif
 
+					if (Swap32IfLE(encoding) == rfbEncodingMonitorInfo) {
+						need_monitor_info = true;
+						vnclog.Print(LL_INTINFO, VNCLOG("IdleTime protocol extension enabled\n"));
+						continue;
+					}
+
 #ifdef FILETRANSFER_SUPPORT
 					if (Swap32IfLE(encoding) == rfbEncodingFTProtocolVersion) {
 						need_ft_version_msg = true;
@@ -2997,7 +2969,7 @@ vncClientThread::run(void* arg)
 					m_client->m_cursor_update_sent = FALSE;
 				}
 
-				// sf@2002 - For now we disable cache protocole when more than one client are connected
+				// sf@2002 - For now we disable cache protocol when more than one client are connected
 				// (But the cache buffer (if exists) is kept intact (for XORZlib usage))
 				if (m_server->AuthClientCount() > 1)
 					m_server->DisableCacheForAllClients();
@@ -3118,7 +3090,7 @@ vncClientThread::run(void* arg)
 						}
 						else
 						{
-							vnclog.Print(LL_INTERR, VNCLOG("Only 16bit XT supported\n"));
+							vnclog.Print(LL_INTERR, VNCLOG("Only 16-bit XT supported\n"));
 							m_client->cl_connected = FALSE;
 							break;
 						}
@@ -3878,6 +3850,12 @@ vncClientThread::run(void* arg)
 			}
 			break;
 			// Set Single Window
+		case rfbSetMonitor:
+			if (m_socket->ReadExact(((char*)&msg) + nTO, sz_rfbMonitorMsg - nTO))
+			{
+				m_client->m_encodemgr.m_buffer->m_desktop->SetMonitor(msg.mm.nbr);
+			}
+			break;
 		case rfbSetSW:
 			if (!m_socket->ReadExact(((char*)&msg) + nTO, sz_rfbSetSWMsg - nTO))
 			{
@@ -3896,14 +3874,14 @@ vncClientThread::run(void* arg)
 #endif
 
 #ifdef TEXT_CHAT_SUPPORT
-			// Modif sf@2002 - TextChat
+			// Modif sf@2002 - Text Chat
 		case rfbTextChat:
 			m_client->m_pTextChat->ProcessTextChatMsg(nTO);
 			break;
 #endif
 
 #ifdef FILETRANSFER_SUPPORT
-			// Modif sf@2002 - FileTransfer
+			// Modif sf@2002 - File Transfer
 			// File Transfer Message
 		case rfbFileTransfer:
 		{
@@ -3914,7 +3892,7 @@ vncClientThread::run(void* arg)
 			{
 				fUserOk = m_client->DoFTUserImpersonation();
 			}
-#endif
+#endif // SC_20
 
 			if (!m_client->m_keyboardenabled || !m_client->m_pointerenabled) fUserOk = false; //PGM
 
@@ -3945,8 +3923,7 @@ vncClientThread::run(void* arg)
 					// Read in the Name of the file to create
 					if (!m_socket->ReadExact(m_client->m_szFullDestName, length))
 					{
-						//MessageBoxSecure(NULL, "1. Abort !", "Ultra WinVNC", MB_OK);
-						// vnclog.Print(LL_INTINFO, VNCLOG("*** FileTransfer: Failed to receive FileName from Viewer. Abort !\n"));
+						// vnclog.Print(LL_INTINFO, VNCLOG("*** File Transfer: Failed to receive FileName from Viewer. Abort!\n"));
 						break;
 					}
 
@@ -3956,8 +3933,7 @@ vncClientThread::run(void* arg)
 					CARD32 sizeHtmp = 0;
 					if (!m_socket->ReadExact((char*)&sizeHtmp, sizeof(CARD32)))
 					{
-						//MessageBoxSecure(NULL, "2. Abort !", "Ultra WinVNC", MB_OK);
-						//vnclog.Print(LL_INTINFO, VNCLOG("*** FileTransfer: Failed to receive SizeH from Viewer. Abort !\n"));
+						//vnclog.Print(LL_INTINFO, VNCLOG("*** File Transfer: Failed to receive SizeH from Viewer. Abort!\n"));
 						break;
 					}
 					sizeH = Swap32IfLE(sizeHtmp);
@@ -3989,8 +3965,8 @@ vncClientThread::run(void* arg)
 					*strrchr(szDestPath, '\\') = '\0'; // We don't handle UNCs for now
 
 					// loadlibrary
-					// needed for 95 non OSR2
-					// Possible this will block filetransfer, but at least server will start
+					// needed for Windows 95 non-OSR2
+					// Possible this will block File Transfer, but at least server will start
 					PGETDISKFREESPACEEX pGetDiskFreeSpaceEx;
 					pGetDiskFreeSpaceEx = (PGETDISKFREESPACEEX)GetProcAddress(GetModuleHandle("kernel32.dll"), "GetDiskFreeSpaceExA");
 
@@ -4056,13 +4032,13 @@ vncClientThread::run(void* arg)
 						//if (dwFileSize != 0xFFFFFFFF)
 						if (bSize)
 						{
-							int nCSBufferSize = (4 * (int)(n2SrcSize.QuadPart / sz_rfbBlockSize)) + 1024;
-							char* lpCSBuff = new char[nCSBufferSize];
-							if (lpCSBuff != NULL)
+							unsigned long nCSBufferSize = (4 * (unsigned long)(n2SrcSize.QuadPart / sz_rfbBlockSize)) + 1024;
+							if (nCSBufferSize > std::numeric_limits<size_t>::max())
+								break;
+							std::unique_ptr<char[]> lpCSBuff = std::make_unique<char[]>(nCSBufferSize);
+							if (lpCSBuff)
 							{
-								int nCSBufferLen = m_client->GenerateFileChecksums(m_client->m_hDestFile,
-									lpCSBuff,
-									nCSBufferSize);
+								int nCSBufferLen = m_client->GenerateFileChecksums(m_client->m_hDestFile, lpCSBuff.get(), nCSBufferSize);
 								if (nCSBufferLen != -1)
 								{
 									ft.contentType = rfbFileChecksums;
@@ -4070,8 +4046,7 @@ vncClientThread::run(void* arg)
 									ft.length = Swap32IfLE(nCSBufferLen);
 									//adzm 2010-09 - minimize packets. SendExact flushes the queue.
 									m_socket->SendExactQueue((char*)&ft, sz_rfbFileTransferMsg, rfbFileTransfer);
-									m_socket->SendExactQueue((char*)lpCSBuff, nCSBufferLen);
-									delete[] lpCSBuff;
+									m_socket->SendExactQueue((char*)lpCSBuff.get(), nCSBufferLen);
 								}
 							}
 						}
@@ -4098,8 +4073,7 @@ vncClientThread::run(void* arg)
 							m_client->m_pBuff = NULL;
 						}
 
-						//MessageBoxSecure(NULL, "3. Abort !", "Ultra WinVNC", MB_OK);
-						//vnclog.Print(LL_INTINFO, VNCLOG("*** FileTransfer: Wrong Dest File size. Abort !\n"));
+						//vnclog.Print(LL_INTINFO, VNCLOG("*** File Transfer: Wrong Dest File size. Abort!\n"));
 						m_client->FTDownloadFailureHook();
 						break;
 					}
@@ -4138,8 +4112,7 @@ vncClientThread::run(void* arg)
 					{
 						helper::close_handle(m_client->m_hSrcFile);
 						m_client->FTUploadFailureHook();
-						// MessageBoxSecure(NULL, "7. Abort !", "Ultra WinVNC", MB_OK);
-						//vnclog.Print(LL_INTINFO, VNCLOG("*** FileTransfer: File not created on client side. Abort !\n"));
+						//vnclog.Print(LL_INTINFO, VNCLOG("*** File Transfer: File not created on client side. Abort!\n"));
 						break;
 					}
 
@@ -4148,8 +4121,7 @@ vncClientThread::run(void* arg)
 					if (m_client->m_pBuff == NULL)
 					{
 						helper::close_handle(m_client->m_hSrcFile);
-						//MessageBoxSecure(NULL, "8. Abort !", "Ultra WinVNC", MB_OK);
-						//vnclog.Print(LL_INTINFO, VNCLOG("*** FileTransfer: rfbFileHeader - Unable to allocate buffer. Abort !\n"));
+						//vnclog.Print(LL_INTINFO, VNCLOG("*** File Transfer: rfbFileHeader - Unable to allocate buffer. Abort!\n"));
 						m_client->FTUploadFailureHook();
 						break;
 					}
@@ -4164,8 +4136,7 @@ vncClientThread::run(void* arg)
 							delete[] m_client->m_pBuff;
 							m_client->m_pBuff = NULL;
 						}
-						//MessageBoxSecure(NULL, "9. Abort !", "Ultra WinVNC", MB_OK);
-						//vnclog.Print(LL_INTINFO, VNCLOG("*** FileTransfer: rfbFileHeader - Unable to allocate comp. buffer. Abort !\n"));
+						//vnclog.Print(LL_INTINFO, VNCLOG("*** File Transfer: rfbFileHeader - Unable to allocate comp. buffer. Abort!\n"));
 						m_client->FTUploadFailureHook();
 						break;
 					}
@@ -4197,8 +4168,8 @@ vncClientThread::run(void* arg)
 					}
 					break;
 
-					// We use this message for FileTransfer rights (<=RC18 versions)
-					// The client asks for FileTransfer permission
+					// We use this message for File Transfer rights (<= RC18)
+					// The client asks for File Transfer permission
 				case rfbAbortFileTransfer:
 
 					// For now...
@@ -4214,13 +4185,13 @@ vncClientThread::run(void* arg)
 						m_client->m_fUserAbortedFileTransfer = true;
 						// m_client->FinishFileSending();
 					}
-					else // Old method for FileTransfer handshake perimssion (<=RC18)
+					else // Old method for File Transfer handshake perimssion (<= RC18)
 					{
-						// We reject any <=RC18 Viewer FT
+						// We reject any <= RC18 UltraVNC Viewer File Transfer
 						m_client->fFTRequest = true;
 
 						// sf@2002 - DO IT HERE FOR THE MOMENT
-						// FileTransfer permission requested by the client
+						// File Transfer permission requested by the client
 						if (m_client->fFTRequest)
 						{
 							rfbFileTransferMsg ft = { 0 };
@@ -4229,9 +4200,9 @@ vncClientThread::run(void* arg)
 
 							bool bOldFTProtocole = (msg.ft.contentParam == 0);
 							if (bOldFTProtocole)
-								ft.contentType = rfbAbortFileTransfer; // Viewer with New V2 FT protocole
+								ft.contentType = rfbAbortFileTransfer; // Viewer with New v2 File Transfer Protocol
 							else
-								ft.contentType = rfbFileTransferAccess; // Viewer with old FT protocole
+								ft.contentType = rfbFileTransferAccess; // Viewer with old File Transfer Protocol
 
 							if (!bOldFTProtocole && settings->getEnableFileTransfer() && settings->getEnableRemoteInputs() && fUserOk)
 								ft.size = Swap32IfLE(1);
@@ -4244,12 +4215,12 @@ vncClientThread::run(void* arg)
 					break;
 
 					/* Not yet used because we want backward compatibility...
-					// From RC19 versions, the viewer uses this new message to request FT persmission
-					// It also transmits its FT versions
+					// From RC19 versions, the UltraVNC Viewer uses this new message to request File Transfer permission
+					// It also transmits its File Transfer versions
 					case rfbFileTransferAccess:
 						m_client->fFTRequest = true;
 
-						// FileTransfer permission requested by the client
+						// File Transfer permission requested by the client
 						if (m_client->fFTRequest)
 						{
 							rfbFileTransferMsg ft;
@@ -4290,7 +4261,7 @@ vncClientThread::run(void* arg)
 							// We replace the "\" char following the drive letter and ":"
 							// with a char corresponding to the type of drive
 							// We obtain something like "C:l<NULL>D:c<NULL>....Z:n\<NULL><NULL>"
-							// Isn't it ugly ?
+							// Isn't it ugly?
 							nType = GetDriveType(szDrive);
 							switch (nType)
 							{
@@ -4337,7 +4308,7 @@ vncClientThread::run(void* arg)
 						// moved jdp 8/5/08 -- have to read whole packet to keep protocol in sync
 						if (!settings->getEnableFileTransfer() || !fUserOk) break;
 						// sf@2004 - Shortcuts Case
-						// Todo: Cultures translation ?
+						// Todo: Cultures translation?
 						int nFolder = -1;
 						char szP[MAX_PATH + 2];
 						bool fShortError = false;
@@ -4591,7 +4562,7 @@ vncClientThread::run(void* arg)
 					m_client->FTUploadFailureHook();
 					m_client->m_fFileUploadRunning = false;
 				}
-				//vnclog.Print(LL_INTINFO, VNCLOG("*** FileTransfer: message content reading error\n"));
+				//vnclog.Print(LL_INTINFO, VNCLOG("*** File Transfer: message content reading error\n"));
 			}
 
 			m_client->m_fFileTransferRunning = FALSE;
@@ -4620,13 +4591,13 @@ vncClientThread::run(void* arg)
 
 #ifdef FILETRANSFER_SUPPORT
 #ifndef SC_20
-		// sf@2005 - Cancel FT User impersonation if possible
+		// sf@2005 - Cancel File Transfer User impersonation if possible
 		// We do it here to ensure impersonation is cancelled
 		if (settings->getFTUserImpersonation())
 		{
 			m_client->UndoFTUserImpersonation();
 		}
-#endif
+#endif // SC_20
 #endif
 	}
 
@@ -4667,7 +4638,7 @@ vncClientThread::run(void* arg)
 	if (input_desktop)
 		if (!CloseDesktop(input_desktop))
 			vnclog.Print(LL_INTERR, VNCLOG("failed to close desktop\n"));
-	// Quit this thread.  This will automatically delete the thread and the
+	// Quit this thread. This will automatically delete the thread and the
 	// associated client.
 	vnclog.Print(LL_CLIENTS, VNCLOG("client disconnected : %s (%hd)\n"),
 		m_client->GetClientNameName(),
@@ -4677,23 +4648,19 @@ vncClientThread::run(void* arg)
 	// LOG it also in the event
 	//////////////////
 #ifndef SC_20
-	typedef BOOL(*LogeventFn)(char* machine, char* user, int clientId, bool isinteractive);
+	typedef BOOL(*LogeventFn)(char* machine, char* user, int clientId, bool isinteractive, char* szMslogonLog);
 	LogeventFn Logevent = 0;
 	char szCurrentDir[MAX_PATH];
-	if (GetModuleFileName(NULL, szCurrentDir, MAX_PATH))
-	{
-		char* p = strrchr(szCurrentDir, '\\');
-		*p = '\0';
-		strcat_s(szCurrentDir, "\\logging.dll");
-	}
+	strcpy_s(szCurrentDir, winvncFolder);
+	strcat_s(szCurrentDir, "\\logging.dll");
 	HMODULE hModule = LoadLibrary(szCurrentDir);
 	if (hModule)
 	{
-		Logevent = (LogeventFn)GetProcAddress(hModule, "LOGEXIT");
-		Logevent((char*)m_client->GetClientNameName(), (char*)m_client->GetClientDomainUsername(), m_client->GetClientId(), m_client->m_keyboardenabled && m_client->m_pointerenabled);
+		Logevent = (LogeventFn)GetProcAddress(hModule, "LOGEXITV2");
+		Logevent((char*)m_client->GetClientNameName(), (char*)m_client->GetClientDomainUsername(), m_client->GetClientId(), m_client->m_keyboardenabled && m_client->m_pointerenabled, settings->getLogFile());
 		FreeLibrary(hModule);
 	}
-#endif
+#endif // SC_20
 #endif
 
 	// Disable the protocol to ensure that the update thread
@@ -4721,11 +4688,10 @@ vncClientThread::run(void* arg)
 			m_server->AutoReconnectPort(m_AutoReconnectPort);
 			m_server->AutoReconnectAdr(m_szAutoReconnectAdr);
 			m_server->AutoReconnectId(m_szAutoReconnectId);
-#ifdef IPV6V4
-			postHelper::PostAddNewClient4(1111, 1111);
-#else
-			postHelper::PostAddNewClient(1111, 1111);
-#endif
+			if (settings->getIPV6())
+				postHelper::PostAddNewClient4(1111, 1111);
+			else
+				postHelper::PostAddNewClient(1111, 1111);
 		}
 	}
 #endif
@@ -4785,9 +4751,9 @@ vncClient::vncClient() : m_clipboard(ClipboardSettings::defaultServerCaps), Send
 #ifdef FILETRANSFER_SUPPORT
 	fFTRequest = false;
 
-	// Modif sf@2002 - FileTransfer
+	// Modif sf@2002 - File Transfer
 	m_fFileTransferRunning = FALSE;
-	m_pZipUnZip = new CZipUnZip32(); // Directory FileTransfer utils
+	m_pZipUnZip = new CZipUnZip32(); // Directory File Transfer utils
 
 	m_hDestFile = 0;
 	//m_szFullDestName = NULL;
@@ -4888,7 +4854,6 @@ vncClient::vncClient() : m_clipboard(ClipboardSettings::defaultServerCaps), Send
 	ask_mouse = false;
 	simulateCursor = NULL;
 	forceBlacklist = false;
-	desktopUsersToken = NULL;
 }
 
 vncClient::~vncClient()
@@ -4905,7 +4870,7 @@ vncClient::~vncClient()
 		m_pTextChat = NULL;
 	}
 
-	// Directory FileTransfer utils
+	// Directory File Transfer utils
 	if (m_pZipUnZip) delete m_pZipUnZip;
 #endif
 
@@ -4999,9 +4964,6 @@ vncClient::~vncClient()
 	}
 	if (simulateCursor)
 		delete simulateCursor;
-	if (desktopUsersToken)
-		delete desktopUsersToken;
-	desktopUsersToken = NULL;
 }
 
 // Init
@@ -5067,7 +5029,7 @@ void
 vncClient::SetBuffer(vncBuffer* buffer)
 {
 	// Until authenticated, the client object has no access
-	// to the screen buffer.  This means that there only need
+	// to the screen buffer. This means that there only need
 	// be a buffer when there's at least one authenticated client.
 	m_encodemgr.SetBuffer(buffer);
 }
@@ -5966,7 +5928,7 @@ vncClient::SendCacheRect(const rfb::Rect& dest)
 	cacherecthdr.r.h = Swap16IfLE((dest.br.y - dest.tl.y) / m_nScale);
 	cacherecthdr.encoding = Swap32IfLE(rfbEncodingCache);
 
-	totalraw += (dest.br.x - dest.tl.x) * (dest.br.y - dest.tl.y) * 32 / 8; // 32bit test
+	totalraw += (dest.br.x - dest.tl.x) * (dest.br.y - dest.tl.y) * 32 / 8; // 32-bit test
 	// Create the CopyRect-specific section
 	rfbCacheRect cacherectbody{};
 	cacherectbody.special = Swap16IfLE(9999); //not used dummy
@@ -6162,19 +6124,29 @@ int vncClient::GenerateFileChecksums(HANDLE hFile, char* lpCSBuffer, int nCSBuff
 	int nCSBufferOffset = 0;
 
 	char* lpBuffer = new char[sz_rfbBlockSize];
-	if (lpBuffer == NULL)
+	if (!lpBuffer)
 		return -1;
 
 	while (!fEof)
 	{
-		int nRes = ReadFile(hFile, lpBuffer, sz_rfbBlockSize, &dwNbBytesRead, NULL);
-		if (!nRes && dwNbBytesRead != 0)
+		if (!ReadFile(hFile, lpBuffer, sz_rfbBlockSize, &dwNbBytesRead, NULL))
+		{
 			fError = true;
+			break;
+		}
 
-		if (nRes && dwNbBytesRead == 0)
+		if (dwNbBytesRead == 0)
+		{
 			fEof = true;
+		}
 		else
 		{
+			if (nCSBufferOffset + 4 > nCSBufferSize)
+			{
+				fError = true;
+				break;
+			}
+
 			unsigned long cs = adler32(0L, Z_NULL, 0);
 			cs = adler32(cs, (unsigned char*)lpBuffer, (int)dwNbBytesRead);
 
@@ -6183,15 +6155,14 @@ int vncClient::GenerateFileChecksums(HANDLE hFile, char* lpCSBuffer, int nCSBuff
 		}
 	}
 
-	SetFilePointer(hFile, 0L, NULL, FILE_BEGIN);
-	delete[] lpBuffer;
-
-	if (fError)
+	if (SetFilePointer(hFile, 0L, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
 	{
-		return -1;
+		fError = true;
 	}
 
-	return nCSBufferOffset;
+	delete[] lpBuffer;
+
+	return fError ? -1 : nCSBufferOffset;
 }
 
 //
@@ -6313,7 +6284,7 @@ void vncClient::FinishFileReception()
 	// sf@2004 - Delta transfer
 	SetEndOfFile(m_hDestFile);
 
-	// if error ?
+	// if error?
 	FlushFileBuffers(m_hDestFile);
 
 	// Set the DestFile Time Stamp
@@ -6783,8 +6754,7 @@ bool vncClient::DoFTUserImpersonation()
 	vnclog.Print(LL_INTERR, VNCLOG("%%%%%%%%%%%%% vncClient::DoFTUserImpersonation - currentUser = %s\n"), username);
 	if (strcmp(username, "") != 0)
 	{
-		desktopUsersToken = new DesktopUsersToken();
-		m_hPToken = desktopUsersToken->getDesktopUsersToken();
+		m_hPToken = DesktopUsersToken::getInstance()->getDesktopUsersToken();
 
 		if (!m_hPToken) {
 			vnclog.Print(LL_INTERR, VNCLOG("%%%%%%%%%%%%% vncClient::DoFTUserImpersonation - OpenProcessToken Error\n"));
@@ -6818,7 +6788,7 @@ bool vncClient::DoFTUserImpersonation()
 void vncClient::UndoFTUserImpersonation()
 {
 	//vnclog.Print(LL_INTERR, VNCLOG("%%%%%%%%%%%%% vncClient::UNDoFTUserImpersonation - Call\n"));
-	//moved to after returns, Is this lock realy needed if no revert is done ?
+	//moved to after returns, Is this lock realy needed if no revert is done?
 	//
 	//omni_mutex_lock l(GetUpdateLock());
 
@@ -6834,12 +6804,9 @@ void vncClient::UndoFTUserImpersonation()
 	vnclog.Print(LL_INTERR, VNCLOG("%%%%%%%%%%%%% vncClient::UNDoFTUserImpersonation - Impersonationtoken exists\n"));
 	RevertToSelf();
 	m_fFTUserImpersonatedOk = false;
-	if (desktopUsersToken)
-		delete desktopUsersToken;
-	desktopUsersToken = NULL;
 	m_hPToken = 0;
 }
-#endif
+#endif // SC_20
 #endif
 
 #ifdef SERVER_STATE_SUPPORT
@@ -6873,6 +6840,15 @@ void vncClient::SendServerStateUpdate(CARD32 state, CARD32 value)
 	}
 }
 #endif
+
+void vncClient::SendMonitorInfo()
+{
+	rfbMonitorMsg mm;
+	memset(&mm, 0, sizeof mm);
+	mm.type = rfbMonitorInfo;
+	mm.nbr = m_encodemgr.m_buffer->m_desktop->nr_monitors;
+	m_socket->SendExact((char*)&mm, sz_rfbMonitorMsg, rfbMonitorInfo);
+}
 
 #ifdef KEEP_ALIVE_SUPPORT
 void vncClient::SendKeepAlive(bool bForce)
@@ -6978,8 +6954,7 @@ int  vncClient::filetransferrequestPart2(int nDirZipRet)
 	omni_mutex_lock ll(GetUpdateLock(), 90);
 	if (nDirZipRet == -1)
 	{
-		//MessageBoxSecure(NULL, "5. Abort !", "Ultra WinVNC", MB_OK);
-		//vnclog.Print(LL_INTINFO, VNCLOG("*** FileTransfer: Failed to zip requested dir. Abort !\n"));
+		//vnclog.Print(LL_INTINFO, VNCLOG("*** File Transfer: Failed to zip requested dir. Abort!\n"));
 
 		//	[v1.0.2-jp1 fix] Empty directory receive problem
 		rfbFileTransferMsg ft{};
@@ -7096,8 +7071,7 @@ int  vncClient::filetransferrequestPart2(int nDirZipRet)
 	// delete [] szSrcFileName;
 	if (n2SrcSize.LowPart == 0xFFFFFFFF && n2SrcSize.HighPart == 0xFFFFFFFF)
 	{
-		//MessageBoxSecure(NULL, "6. Abort !", "Ultra WinVNC", MB_OK);
-		//vnclog.Print(LL_INTINFO, VNCLOG("*** FileTransfer: Wrong Src File size. Abort !\n"));
+		//vnclog.Print(LL_INTINFO, VNCLOG("*** File Transfer: Wrong Src File size. Abort!\n"));
 		FTUploadFailureHook();
 		if (ThreadHandleCompressFolder)
 			CloseHandle(ThreadHandleCompressFolder);

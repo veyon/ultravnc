@@ -1,9 +1,9 @@
+/////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //  Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
 //  Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
 //
-//  This file is part of the VNC system.
-//
-//  The VNC system is free software; you can redistribute it and/or modify
+//  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
@@ -18,9 +18,11 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the VNC system is not available from the place 
-// whence you received this file, check http://www.uk.research.att.com/vnc or contact
-// the authors on vnc@uk.research.att.com for information on obtaining it.
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
 
 
 // vncAbout.cpp
@@ -28,12 +30,64 @@
 // Implementation of the About dialog!
 
 #include "stdhdrs.h"
-
+#include "../common/Hyperlinks.h"
 #include "winvnc.h"
 #include "vncabout.h"
+extern char configFile[256];
 
 //	[v1.0.2-jp1 fix] Load resouce from dll
 extern HINSTANCE	hInstResDLL;
+
+char* GetVersionFromResource(char* version)
+{
+    HRSRC hResInfo;
+    DWORD dwSize;
+    HGLOBAL hResData;
+    LPVOID pRes, pResCopy;
+    UINT uLen = 0;
+    VS_FIXEDFILEINFO* lpFfi = NULL;
+    HINSTANCE hInst = ::GetModuleHandle(NULL);
+
+    hResInfo = FindResource(hInst, MAKEINTRESOURCE(1), RT_VERSION);
+    if (hResInfo)
+    {
+        dwSize = SizeofResource(hInst, hResInfo);
+        hResData = LoadResource(hInst, hResInfo);
+        if (hResData)
+        {
+            pRes = LockResource(hResData);
+            if (pRes)
+            {
+                pResCopy = LocalAlloc(LMEM_FIXED, dwSize);
+                if (pResCopy)
+                {
+                    CopyMemory(pResCopy, pRes, dwSize);
+
+                    if (VerQueryValue(pResCopy, ("\\"), (LPVOID*)&lpFfi, &uLen))
+                    {
+                        if (lpFfi != NULL)
+                        {
+                            DWORD dwFileVersionMS = lpFfi->dwFileVersionMS;
+                            DWORD dwFileVersionLS = lpFfi->dwFileVersionLS;
+
+                            DWORD dwLeftMost = HIWORD(dwFileVersionMS);
+                            DWORD dwSecondLeft = LOWORD(dwFileVersionMS);
+                            DWORD dwSecondRight = HIWORD(dwFileVersionLS);
+                            DWORD dwRightMost = LOWORD(dwFileVersionLS);
+
+                            sprintf(version, " %d.%d.%d.%d", dwLeftMost, dwSecondLeft, dwSecondRight, dwRightMost);
+                        }
+                    }
+
+                    LocalFree(pResCopy);
+                }
+            }
+        }
+    }
+    //strcat(version, (char*)"-dev");
+    return version;
+}
+
 
 HBITMAP
     DoGetBkGndBitmap(IN CONST UINT uBmpResId )
@@ -107,6 +161,26 @@ BOOL
         return TRUE;
     }
 
+void convertToISO8601(const char* input, char* output, size_t size) {
+    // Expected format: "Mar 14 2025 12:34:56"
+
+    // Convert month abbreviation to a number
+    const char* months = "JanFebMarAprMayJunJulAugSepOctNovDec";
+
+    char monthStr[4];  // Buffer for the month abbreviation (e.g., "Mar")
+    int day, year, month;
+    int hour, minute, second;
+
+    // Extract components from the input string
+    sscanf(input, "%3s %d %d %d:%d:%d", monthStr, &day, &year, &hour, &minute, &second);
+
+    // Convert month abbreviation to number (1-12)
+    month = (std::strstr(months, monthStr) - months) / 3 + 1;
+
+    // Format into ISO 8601 format "YYYY-MM-DDTHH:MM:SS"
+    snprintf(output, size, "%04d-%02d-%02d %02d:%02d:%02d", year, month, day, hour, minute, second);
+}
+
 // Constructor/destructor
 vncAbout::vncAbout()
 {
@@ -161,6 +235,9 @@ vncAbout::DialogProc(HWND hwnd,
 
 	case WM_INITDIALOG:
 		{
+            HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_WINVNC));
+            SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+            SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
 			// Retrieve the Dialog box parameter and use it as a pointer
 			// to the calling vncProperties object
 #ifndef _X64
@@ -172,13 +249,32 @@ vncAbout::DialogProc(HWND hwnd,
 
 			// Insert the build time information
 			extern char buildtime[];
-			SetDlgItemText(hwnd, IDC_BUILDTIME, buildtime);
+            char isoTime[20];  // Buffer for ISO output
 
+            convertToISO8601(buildtime, isoTime, sizeof(isoTime));
+
+			SetDlgItemText(hwnd, IDC_BUILDTIME, isoTime);
+            ConvertStaticToHyperlink(hwnd, IDC_WWW);
 			// Show the dialog
 			SetForegroundWindow(hwnd);
 
 			_this->m_dlgvisible = TRUE;
+            char version[50]{};
+			char title[256]{};
+			strcpy_s(title, "UltraVNC Server -");
+			strcat_s(title, GetVersionFromResource(version));
+#ifndef _X64
+            strcat_s(title, " - x86");
+#else
+            strcat_s(title, " - x64");
+#endif
+			SetDlgItemText(hwnd, IDC_VERSION, title);
 
+            const long lszConfigFileSize = 256;
+            char szConfigFile[lszConfigFileSize];
+
+            _snprintf_s(szConfigFile, lszConfigFileSize - 1, "Config file: %s", configFile);
+            SetDlgItemText(hwnd, IDC_CONFIG_FILE, szConfigFile);
 			return TRUE;
 		}
 
@@ -195,6 +291,11 @@ vncAbout::DialogProc(HWND hwnd,
 
 			return TRUE;
 		}
+        case IDC_WWW:
+        {
+            ShellExecute(GetDesktopWindow(), "open", "https://uvnc.com/", "", 0, SW_SHOWNORMAL);
+            return TRUE;
+        }
 
 		break;
 

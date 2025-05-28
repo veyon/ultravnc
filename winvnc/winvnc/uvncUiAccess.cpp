@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2013 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,14 +16,16 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check 
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
 
+#include "stdhdrs.h"
 #include "uvncUiAccess.h"
 #include "vncOSVersion.h"
+#include "winvnc.h"
 
 comm_serv *keyEventFn=NULL;
 comm_serv *StopeventFn=NULL;
@@ -56,12 +58,7 @@ mini_lock::~mini_lock()
 bool Shellexecuteforuiaccess()
 {		
 		char WORKDIR[MAX_PATH];
-		if (GetModuleFileName(NULL, WORKDIR, MAX_PATH))
-				{
-				char* p = strrchr(WORKDIR, '\\');
-				if (p == NULL) return false;
-				*p = '\0';
-				}
+		strcpy_s(WORKDIR, winvncFolder);
 		strcat_s(WORKDIR,"\\uvnckeyboardhelper.exe");
 	
 		FILE *fp = fopen(WORKDIR,"rb");

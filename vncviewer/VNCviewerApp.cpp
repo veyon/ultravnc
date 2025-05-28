@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2013 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,9 +16,9 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check 
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
 
@@ -26,6 +26,9 @@
 #include "vncviewer.h"
 #include "VNCviewerApp.h"
 #include "Exception.h"
+#include "UltraVNCHelperFunctions.h"
+#include "common/win32_helpers.h"
+using namespace helper;
 extern char sz_A2[64];
 extern char sz_B1[64];
 extern char sz_B2[64];
@@ -71,7 +74,7 @@ VNCviewerApp::VNCviewerApp(HINSTANCE hInstance, LPTSTR szCmdLine) {
 	WORD wVersionRequested = MAKEWORD(2, 0);
 	WSADATA wsaData;
 	if (WSAStartup(wVersionRequested, &wsaData) != 0) {
-		MessageBox(NULL, sz_B1, sz_A2, MB_OK | MB_ICONSTOP);
+		yesUVNCMessageBox(m_hInstResDLL, NULL, sz_B1, sz_A2, MB_ICONSTOP);
 		PostQuitMessage(1);
 	}
 	vnclog.Print(3, _T("Started and Winsock (v %d) initialised\n"), wsaData.wVersion);
@@ -79,7 +82,7 @@ VNCviewerApp::VNCviewerApp(HINSTANCE hInstance, LPTSTR szCmdLine) {
 
 
 // The list of clients should fill up from the start and have NULLs
-// afterwards.  If the first entry is a NULL, the list is empty.
+// afterwards. If the first entry is a NULL, the list is empty.
 
 void VNCviewerApp::RegisterConnection(ClientConnection *pConn) {
 	omni_mutex_lock l(m_clilistMutex);
@@ -93,8 +96,7 @@ void VNCviewerApp::RegisterConnection(ClientConnection *pConn) {
 	}
 	// If we've got here, something is wrong.
 	vnclog.Print(-1, _T("Client list overflow!\n"));
-	MessageBox(NULL, sz_B2, sz_B3,
-		MB_OK | MB_ICONSTOP);
+	yesUVNCMessageBox(m_hInstResDLL, NULL, sz_B2, sz_B3,MB_ICONSTOP);
 	PostQuitMessage(1);
 
 }
@@ -132,6 +134,6 @@ VNCviewerApp::~VNCviewerApp() {
 	// Clean up winsock
 	WSACleanup();
 	
-	vnclog.Print(2, _T("VNC viewer closing down\n"));
+	vnclog.Print(2, _T("VNC Viewer closing down\n"));
 
 }

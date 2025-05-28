@@ -1,6 +1,6 @@
 /////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //  Copyright (C) 2004 Martin Scharpf, B. Braun Melsungen AG. All Rights Reserved.
-//  Copyright (C) 2002 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -17,9 +17,12 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check 
-// http://www.uvnc.com
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
+
 
 #include <windows.h>
 #include <stdio.h>
@@ -85,7 +88,8 @@ bool IsImpersonationAllowed();
 #define	vncGenericExecute (STANDARD_RIGHTS_EXECUTE)
 #define	vncGenericAll (STANDARD_RIGHTS_ALL | ViewOnly | Interact)
 
-void LOG(long EvenID, const TCHAR *format, ...);
+void LOG(long EvenID, const TCHAR* format, ...);
+void LOGV2(TCHAR* szMslogonLog, long EvenID, const TCHAR *format, ...);
 
 bool QualifyName(const TCHAR *user, LPTSTR DomName);
 bool isNT4();

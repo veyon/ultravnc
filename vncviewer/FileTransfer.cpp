@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2007 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,31 +16,31 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check 
-// http://www.uvnc.com
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
 
 
-// FileTransfer.cpp: implementation of the FileTransfer class.
+// FileTransfer.cpp: implementation of the File Transfer class.
 
-// sf@2002 - sf@2003 - sf@2004 - FileTransfer
-// This class handles all the FileTransfer messages, events and procs, as well as the
+// sf@2002 - sf@2003 - sf@2004 - File Transfer
+// This class handles all the File Transfer messages, events and procs, as well as the
 // DialogBox which allows the user to browse Client ans Server disks-directories,
 // and select some files to transfer between Client and Server.
 //
-// The GUI is very basic because I don't want to include MFC Classes in VNC...
+// The GUI is very basic because I don't want to include MFC Classes in UltraVNC...
 // I use only Windows SDK.
 //
 //
 // The GUI is now quite bearable, but following modifs could be done one day or another
 // - Add more columns to FileLists (File type, Attributes...)
 // - Total progress should be based on total files' size instead of total number of files
-// - Make the History persistent (file) so it's not lost each time the FileTransfer Win is closed
+// - Make the History persistent (file) so it's not lost each time the File Transfer Win is closed
 // - Clean-up the code (duplicated parts, arrays and strings dimensions checks...)
 // - Display the total files size in the currently displayed directory
-// - Remember the current directories - Partially done: the FT window can be minimized...
+// - Remember the current directories - Partially done: the File Transfer window can be minimized...
 
 
 #include "stdhdrs.h"
@@ -49,7 +49,7 @@
 #include "Exception.h"
 #include "commctrl.h"
 #include "shlobj.h"
-#ifdef _INTERNALLIB
+#ifdef _VCPKG
 #include <zlib.h>
 #include <zstd.h>
 #else
@@ -61,6 +61,12 @@
 #include <vector>
 #include "common/win32_helpers.h"
 #include "shlwapi.h"
+#include "UltraVNCHelperFunctions.h"
+#include <limits>
+
+using namespace helper;
+extern HINSTANCE m_hInstResDLL;
+
 #pragma comment(lib, "Shlwapi.lib")
 
 // [v1.0.2-jp1 fix] yak!'s File transfer patch
@@ -70,7 +76,7 @@
 #define strchr(a, b) reinterpret_cast<char*>(_mbschr(reinterpret_cast<unsigned char*>(a), b))
 #define strrchr(a, b) reinterpret_cast<char*>(_mbsrchr(reinterpret_cast<unsigned char*>(a), b))
 
-// These strings contain all the translated FT messages 
+// These strings contain all the translated File Transfer messages 
 extern char sz_H1[64];
 extern char sz_H2[64];
 extern char sz_H3[128];
@@ -311,7 +317,7 @@ FileTransfer::FileTransfer(VNCviewerApp *l_pApp, ClientConnection *pCC)
     m_hRichEdit = LoadLibrary( "RICHED32.DLL" );
 	if (!m_hRichEdit)
 	{
-		MessageBox( NULL, sz_E1, sz_E2, MB_OK | MB_ICONEXCLAMATION );
+		yesUVNCMessageBox(m_hInstResDLL, NULL, sz_E1, sz_E2, MB_ICONEXCLAMATION );
     }
 	InitializeCriticalSection(&crit);
 	rfbFileHeaderRequested = false;
@@ -426,7 +432,7 @@ void FileTransfer::ShowFileTransferWindow(bool fVisible)
 	if (fVisible) {
 		SetForegroundWindow(hWnd);
 	}
-	// Put the FT Windows always on Top if fullscreen
+	// Put the File Transfer Windows always on Top if fullscreen
 	if (fVisible && m_pCC->InFullScreenMode())
 	{
 		RECT Rect;
@@ -441,7 +447,7 @@ void FileTransfer::ShowFileTransferWindow(bool fVisible)
 	}
 
 	m_fVisible = fVisible; // This enables screen updates to be processed in ClientConnection
-	// Refresh screen view if FileTransfer window has been hidden
+	// Refresh screen view if File Transfer window has been hidden
 	//adzm 2010-09 - all socket writes must remain on a single thread, but we only need an async request here
 	if (bChanged && !fVisible)
 		m_pCC->SendAppropriateFramebufferUpdateRequest(true);
@@ -472,7 +478,7 @@ bool PseudoYield(HWND hWnd)
 //
 //  Here we process all incoming FileTransferMsg stuff
 //  coming from the server.
-//  The server only sends FileTransfer data when requested
+//  The server only sends File Transfer data when requested
 //  by the client. Possible request are:
 //
 //  - Send the list of your drives
@@ -599,8 +605,8 @@ void FileTransfer::ProcessFileTransferMsg(void)
 		FinishFileReception();
 		break;
 
-	// Abort current file transfer
-	// For versions <=RC18 we also use it to test if we're allowed to use FileTransfer on the server
+	// Abort current File Transfer
+	// For versions <= RC18 we also use it to test if we're allowed to use File Transfer on the server
 	case rfbAbortFileTransfer:
 		// AbortFileDownload();
 		if (m_fFileDownloadRunning)
@@ -610,8 +616,8 @@ void FileTransfer::ProcessFileTransferMsg(void)
 		}
 		else
 		{
-			// We want the viewer to be backward compatible with UltraWinVNC running the old FT protocole
-            m_ServerFTProtocolVersion = FT_PROTO_VERSION_OLD; // Old permission method -> it's a <=RC18 server
+			// We want the viewer to be backward compatible with UltraVNC Server running the old File Transfer Protocol
+            m_ServerFTProtocolVersion = FT_PROTO_VERSION_OLD; // Old permission method -> it's a <= RC18 UltraVNC Server
 			m_nBlockSize = 4096; // Old packet size value...
 			ShowWindow(GetDlgItem(hWnd, IDC_RENAME_B), SW_HIDE);
 
@@ -619,7 +625,7 @@ void FileTransfer::ProcessFileTransferMsg(void)
 		}
 		break;
 	
-	// New FT handshaking/permission method (from RC19)
+	// New File Transfer handshaking/permission method (from RC19)
 	case rfbFileTransferAccess:
 		TestPermission(Swap32IfLE(ft.size), ft.contentParam);
 		break;
@@ -632,7 +638,7 @@ void FileTransfer::ProcessFileTransferMsg(void)
 
 
 //
-// request file transfer permission 
+// request File Transfer permission 
 //
 void FileTransfer::RequestPermission()
 {
@@ -644,8 +650,8 @@ void FileTransfer::RequestPermission()
 	ft.contentType = rfbAbortFileTransfer; 
 	// ft.contentParam = 0; 
 	ft.contentParam = rfbFileTransferVersion; // Old viewer will send 0
-	// New method can't be used yet as we want backward compatibility (new viewer FT must 
-	// work with old UltraWinVNC FT
+	// New method can't be used yet as we want backward compatibility (new UltraVNC Viewer File Transfer must 
+	// work with old UltraVNC Server File Transfer
 	// ft.contentType = rfbFileTransferAccess; 
 	// ft.contentParam = rfbFileTransferVersion;
 	ft.length = 0;
@@ -678,7 +684,7 @@ void FileTransfer::EndFTSession()
     m_pCC->WriteExact((char *)&ft, sz_rfbFileTransferMsg, rfbFileTransfer);
 }
 //
-// Test if we are allowed to access filetransfer
+// Test if we are allowed to access File Transfer
 //
 bool FileTransfer::TestPermission(long lSize, int nVersion)
 {
@@ -757,7 +763,7 @@ bool FileTransfer::RequestNextFile()
 		ListView_GetItem(hWndRemoteList, &Item);
 
 		GetDlgItemText(hWnd, IDC_CURR_REMOTE, szDstFile, sizeof(szDstFile));
-		if (!strlen(szDstFile)) return false; // no destination dir selected - msgbox ?
+		if (!strlen(szDstFile)) return false; // no destination dir selected - msgbox?
 		strcat_s(szDstFile, szSelectedFile);
 
 		RequestRemoteFile(szDstFile);
@@ -834,7 +840,7 @@ bool FileTransfer::OfferNextFile()
 		ListView_GetItem(hWndLocalList, &Item);
 
 		GetDlgItemText(hWnd, IDC_CURR_LOCAL, szSrcFile, sizeof(szSrcFile));
-		if (!strlen(szSrcFile)) return false; // no destination dir selected - msgbox ?
+		if (!strlen(szSrcFile)) return false; // no destination dir selected - msgbox?
 		strcat_s(szSrcFile, szSelectedFile);
 
 		if (!OfferLocalFile(szSrcFile))
@@ -1219,7 +1225,6 @@ void FileTransfer::PopulateLocalListBox(HWND hWnd, LPSTR szPath)
 	}
 	else
 	{
-// MessageBox(NULL, szPath, "*DEBUG* 1", MB_OK | MB_ICONSTOP); // PGM *DEBUG*
 		// Usual shortcuts case
 		if (ResolvePossibleShortcutFolder(hWnd, szPath))
 		{
@@ -1500,7 +1505,7 @@ void FileTransfer::PopulateRemoteListBox(HWND hWnd, UINT nLen)
 	m_nFileCount = 0;
 	m_fDirectoryReceptionRunning = true;
 
-	// FT Backward compatibility DIRTY hack for DSMPlugin mode...
+	// File Transfer Backward compatibility DIRTY hack for DSMPlugin mode...
 	if (UsingOldProtocol() && m_pCC->m_fUsePlugin && !m_pCC->m_fPluginStreamingIn)
 	{
 		m_pCC->m_nTO = 0;
@@ -1532,7 +1537,7 @@ void FileTransfer::ReceiveDirectoryItem(HWND hWnd, UINT nLen)
 	// PseudoYield(pFileTransfer->hWnd);
 	if (!PseudoYield(GetParent(hWnd))) return;
 
-	// FT Backward compatibility DIRTY hack for DSMPlugin mode...
+	// File Transfer Backward compatibility DIRTY hack for DSMPlugin mode...
 	if (UsingOldProtocol() && m_pCC->m_fUsePlugin && !m_pCC->m_fPluginStreamingIn)
 	{
 		m_pCC->m_nTO = 0;
@@ -1902,7 +1907,7 @@ void FileTransfer::SetStatus(LPSTR szStatus)
         DrawText(hdc, szHist, -1, &rc, DT_CALCRECT|DT_SINGLELINE);
         ReleaseDC(cbi.hwndList, hdc);
         int dx = rc.right - rc.left;
-        m_maxHistExtent = max(m_maxHistExtent, dx);
+        m_maxHistExtent = maximum(m_maxHistExtent, dx);
         SendDlgItemMessage(hWnd, IDC_HISTORY_CB, CB_SETHORIZONTALEXTENT, m_maxHistExtent, 0L);
     }
 	LRESULT Index = SendMessage(GetDlgItem(hWnd, IDC_HISTORY_CB), CB_ADDSTRING, 0, (LPARAM)szHist); 
@@ -1919,7 +1924,7 @@ void FileTransfer::RequestRemoteFile(LPSTR szRemoteFileName)
 //	vnclog.Print(0, _T("RequestRemoteFile\n"));
 	if (!m_fFTAllowed) return;
 
-	// Ensure Backward FT compatibility (Directory reception)....
+	// Ensure Backward File Transfer compatibility (Directory reception)....
 	if (UsingOldProtocol())
 	{
 		char* p1 = strrchr(szRemoteFileName, '\\') + 1;
@@ -2161,14 +2166,15 @@ bool FileTransfer::ReceiveFile(unsigned long lSize, UINT nLen)
 		// if (dwFileSize != 0xFFFFFFFF)
 		if (bSizeOk)
 		{
-			unsigned long nCSBufferSize = (4 * (unsigned long)(n2FileSize.QuadPart / m_nBlockSize)) + 1024;
-			char* lpCSBuff = new char [nCSBufferSize];
-			if (lpCSBuff != NULL)
+			unsigned long long nCSBufferSize = (4 * (unsigned long long)(n2FileSize.QuadPart / m_nBlockSize)) + 1024;
+			if (nCSBufferSize > std::numeric_limits<size_t>::max())			
+				return false;
+			
+			std::unique_ptr<char[]> lpCSBuff = std::make_unique<char[]>(nCSBufferSize);
+			if (lpCSBuff)
 			{
-				int nCSBufferLen = GenerateFileChecksums(	m_hDestFile,
-															lpCSBuff,
-															nCSBufferSize
-														);
+				int nCSBufferLen = GenerateFileChecksums(m_hDestFile, lpCSBuff.get(), nCSBufferSize
+				);
 				if (nCSBufferLen != -1)
 				{
 					//sprintf_s(szStatus, " Sending %d bytes of file checksums to remote machine. Please Wait...", nCSBufferSize); 
@@ -2180,10 +2186,11 @@ bool FileTransfer::ReceiveFile(unsigned long lSize, UINT nLen)
 					ftm.size = Swap32IfLE(nCSBufferSize);
 					ftm.length = Swap32IfLE(nCSBufferLen);
 					//adzm 2010-09
-					m_pCC->WriteExactQueue((char *)&ftm, sz_rfbFileTransferMsg, rfbFileTransfer);
-					m_pCC->WriteExactQueue((char *)lpCSBuff, nCSBufferLen);
+					m_pCC->WriteExactQueue((char*)&ftm, sz_rfbFileTransferMsg, rfbFileTransfer);
+					m_pCC->WriteExactQueue((char*)lpCSBuff.get(), nCSBufferLen);
 				}
 			}
+			
 		}
 	}
 
@@ -2207,7 +2214,7 @@ bool FileTransfer::ReceiveFile(unsigned long lSize, UINT nLen)
 
 	m_dwStartTick = GetTickCount();
 
-	// FT Backward compatibility DIRTY hack for DSMPlugin mode...
+	// File Transfer Backward compatibility DIRTY hack for DSMPlugin mode...
 	if (UsingOldProtocol() && m_pCC->m_fUsePlugin && !m_pCC->m_fPluginStreamingIn)
 	{
 		m_pCC->m_nTO = 0;
@@ -2291,7 +2298,7 @@ bool FileTransfer::ReceiveFileChunk(UINT nLen, int nSize)
 	SetGauge(hWnd, m_dwTotalNbBytesWritten);
 	PseudoYield(GetParent(hWnd));
 
-	// We still support the *dirty* old "Abort" method (for backward compatibility wirh UltraVNC Servers <=RC18)
+	// We still support the *dirty* old "Abort" method (for backward compatibility with UltraVNC Server <= RC18)
 	if (UsingOldProtocol())
 	{
 		// Every 10 packets, test if the transfer must be stopped
@@ -2320,9 +2327,9 @@ bool FileTransfer::ReceiveFileChunk(UINT nLen, int nSize)
 			m_nPacketCount = 0;
 		}
 	}
-	else // New V2 FT Protocole
+	else // New v2 File Transfer Protocol
 	{
-		// Now abort the file transfer if required by the user
+		// Now abort the File Transfer if required by the user
 		if (m_fAbort && !m_fAborted)
 		{
 			m_fAborted = true;
@@ -2336,7 +2343,7 @@ bool FileTransfer::ReceiveFileChunk(UINT nLen, int nSize)
 		}
 	}
 
-	// FT Backward compatibility DIRTY hack for DSMPlugin mode...
+	// File Transfer Backward compatibility DIRTY hack for DSMPlugin mode...
 	if (UsingOldProtocol() && m_pCC->m_fUsePlugin && !m_pCC->m_fPluginStreamingIn)
 	{
 		m_pCC->m_nTO = 0;
@@ -2577,7 +2584,7 @@ bool FileTransfer::OfferLocalFile(LPSTR szSrcFileName)
 	memset(szDstFileName, 0, MAX_PATH + 32);
 
 	GetDlgItemText(hWnd, IDC_CURR_REMOTE, szDstFileName, sizeof(szDstFileName));
-	if (!strlen(szDstFileName)) return false; // no destination dir selected - msgbox ?
+	if (!strlen(szDstFileName)) return false; // no destination dir selected - msgbox?
 	strcat_s(szDstFileName, strrchr(m_szSrcFileName, '\\') + 1);
 
 	char szSrcFileTime[18];
@@ -2974,7 +2981,7 @@ bool FileTransfer::FinishFileSending()
 			m_pCC->WriteExact((char *)&ft, sz_rfbFileTransferMsg, rfbFileTransfer);
 		sprintf_s(szStatus, " %s < %s > %s", sz_H17, m_szSrcFileName, sz_H27/*, (int)((lTotalComp * 100) / dwTotalNbBytesWritten), fCompress ? "C" : "N"*//*, szDstFileName*/); 
 	}
-	else // Error during file transfer loop
+	else // Error during File Transfer loop
 	{
 		rfbFileTransferMsg ft;
 		ft.type = rfbFileTransfer;
@@ -3217,35 +3224,45 @@ int FileTransfer::GenerateFileChecksums(HANDLE hFile, char* lpCSBuffer, int nCSB
 	DWORD dwNbBytesRead = 0;
 	int nCSBufferOffset = 0;
 
-	char* lpBuffer = new char [m_nBlockSize];
-	if (lpBuffer == NULL)
+	char* lpBuffer = new char[m_nBlockSize];
+	if (!lpBuffer)
 		return -1;
 
-	while ( !fEof )
+	while (!fEof)
 	{
-		int nRes = ReadFile(hFile, lpBuffer, m_nBlockSize, &dwNbBytesRead, NULL);
-		if (!nRes && dwNbBytesRead != 0)
+		if (!ReadFile(hFile, lpBuffer, m_nBlockSize, &dwNbBytesRead, NULL))
+		{
 			fError = true;
+			break;
+		}
 
-		if (nRes && dwNbBytesRead == 0)
+		if (dwNbBytesRead == 0)
+		{
 			fEof = true;
+		}
 		else
 		{
+			if (nCSBufferOffset + 4 > nCSBufferSize)
+			{
+				fError = true;
+				break;
+			}
+
 			unsigned long cs = adler32(0L, Z_NULL, 0);
 			cs = adler32(cs, (unsigned char*)lpBuffer, (int)dwNbBytesRead);
 			memcpy(lpCSBuffer + nCSBufferOffset, &cs, 4);
-			nCSBufferOffset += 4; 
+			nCSBufferOffset += 4;
 		}
 	}
 
-	SetFilePointer(hFile, 0L, NULL, FILE_BEGIN); 
-	delete [] lpBuffer;
+	if (SetFilePointer(hFile, 0L, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+	{
+		fError = true;
+	}
 
-	if (fError) 
-		return -1;
+	delete[] lpBuffer;
 
-	return nCSBufferOffset;
-
+	return fError ? -1 : nCSBufferOffset;
 }
 
 
@@ -3270,7 +3287,7 @@ int FileTransfer::DoDialog()
 
 
 //
-// 2006 - Resizable FT Window mod - By Roytam1 & and KP774
+// 2006 - Resizable File Transfer Window mod - By Roytam1 & and KP774
 //
 void FTAdjustLeft(LPRECT lprc)
 {
@@ -3371,6 +3388,9 @@ BOOL CALLBACK FileTransfer::FileTransferDlgProc(  HWND hWnd,  UINT uMsg,  WPARAM
 
 	case WM_INITDIALOG:
 		{
+			HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDR_TRAY));
+			SendMessage(hWnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+			SendMessage(hWnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
             helper::SafeSetWindowUserData(hWnd, lParam);
 
             FileTransfer *l_this = (FileTransfer *) lParam;
@@ -3991,10 +4011,7 @@ BOOL CALLBACK FileTransfer::FileTransferDlgProc(  HWND hWnd,  UINT uMsg,  WPARAM
 				int nCount = ListView_GetSelectedCount(hWndLocalList);
 				if (nCount == 0 || nCount > 1)
 				{
-					MessageBox(	_this->hWnd,
-								sz_M1, 
-								sz_M2, 
-								MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND | MB_TOPMOST);
+					yesUVNCMessageBox(m_hInstResDLL, _this->hWnd, sz_M1, sz_M2, MB_ICONINFORMATION);
 					break; 
 				}
 
@@ -4065,10 +4082,7 @@ BOOL CALLBACK FileTransfer::FileTransferDlgProc(  HWND hWnd,  UINT uMsg,  WPARAM
 				int nCount = ListView_GetSelectedCount(hWndRemoteList);
 				if (nCount == 0 || nCount > 1)
 				{
-					MessageBox(	_this->hWnd,
-								sz_M1, 
-								sz_M2, 
-								MB_OK | MB_ICONINFORMATION | MB_SETFOREGROUND | MB_TOPMOST);
+					yesUVNCMessageBox(m_hInstResDLL, _this->hWnd, sz_M1, sz_M2, MB_ICONINFORMATION);
 					break; 
 				}
 
@@ -4225,65 +4239,123 @@ BOOL CALLBACK FileTransfer::FileTransferDlgProc(  HWND hWnd,  UINT uMsg,  WPARAM
 		int cy;
 		int icx;
 		int icy;
+		int icyb;
 		int lf_an;
+		int rg_an;
 		int iProgressRight;
 		RECT rc;
+		RECT rcLMStatic;
+		RECT rcUpload;
+		RECT rcStatus;
+		RECT rcHistory;
+		RECT rcProgress;
+		RECT rcRoot;
+		int buttonUploadWidth;
+		int buttonUploadHeight;
+		int buttonStatusWidth;
+		int buttonStatusHeight;
+		int buttonHistoryWidth;
+		int buttonHistoryHeight;
+		int buttonProgressWidth;
+		int buttonProgressHeight;
+		int buttonRootWidth;
+		int buttonRootHeight;
+		int foced_closed;
+		int topbuttonsHeight;
+		int buttonLMStaticWidth;
 
 		if(wParam == SIZE_MINIMIZED)
 		{
 			break;
 		}
 
+		GetWindowRect(GetDlgItem(hWnd, IDC_UPLOAD_B), &rcUpload);
+		GetWindowRect(GetDlgItem(hWnd, IDC_LOCAL_STATUS), &rcStatus);
+		GetWindowRect(GetDlgItem(hWnd, IDC_HISTORY_CB), &rcHistory);
+		GetWindowRect(GetDlgItem(hWnd, IDC_PROGRESS), &rcProgress);
+		GetWindowRect(GetDlgItem(hWnd, IDC_LOCAL_ROOTB), &rcRoot);
+		GetWindowRect(GetDlgItem(hWnd, IDC_LM_STATIC), &rcLMStatic);
+
+		buttonUploadWidth = rcUpload.right - rcUpload.left;
+		buttonUploadHeight = rcUpload.bottom - rcUpload.top;
+
+		buttonStatusWidth = rcStatus.right - rcStatus.left;
+		buttonStatusHeight = rcStatus.bottom - rcStatus.top;
+
+		buttonHistoryWidth = rcHistory.right - rcHistory.left;
+		buttonHistoryHeight = rcHistory.bottom - rcHistory.top;
+
+		buttonProgressWidth = rcProgress.right - rcProgress.left;
+		buttonProgressHeight = rcProgress.bottom - rcProgress.top;
+
+		buttonRootWidth = rcRoot.right - rcRoot.left;
+		buttonRootHeight = rcRoot.bottom - rcRoot.top;
+
+		buttonLMStaticWidth = rcLMStatic.right - rcLMStatic.left;
+
+		foced_closed = buttonStatusHeight + buttonHistoryHeight + buttonProgressHeight + 12;
+		topbuttonsHeight = buttonUploadHeight * 2 + 12;
+
 		cx = LOWORD(lParam);	//Client Width
 		cy = HIWORD(lParam);	//Client Height
-		icy = cy-85-50;
-		icx = cx/2 - (21+4) * 2 - 94 - 95 - 7 * 4;
-		lf_an=(cx - 112)/2;
+		icy = cy- topbuttonsHeight - (buttonUploadHeight * 4); 
+		lf_an=(cx - buttonUploadWidth)/2 -12;
+
+		GetWindowRect(GetDlgItem(hWnd, IDC_LOCAL_DRIVECB), &rc);
+		icx = lf_an - (buttonRootWidth + 4) * 2 - buttonLMStaticWidth - 4;
+		rg_an = buttonUploadWidth + 20;
+		
 
 		//Left
-		GetWindowRect(GetDlgItem(hWnd, IDC_LOCAL_DRIVECB), &rc);
-		MoveWindow(GetDlgItem(hWnd, IDC_LOCAL_DRIVECB),              4,       4,   icx,  rc.bottom - rc.top, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDC_LM_STATIC),            4+icx+7,       4,   141,                  19, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDC_LOCAL_ROOTB),    4+icx+7+141+7,       4,    25,                  18, TRUE); 
-		MoveWindow(GetDlgItem(hWnd, IDC_LOCAL_UPB), 4+icx+7+141+7+25+4,       4,    25,                  18, TRUE); 
-		MoveWindow(GetDlgItem(hWnd, IDC_CURR_LOCAL),                 4,      25, lf_an,                  18, TRUE); 
-		MoveWindow(GetDlgItem(hWnd, IDC_LOCAL_FILELIST),             4,      46, lf_an,                 icy, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDC_LOCAL_STATUS),               4, cy-85+4, lf_an,                  15, TRUE);
+		
+		MoveWindow(GetDlgItem(hWnd, IDC_LOCAL_DRIVECB),              4,       4, icx,  rc.bottom - rc.top, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_LM_STATIC),            4+icx+7,       4, buttonLMStaticWidth, buttonUploadHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_LOCAL_ROOTB),    4+icx+7+ buttonLMStaticWidth +7,       4, buttonRootWidth, buttonRootHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_LOCAL_UPB), 4+icx+7+ buttonLMStaticWidth +7+ buttonRootWidth +4,       4, buttonRootWidth, buttonUploadHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_CURR_LOCAL),                 4, buttonUploadHeight + 4, lf_an, buttonUploadHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_LOCAL_FILELIST),             4, (buttonUploadHeight + 4)*2, lf_an, icy, TRUE);
 
 		//Right
 		GetWindowRect(GetDlgItem(hWnd, IDC_REMOTE_DRIVECB), &rc);
-		MoveWindow(GetDlgItem(hWnd, IDC_REMOTE_DRIVECB),               lf_an+109,       4,   icx,   rc.bottom - rc.top, TRUE); 
-		MoveWindow(GetDlgItem(hWnd, IDC_RM_STATIC),              lf_an+109+icx+7,       4,   141,                   19, TRUE); 
-		MoveWindow(GetDlgItem(hWnd, IDC_REMOTE_ROOTB),     lf_an+109+icx+7+141+7,       4,    25,                   18, TRUE); 
-		MoveWindow(GetDlgItem(hWnd, IDC_REMOTE_UPB),  lf_an+109+icx+7+141+7+25+4,       4,    25,                   18, TRUE); 
-		MoveWindow(GetDlgItem(hWnd, IDC_CURR_REMOTE),                  lf_an+109,      25, lf_an,                   18, TRUE); 
-		MoveWindow(GetDlgItem(hWnd, IDC_REMOTE_FILELIST),              lf_an+109,      46, lf_an,                  icy, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDC_REMOTE_STATUS),                lf_an+109, cy-85+4, lf_an,                   15, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_REMOTE_DRIVECB),               lf_an+ rg_an,       4, icx,   rc.bottom - rc.top, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_RM_STATIC),              lf_an+ rg_an +icx+7,       4, buttonLMStaticWidth, buttonUploadHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_REMOTE_ROOTB),     lf_an+ rg_an +icx+7+ buttonLMStaticWidth +7,       4, buttonRootWidth, buttonRootHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_REMOTE_UPB),  lf_an+ rg_an +icx+7+ buttonLMStaticWidth +7+ buttonRootWidth +4,       4, buttonRootWidth, buttonUploadHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_CURR_REMOTE),                  lf_an+ rg_an, buttonUploadHeight + 4, lf_an, buttonUploadHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_REMOTE_FILELIST),              lf_an+ rg_an, (buttonUploadHeight + 4) * 2, lf_an, icy, TRUE);
+		
 
 		//Bottom
-		iProgressRight = cx-6-97-6-180-6;
-		MoveWindow(GetDlgItem(hWnd, IDC_HS_STATIC),                  8,          cy-85+4+18+4,     39,                15, TRUE);
+		icyb = icy + 7 + (buttonUploadHeight + 4) * 2;
+		MoveWindow(GetDlgItem(hWnd, IDC_LOCAL_STATUS), 4, icyb, lf_an, buttonStatusHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_REMOTE_STATUS), lf_an + rg_an, icyb, lf_an, buttonStatusHeight, TRUE);
+
+		MoveWindow(GetDlgItem(hWnd, IDC_HS_STATIC), 8, icyb + 7 + buttonStatusHeight, buttonUploadWidth, buttonStatusHeight, TRUE);
 		GetWindowRect(GetDlgItem(hWnd, IDC_HISTORY_CB), &rc);
-		MoveWindow(GetDlgItem(hWnd, IDC_HISTORY_CB),                65,            cy-85+4+18,  cx-69,  rc.bottom-rc.top, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDC_PR_STATIC),                  8,   cy-85+4+15+4+4+18+3,     56,                15, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDC_PROGRESS),                  65,   cy-85+4+15+4+4+18+2,    iProgressRight-65,  15, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDC_PERCENT),             cx-6-97-6-180, cy-85+4+10+4+4+18+4+2,     180,          12, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDC_GLOBAL_STATUS),  cx-6-97, cy-85+4+10+4+4+18+4+2,     97,					  12, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_HISTORY_CB), buttonUploadWidth + 4, icyb + 7 + buttonStatusHeight, cx - buttonUploadWidth * 4,  rc.bottom-rc.top, TRUE);
+
+		MoveWindow(GetDlgItem(hWnd, IDC_PR_STATIC), 8, icyb + 7 + buttonStatusHeight * 2, buttonUploadWidth, buttonProgressHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_PROGRESS), buttonUploadWidth + 4, icyb + 7 + buttonStatusHeight * 2, cx - buttonUploadWidth *4, buttonProgressHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_PERCENT), cx - buttonUploadWidth * 2 - 12 , icyb + 7 + buttonStatusHeight * 2, buttonUploadWidth, buttonProgressHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_GLOBAL_STATUS), cx - buttonUploadWidth * 1 - 18, icyb + 7 + buttonStatusHeight * 2, buttonUploadWidth, buttonProgressHeight, TRUE);
+		
+		
+
 		GetWindowRect(GetDlgItem(hWnd, IDC_STATUS), &rc);
 		MoveWindow(GetDlgItem(hWnd, IDC_STATUS),                     0, cy-(rc.bottom-rc.top),     cx,  rc.bottom-rc.top, TRUE);
 
 		//Center
-		icy = 46+icy/2;
-		MoveWindow(GetDlgItem(hWnd, IDC_UPLOAD_B),     lf_an+10+2,  icy-15-20-6-20-5-20, 90, 20, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDC_DOWNLOAD_B),   lf_an+10+2,       icy-15-20-6-20, 90, 20, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDC_ABORT_B),      lf_an+10+2,            icy-15-20, 90, 20, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDC_ABORT_B2),	   lf_an+10+2,			   icy - 10, 90, 20, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDC_DELETE_B),     lf_an+10+2,               icy+15, 90, 20, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDC_NEWFOLDER_B),  lf_an+10+2,          icy+15+20+6, 90, 20, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDC_RENAME_B),     lf_an+10+2,     icy+15+20+6+20+6, 90, 20, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDC_HIDE_B),       lf_an+10+2,        cy-103-20-4-6, 90, 20, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDCANCEL),         lf_an+10+2,             cy-103-4-3, 90, 20, TRUE);
-		MoveWindow(GetDlgItem(hWnd, IDCANCEL2),        lf_an+10+2,             cy-83-4, 90, 20, TRUE);
+		
+		MoveWindow(GetDlgItem(hWnd, IDC_UPLOAD_B),     lf_an+10+2, icy - (buttonUploadHeight + 4) * 12, buttonUploadWidth, buttonUploadHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_DOWNLOAD_B),   lf_an+10+2, icy - (buttonUploadHeight + 4) * 11, buttonUploadWidth, buttonUploadHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_ABORT_B),      lf_an+10+2, icy - (buttonUploadHeight + 4) * 10, buttonUploadWidth, buttonUploadHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_ABORT_B2),	   lf_an+10+2, icy - (buttonUploadHeight + 4) * 9, buttonUploadWidth, buttonUploadHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_DELETE_B),     lf_an+10+2, icy - (buttonUploadHeight + 4) * 7, buttonUploadWidth, buttonUploadHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_NEWFOLDER_B),  lf_an+10+2, icy - (buttonUploadHeight + 4) * 6, buttonUploadWidth, buttonUploadHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_RENAME_B),     lf_an+10+2, icy - (buttonUploadHeight + 4) * 5, buttonUploadWidth, buttonUploadHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDC_HIDE_B),       lf_an+10+2, icy - (buttonUploadHeight + 4) * 2, buttonUploadWidth, buttonUploadHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDCANCEL),         lf_an+10+2, icy - (buttonUploadHeight + 4), buttonUploadWidth, buttonUploadHeight, TRUE);
+		MoveWindow(GetDlgItem(hWnd, IDCANCEL2),        lf_an+10+2, icy, buttonUploadWidth, buttonUploadHeight, TRUE);
 		InvalidateRect(hWnd, NULL, FALSE);
 
 		FTAdjustFileNameColumns(hWnd); // sf@2006
@@ -4398,7 +4470,7 @@ BOOL CALLBACK FileTransfer::FileTransferDlgProc(  HWND hWnd,  UINT uMsg,  WPARAM
 
 	}
 	/*
-	// Process FileTransfer asynchronous Send Packet Message
+	// Process File Transfer asynchronous Send Packet Message
 	if (uMsg == FileTransferSendPacketMessage)
 	{
 		_this->SendFileChunk();
@@ -4428,6 +4500,9 @@ BOOL CALLBACK FileTransfer::FTParamDlgProc(  HWND hwnd,  UINT uMsg, WPARAM wPara
 	{
 	case WM_INITDIALOG:
 		{
+			HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDR_TRAY));
+			SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+			SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
             helper::SafeSetWindowUserData(hwnd, lParam);
 			_this = (FileTransfer *) lParam;
 			//CentreWindow(hwnd);
@@ -4505,6 +4580,9 @@ BOOL CALLBACK FileTransfer::FTConfirmDlgProc(  HWND hwnd,  UINT uMsg, WPARAM wPa
 	{
 	case WM_INITDIALOG:
 		{
+			HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDR_TRAY));
+			SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+			SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
             helper::SafeSetWindowUserData(hwnd, lParam);
 			_this = (FileTransfer *) lParam;
 			//CentreWindow(hwnd);

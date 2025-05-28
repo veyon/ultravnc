@@ -1,5 +1,5 @@
 /////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2013 UltraVNC Team Members. All Rights Reserved.
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //
 //  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
@@ -16,9 +16,9 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the program is not available from the place from
-// which you received this file, check 
-// http://www.uvnc.com/
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
 //
 ////////////////////////////////////////////////////////////////////////////
 
@@ -57,7 +57,7 @@ ClipRect(int *x, int *y, int *w, int *h,
 }
 
 ////////////////////////////////////////////////////////////////////////////////////
-// Modif rdv@2002 - v1.1.x - videodriver
+// Modif rdv@2002 - v1.1.x - VideoDriver
 void
 vncDesktopThread::copy_bitmaps_to_buffer(ULONG i,rfb::Region2D &rgncache,rfb::UpdateTracker &tracker)
 {
@@ -150,7 +150,7 @@ vncDesktopThread::copy_bitmaps_to_buffer(ULONG i,rfb::Region2D &rgncache,rfb::Up
 
 
 
-// Modif rdv@2002 - v1.1.x - videodriver
+// Modif rdv@2002 - v1.1.x - VideoDriver
 BOOL
 vncDesktopThread::handle_driver_changes(rfb::Region2D &rgncache,rfb::UpdateTracker &tracker)
 { 
@@ -362,7 +362,7 @@ bool vncDesktopThread::handle_display_change(HANDLE& threadHandle, rfb::Region2D
 			clipped_updates.clear();
 			// TESTTESTTEST
 			// Are all updates cleared....old updates could generate bounding errors
-			// any other queues to clear ? Yep cursor positions
+			// any other queues to clear? Yep cursor positions
 			m_desktop->m_cursorpos.tl.x=0;
 			m_desktop->m_cursorpos.tl.y=0;
 			m_desktop->m_cursorpos.br.x=0;
@@ -427,11 +427,11 @@ bool vncDesktopThread::handle_display_change(HANDLE& threadHandle, rfb::Region2D
 
 						m_server->SetScreenOffset(m_desktop->m_ScreenOffsetx, m_desktop->m_ScreenOffsety, m_desktop->nr_monitors == 1);
 
-						// sf@2003 - After a new Startup(), we check if the required video driver
+						// sf@2003 - After a new Startup(), we check if the required Video Driver
 						// is actually available. If not, we force hookdll
 						// No need for m_hookswitch again because the driver is NOT available anyway.
 						// All the following cases are now handled:
-						// 1. Desktop thread starts with "Video Driver" checked and no video driver available...
+						// 1. Desktop thread starts with "Video Driver" checked and no Video Driver available...
 						//    -> HookDll forced (handled by the first InitHookSettings() after initial Startup() call
 						// 2. Desktop Thread starts without "Video Driver" checked but available driver
 						//    then the user checks "Video Driver" -> Video Driver used
@@ -567,11 +567,11 @@ bool vncDesktopThread::handle_display_change(HANDLE& threadHandle, rfb::Region2D
 						{
 							vnclog.Print(LL_INTERR, VNCLOG("Format changed\n"));
 							m_server->UpdatePalette(false); // changed no lock ok
-							//UpdateLocalFormat without updatelock can cause stuck in m_signal->wait(), because not returning from mutex->lock()
-							//the synchonisation of EnableUpdates(TRUE|FALSE) does not work without getting the UpdateLock.
-							//this is a weakness in the vnc server implementation
-							//we had the problem on XP, running in a virtual machine of win7 virtualbox.
-							m_server->UpdateLocalFormat(true); // must have the update lock
+							// UpdateLocalFormat without updatelock can cause stuck in m_signal->wait(), because not returning from mutex->lock()
+							// the synchonisation of EnableUpdates(TRUE|FALSE) does not work without getting the UpdateLock.
+							// This is a weakness in the VNC Server implementation
+							// We had the problem on Windows XP, running in a virtual machine of Windows 7 VirtualBox.
+							m_server->UpdateLocalFormat(true); // Must have the update lock
 						}
 
 					if (m_desktop->m_screensize_changed)
@@ -739,10 +739,8 @@ vncDesktopThread::run_undetached(void *arg)
 
 	
 	capture=true;
-	vnclog.Print(LL_INTERR, VNCLOG("Hook changed 1\n"));
 	// Save the thread's "home" desktop, under NT (no effect under 9x)
 	m_desktop->m_home_desktop = GetThreadDesktop(GetCurrentThreadId());
-    vnclog.Print(LL_INTERR, VNCLOG("Hook changed 2\n"));
 	// Attempt to initialise and return success or failure
 	m_desktop->KillScreenSaver();
 	keybd_uni_event(VK_CONTROL, 0, 0, 0);
@@ -857,7 +855,7 @@ vncDesktopThread::run_undetached(void *arg)
 	
 	if (m_desktop->VideoBuffer() && m_desktop->m_hookdriver && !VNC_OSVersion::getInstance()->OS_WIN8 && !VNC_OSVersion::getInstance()->OS_WIN10)
 		{
-			//MIRROR DRIVER....still to check if this works			
+			// Mirror Driver... still to check if this works			
 			DWORD dw;
 			if (ThreadHandleCheckMirrorDriverUpdates == NULL)
 				ThreadHandleCheckMirrorDriverUpdates = CreateThread(NULL, 0, ThreadCheckMirrorDriverUpdates, this, 0, &dw);
@@ -868,7 +866,7 @@ vncDesktopThread::run_undetached(void *arg)
 		}
 	else if (m_desktop->VideoBuffer() && m_desktop->m_hookdriver && (VNC_OSVersion::getInstance()->OS_WIN8||VNC_OSVersion::getInstance()->OS_WIN10))
 		{
-			//DDENGINE
+			// DDENGINE
 			m_desktop->trigger_events[6] = m_desktop->m_screenCapture->getHScreenEvent();
 			m_desktop->trigger_events[7] = m_desktop->m_screenCapture->getHPointerEvent();			
 			waittime = 1000;
@@ -906,7 +904,7 @@ vncDesktopThread::run_undetached(void *arg)
 				break;
 				case WAIT_OBJECT_0+6:
 					ResetEvent(m_desktop->trigger_events[6]);
-					wcscpy_s(g_hookstring,L"ddengine");
+					wcscpy_s(g_hookstring,L"DDEngine");
 				case WAIT_TIMEOUT:				
 				case WAIT_OBJECT_0: {
 					ResetEvent(m_desktop->trigger_events[0]);
@@ -945,7 +943,6 @@ vncDesktopThread::run_undetached(void *arg)
 								// HOOKDLL START STOP need to be executed from the thread
 								//*******************************************************
 								if (m_desktop->Hookdll_Changed && !m_desktop->m_hookswitch) {
-									vnclog.Print(LL_INTERR, VNCLOG("Hook changed \n"));
 									m_desktop->StartStophookdll(m_desktop->On_Off_hookdll);
 									if (m_desktop->On_Off_hookdll)
 										m_desktop->m_hOldcursor = NULL; // Force mouse cursor grabbing if hookdll On
@@ -1305,16 +1302,13 @@ vncDesktopThread::run_undetached(void *arg)
 	}
 	
 	m_desktop->SetClipboardActive(FALSE);
-	vnclog.Print(LL_INTINFO, VNCLOG("quitting desktop server thread\n"));
 	
 	// Clear all the hooks and close windows, etc.
     m_desktop->SetBlockInputState(false);
 	m_desktop->PreventScreensaver(false);
-	vnclog.Print(LL_INTINFO, VNCLOG("quitting desktop server thread:SetBlockInputState\n"));
 	
 	// Clear the shift modifier keys, now that there are no remote clients
 	vncKeymap::ClearShiftKeys();
-	vnclog.Print(LL_INTINFO, VNCLOG("quitting desktop server thread:ClearShiftKeys\n"));
 	
 	// Switch back into our home desktop, under NT (no effect under 9x)
 	//TAG14
@@ -1322,9 +1316,7 @@ vncDesktopThread::run_undetached(void *arg)
 	if (mywin)
 		SendMessage(mywin,WM_CLOSE, 0, 0);
 	g_DesktopThread_running=false;
-	vnclog.Print(LL_INTINFO, VNCLOG("quitting desktop server thread:g_DesktopThread_running=false\n"));
 	m_desktop->Shutdown();
-	vnclog.Print(LL_INTINFO, VNCLOG("quitting desktop server thread:m_desktop->Shutdown\n"));
 	return NULL;
 }
 

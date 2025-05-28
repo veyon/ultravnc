@@ -1,7 +1,36 @@
+/////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
+//
+//  This program is free software; you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation; either version 2 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program; if not, write to the Free Software
+//  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
+//  USA.
+//
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
+
+
 #ifdef SC_20
-#include "ScSelect.h"
-#include "resource.h"
-#pragma comment (lib, "comctl32")
+	#include "ScSelect.h"
+	#include "resource.h"
+	#include "common/win32_helpers.h"
+	#include "winvnc.h"
+	#pragma comment (lib, "comctl32")
+extern HINSTANCE	hInstResDLL;
+
 
 namespace ScSelect {
 	LONG old_pref = 99;
@@ -143,7 +172,7 @@ namespace ScSelect {
 		int j = 0;
 		iSlected = SendMessageW(hList, LVM_GETNEXTITEM, -1, LVNI_FOCUSED);
 		if (iSlected == -1) {
-			MessageBox(hWnd, "No Items in ListView", "Error", MB_OK | MB_ICONINFORMATION);
+			helper::yesUVNCMessageBox(hInstResDLL, hWnd, "No Items in ListView", "Error", MB_ICONINFORMATION);
 			return;
 		}
 
@@ -272,7 +301,7 @@ namespace ScSelect {
 				if (((LPNMHDR)lParam)->code == NM_CLICK) {
 					iSelect = SendMessageW(hList, LVM_GETNEXTITEM, -1, LVNI_FOCUSED);
 					if (iSelect == -1) {
-						MessageBox(hWnd, "No Vnc server selected", "Error", MB_OK | MB_ICONINFORMATION);
+						helper::yesUVNCMessageBox(hInstResDLL, hWnd, "No VNC Server selected", "Error", MB_ICONINFORMATION);
 						break;
 					}
 					char temp1[255] = { 0 };
@@ -318,6 +347,9 @@ namespace ScSelect {
 			KillTimer(NULL, m_mytimerid);
 			break;
 		case WM_INITDIALOG: {
+			HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_WINVNC));
+			SendMessage(hWnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+			SendMessage(hWnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
 			SetFocus(hWnd);
 			hList = GetDlgItem(hWnd, IDC_LIST); // get the ID of the ListView
 			SendMessageW(hList, LVM_SETEXTENDEDLISTVIEWSTYLE, 0,   LVS_EX_FULLROWSELECT | LVS_EX_AUTOSIZECOLUMNS | LVS_EX_FLATSB | LVS_REPORT); // Set style
@@ -336,14 +368,10 @@ namespace ScSelect {
 			LvItem.pszText = item0; // Text to display (can be from a char variable) (Items)
 			FILE* fid;
 			bool done = false;
-			char configfile[1024];
-			int iItem;
-			if (GetModuleFileName(NULL, configfile, 1024)) {
-				char* p = strrchr(configfile, '\\');
-				if (p == NULL) return 0;
-				*p = '\0';
-				strcat_s(configfile, "\\helpdesk.txt");
-			}
+			char configfile[MAX_PATH];
+			strcpy_s(configfile, winvncFolder);
+			strcat_s(configfile, "\\helpdesk.txt");
+			int iItem;			
 
 			int i = 0;
 			bool direct = false;
@@ -818,7 +846,7 @@ namespace ScSelect {
 			GetWindowRect(hDlg, &rcWnd);
 
 			// this is the first time we are being called to shrink the dialog
-			// box.  The dialog box is currently in its expanded size and we must
+			// box. The dialog box is currently in its expanded size and we must
 			// save the expanded width and height so that it can be restored
 			// later when the dialog box is expanded.
 
@@ -853,4 +881,4 @@ namespace ScSelect {
 		}
 	}
 }
-#endif
+#endif // SC_20

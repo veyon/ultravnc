@@ -1,11 +1,10 @@
-//  Copyright (C) 2002 UltraVNC Team Members. All Rights Reserved.
+/////////////////////////////////////////////////////////////////////////////
+//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
 //  Copyright (C) 2000 Const Kaplinsky. All Rights Reserved.
 //  Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
 //  Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
 //
-//  This file is part of the VNC system.
-//
-//  The VNC system is free software; you can redistribute it and/or modify
+//  This program is free software; you can redistribute it and/or modify
 //  it under the terms of the GNU General Public License as published by
 //  the Free Software Foundation; either version 2 of the License, or
 //  (at your option) any later version.
@@ -20,9 +19,11 @@
 //  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
 //  USA.
 //
-// If the source code for the VNC system is not available from the place 
-// whence you received this file, check http://www.uk.research.att.com/vnc or contact
-// the authors on vnc@uk.research.att.com for information on obtaining it.
+//  If the source code for the program is not available from the place from
+//  which you received this file, check
+//  https://uvnc.com/
+//
+////////////////////////////////////////////////////////////////////////////
 
 
 // vncHTTPConnect.cpp
@@ -99,7 +100,7 @@ const char HTTP_FMT_INDEX[] =
 "    </APPLET>"*/
 "  </SPAN>\n"
 // "    <BR>\n"
-// "    <A href=\"http://UltraVNC.sf.net\">UltraVNC Home Page</A></HTML>\n" // sf@2002: don't waste space 
+// "    <A href=\"https://uvnc.com/\">UltraVNC Home Page</A></HTML>\n" // sf@2002: don't waste space 
 "  </BODY>\n"
 "</HTML>\n";
 
@@ -203,7 +204,6 @@ BOOL vncHTTPConnectThread::Init(VSocket *socket, vncServer *server)
 // Code to be executed by the thread
 void *vncHTTPConnectThread::run_undetached(void * arg)
 {
-	vnclog.Print(LL_INTINFO, VNCLOG("started HTTP server thread\n"));
 
 	// Go into a loop, listening for connections on the given socket
 	VSocket* new_socket = NULL;
@@ -512,20 +512,21 @@ vncHTTPConnect::~vncHTTPConnect()
    m_socket.Shutdown();
 
     // Join with our lovely thread
-    if (m_thread != NULL)
-    {
-		// *** This is a hack to force the listen thread out of the accept call,
-		// because Winsock accept semantics are broken.
-		((vncHTTPConnectThread *)m_thread)->m_shutdown = TRUE;
+   if (m_thread != NULL)
+   {
+	   // *** This is a hack to force the listen thread out of the accept call,
+	   // because Winsock accept semantics are broken.
+	   ((vncHTTPConnectThread*)m_thread)->m_shutdown = TRUE;
 
-		VSocket socket;
-#ifdef IPV6V4
-		socket.CreateBindConnect("localhost", m_port);
-#else
-		socket.Create();
-		socket.Bind(0);
-		socket.Connect("localhost", m_port);
-#endif
+	   VSocket socket;
+	   if (settings->getIPV6()) {
+		   socket.CreateBindConnect("localhost", m_port);
+	   }
+	   else {
+		   socket.Create();
+		   socket.Bind(0);
+		   socket.Connect("localhost", m_port);
+		}
 		socket.Close();
 
 		void *returnval;
@@ -540,22 +541,23 @@ BOOL vncHTTPConnect::Init(vncServer *server, UINT port)
 {
 	// Save the port id
 	m_port = port;
-#ifdef IPV6V4
-	if (!m_socket.CreateBindListen(m_port, settings->getLoopbackOnly()))
-		return FALSE;
-#else
-	// Create the listening socket
-	if (!m_socket.Create())
-		return FALSE;
+	if (settings->getIPV6()) {
+		if (!m_socket.CreateBindListen(m_port, settings->getLoopbackOnly()))
+			return FALSE;
+	}
+	else {
+		// Create the listening socket
+		if (!m_socket.Create())
+			return FALSE;
 
-	// Bind it
-	if (!m_socket.Bind(m_port, settings->getLoopbackOnly()))
-		return FALSE;
+		// Bind it
+		if (!m_socket.Bind(m_port, settings->getLoopbackOnly()))
+			return FALSE;
 
-	// Set it to listen
-	if (!m_socket.Listen())
-		return FALSE;
-#endif
+		// Set it to listen
+		if (!m_socket.Listen())
+			return FALSE;
+	}
 	// Create the new thread
 	m_thread = new vncHTTPConnectThread;
 	if (m_thread == NULL)
