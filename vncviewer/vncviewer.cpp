@@ -1,27 +1,16 @@
-/////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
+// This file is part of UltraVNC
+// https://github.com/ultravnc/UltraVNC
+// https://uvnc.com/
 //
-//  This program is free software; you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation; either version 2 of the License, or
-//  (at your option) any later version.
+// SPDX-License-Identifier: GPL-3.0-or-later
 //
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
+// SPDX-FileCopyrightText: Copyright (C) 2002-2025 UltraVNC Team Members. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 1999-2002 Vdacc-VNC & eSVNC Projects. All Rights Reserved.
 //
-//  You should have received a copy of the GNU General Public License
-//  along with this program; if not, write to the Free Software
-//  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
-//  USA.
-//
-//  If the source code for the program is not available from the place from
-//  which you received this file, check
-//  https://uvnc.com/
-//
-////////////////////////////////////////////////////////////////////////////
 
+
+// Suppress deprecated API warnings for legacy compatibility
+#pragma warning(disable: 4996)
 
 #include "stdhdrs.h"
 #include "vncviewer.h"
@@ -834,6 +823,7 @@ void CentreWindow(HWND hwnd)
 
 // sf@2002 - TightVNC method - RealVNC method
 // Convert "host:display" or "host::port" or "host:port" if port > 100, into host and port
+// IPv6 addresses must use bracket notation: [2001:db8::1]:5900
 // Returns true if valid format, false if not.
 // Takes initial string, addresses of results and size of host buffer in wchars.
 // If the display info passed in is longer than the size of the host buffer, it
@@ -844,33 +834,77 @@ bool ParseDisplay(LPTSTR display, LPTSTR phost, int hostlen, int *pport)
         return false;
 
     int tmp_port;
-    TCHAR *colonpos = _tcschr(display, L':');
-    if (colonpos == NULL)
-	{
-		// No colon -- use default port number
-        tmp_port = RFB_PORT_OFFSET;
-		_tcsncpy_s(phost, MAX_HOST_NAME_LEN, display, MAX_HOST_NAME_LEN);
-	}
-	else
-	{
-		_tcsncpy_s(phost, MAX_HOST_NAME_LEN, display, colonpos - display);
-		phost[colonpos - display] = L'\0';
-		if (colonpos[1] == L':') {
-			// Two colons -- interpret as a port number
-			if (_stscanf_s(colonpos + 2, TEXT("%d"), &tmp_port) != 1) 
-				return false;
-		}
-		else
-		{
-			// One colon -- interpret as a display number or port number
-			if (_stscanf_s(colonpos + 1, TEXT("%d"), &tmp_port) != 1) 
-				return false;
+    TCHAR *colonpos = NULL;
+    
+    // Check for IPv6 bracket notation: [IPv6]:port
+    if (display[0] == L'[') {
+        TCHAR *bracketend = _tcschr(display, L']');
+        if (bracketend == NULL)
+            return false; // Invalid format - opening bracket without closing
+        
+        // Extract IPv6 address between brackets
+        size_t ipv6len = bracketend - display - 1;
+        if (ipv6len >= (size_t)hostlen)
+            return false;
+        
+        _tcsncpy_s(phost, hostlen, display + 1, ipv6len);
+        phost[ipv6len] = L'\0';
+        
+        // Check for port after the bracket
+        if (bracketend[1] == L'\0') {
+            // No port specified - use default
+            tmp_port = RFB_PORT_OFFSET;
+        }
+        else if (bracketend[1] == L':') {
+            if (bracketend[2] == L':') {
+                // [IPv6]::port format
+                if (_stscanf_s(bracketend + 3, TEXT("%d"), &tmp_port) != 1)
+                    return false;
+            }
+            else {
+                // [IPv6]:display or [IPv6]:port format
+                if (_stscanf_s(bracketend + 2, TEXT("%d"), &tmp_port) != 1)
+                    return false;
+                
+                // If port < 100 interpret as display number else as Port number
+                if (tmp_port < 100)
+                    tmp_port += RFB_PORT_OFFSET;
+            }
+        }
+        else {
+            return false; // Invalid format after bracket
+        }
+    }
+    else {
+        // IPv4 or hostname parsing (original logic)
+        colonpos = _tcschr(display, L':');
+        if (colonpos == NULL)
+        {
+            // No colon -- use default port number
+            tmp_port = RFB_PORT_OFFSET;
+            _tcsncpy_s(phost, MAX_HOST_NAME_LEN, display, MAX_HOST_NAME_LEN);
+        }
+        else
+        {
+            _tcsncpy_s(phost, MAX_HOST_NAME_LEN, display, colonpos - display);
+            phost[colonpos - display] = L'\0';
+            if (colonpos[1] == L':') {
+                // Two colons -- interpret as a port number
+                if (_stscanf_s(colonpos + 2, TEXT("%d"), &tmp_port) != 1) 
+                    return false;
+            }
+            else
+            {
+                // One colon -- interpret as a display number or port number
+                if (_stscanf_s(colonpos + 1, TEXT("%d"), &tmp_port) != 1) 
+                    return false;
 
-			// RealVNC method - If port < 100 interpret as display number else as Port number
-			if (tmp_port < 100)
-				tmp_port += RFB_PORT_OFFSET;
-		}
-	}
+                // RealVNC method - If port < 100 interpret as display number else as Port number
+                if (tmp_port < 100)
+                    tmp_port += RFB_PORT_OFFSET;
+            }
+        }
+    }
     *pport = tmp_port;
     return true;
 }

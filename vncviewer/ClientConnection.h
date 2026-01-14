@@ -1,26 +1,12 @@
-/////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
+// This file is part of UltraVNC
+// https://github.com/ultravnc/UltraVNC
+// https://uvnc.com/
 //
-//  This program is free software; you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation; either version 2 of the License, or
-//  (at your option) any later version.
+// SPDX-License-Identifier: GPL-3.0-or-later
 //
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
+// SPDX-FileCopyrightText: Copyright (C) 2002-2025 UltraVNC Team Members. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 1999-2002 Vdacc-VNC & eSVNC Projects. All Rights Reserved.
 //
-//  You should have received a copy of the GNU General Public License
-//  along with this program; if not, write to the Free Software
-//  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
-//  USA.
-//
-//  If the source code for the program is not available from the place from
-//  which you received this file, check
-//  https://uvnc.com/
-//
-////////////////////////////////////////////////////////////////////////////
  
 
 #ifndef CLIENTCONNECTION_H__
@@ -813,6 +799,7 @@ private:
 	void Copyfrom0buffer(int width, int height, int xx, int yy,int bytes_per_pixel,BYTE* source,BYTE* dest,int framebufferWidth,int framebufferHeight);
 	void Switchbuffer(int width, int height, int xx, int yy,int bytes_per_pixel,BYTE* source,BYTE* dest,int framebufferWidth);
 	void ConvertPixel_to_bpp_from_32(int xx, int yy,int bytes_per_pixel,BYTE* source,BYTE* dest,int framebufferWidth);
+	void ConvertPixels_to_bpp_from_32_batch(int x, int y, int w, int h, int bytes_per_pixel, BYTE* source, BYTE* dest, int framebufferWidth, int framebufferHeight);
 	void SolidColor(int width, int height, int xx, int yy,int bytes_per_pixel,BYTE* source,BYTE* dest,int framebufferWidth);
 	HDC				m_hmemdc;
  	HBITMAP			m_membitmap;
@@ -963,17 +950,9 @@ public:
 
 #define SETPIXELS_NOCONV(buffer, x, y, w, h)									\
 	{																			\
-		if ( ((w + x) * (h + y)) > (m_si.framebufferWidth * m_si.framebufferHeight)) { \
-			assert(true);														\
-			return;																\
-		}																		\
-		CARD32 *p = (CARD32 *) buffer;											\
-		for (int k = y; k < y+h; k++) {											\
-			for (int j = x; j < x+w; j++) {										\
-							if (m_DIBbits) ConvertPixel_to_bpp_from_32(j,k,m_myFormat.bitsPerPixel/8,(BYTE*)p,(BYTE*)m_DIBbits,m_si.framebufferWidth);\
-					p++;														\
-			}																	\
-		}																		\
+		if (m_DIBbits) ConvertPixels_to_bpp_from_32_batch(x, y, w, h,			\
+			m_myFormat.bitsPerPixel/8, (BYTE*)buffer, (BYTE*)m_DIBbits,			\
+			m_si.framebufferWidth, m_si.framebufferHeight);						\
 	}
 
 #define SETXORPIXELS(mask,buffer, bpp, x, y, w, h,aantal)						\

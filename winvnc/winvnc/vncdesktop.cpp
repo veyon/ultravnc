@@ -1,29 +1,15 @@
-/////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
-//  Copyright (C) 2000-2002 Const Kaplinsky. All Rights Reserved.
-//  Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
-//  Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
+// This file is part of UltraVNC
+// https://github.com/ultravnc/UltraVNC
+// https://uvnc.com/
 //
-//  This program is free software; you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation; either version 2 of the License, or
-//  (at your option) any later version.
+// SPDX-License-Identifier: GPL-3.0-or-later
 //
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
+// SPDX-FileCopyrightText: Copyright (C) 2002-2025 UltraVNC Team Members. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 1999-2002 Vdacc-VNC & eSVNC Projects. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 2000-2002 Const Kaplinsky. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
 //
-//  You should have received a copy of the GNU General Public License
-//  along with this program; if not, write to the Free Software
-//  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
-//  USA.
-//
-//  If the source code for the program is not available from the place from
-//  which you received this file, check
-//  https://uvnc.com/
-//
-////////////////////////////////////////////////////////////////////////////
 
 
 // vncDesktop implementation
@@ -1142,7 +1128,7 @@ vncDesktop::InitBitmap()
 		vnclog.Print(LL_INTERR, VNCLOG("unable to get display format\n"));
 		return ERROR_DESKTOP_NO_DISPLAYFORMAT;
 	}
-	//needed, no dubble, need to be executed 2 times
+	// Necessary, no duplicate, must be executed 2 times
 	result = ::GetDIBits(m_hmemdc, m_membitmap, 0, 1, NULL, &m_bminfo.bmi, DIB_RGB_COLORS);
 	if (result == 0) {
 		vnclog.Print(LL_INTERR, VNCLOG("unable to get display colour info\n"));
@@ -1961,8 +1947,10 @@ vncDesktop::GetRichCursorData(BYTE *databuf, HCURSOR hcursor, int width, int hei
 		return FALSE;
 	}
 
-	// Draw the cursor
-	DrawIconEx(m_hmemdc, 0, 0, hcursor, 0, 0, 0, NULL, DI_IMAGE);
+	// Draw the cursor at the specified size
+	// Use explicit width/height for enlarged accessibility cursors
+	// Use DI_NORMAL (DI_IMAGE | DI_MASK) to properly render colored/accessibility cursors
+	DrawIconEx(m_hmemdc, 0, 0, hcursor, width, height, 0, NULL, DI_NORMAL);
 	SelectObject(m_hmemdc, oldbitmap);
 
 	// Prepare BITMAPINFO structure (copy most m_bminfo fields)
@@ -2592,7 +2580,7 @@ bool vncDesktop::block_input(bool first)
 		{
 			returnvalue = (*pbi)(Blockinput_val);
 			DWORD aa = GetLastError();
-			if (old_Blockinput != Blockinput_val && aa == 5)
+			if (old_Blockinput != (int)Blockinput_val && aa == 5)
 			{
 				if (m_hookinited)
 					PostMessage(m_hwnd, WM_HOOKCHANGE, 2, 0);

@@ -1,3 +1,14 @@
+// This file is part of UltraVNC
+// https://github.com/ultravnc/UltraVNC
+// https://uvnc.com/
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// SPDX-FileCopyrightText: Copyright (C) 2002-2025 UltraVNC Team Members. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 1999-2002 Vdacc-VNC & eSVNC Projects. All Rights Reserved.
+//
+
+
 #include "PropertiesDialog.h"
 #include <shlobj.h>
 #include "resource.h"
@@ -466,10 +477,10 @@ bool PropertiesDialog::DlgInitDialog(HWND hwnd)
 
 	if (GetDlgItem(hwnd, IDC_BLANK)) {
 		SendMessage(GetDlgItem(hwnd, IDC_BLANK), BM_SETCHECK, settings->getEnableBlankMonitor(), 0);
-		if (!VNC_OSVersion::getInstance()->OS_WIN10_TRANS && VNC_OSVersion::getInstance()->OS_WIN10)
+		/*if (!VNC_OSVersion::getInstance()->OS_WIN10_TRANS && VNC_OSVersion::getInstance()->OS_WIN10)
 			SetDlgItemText(hwnd, IDC_BLANK, "Enable Blank Monitor on Viewer Request require Min Win10 build 19041 ");
 		if (VNC_OSVersion::getInstance()->OS_WIN8)
-			SetDlgItemText(hwnd, IDC_BLANK, "Enable Blank Monitor on Viewer Not supported on windows 8 ");
+			SetDlgItemText(hwnd, IDC_BLANK, "Enable Blank Monitor on Viewer Not supported on windows 8 ");*/
 	}
 
 	if (GetDlgItem(hwnd, IDC_BLANK2)) //PGM

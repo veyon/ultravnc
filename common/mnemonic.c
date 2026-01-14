@@ -1,3 +1,14 @@
+// This file is part of UltraVNC
+// https://github.com/ultravnc/UltraVNC
+// https://uvnc.com/
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// SPDX-FileCopyrightText: Copyright (C) 2002-2025 UltraVNC Team Members. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 1999-2002 Vdacc-VNC & eSVNC Projects. All Rights Reserved.
+//
+
+
 /* mnemonic.c
 
  Copyright (c) 2000  Oren Tirosh <oren@hishome.net>
@@ -386,7 +397,7 @@ mn_encode (void *src, int srcsize, char *dest, int destsize, char *format)
   int n;
   char *fmt;
   char *destend = dest + destsize;
-  char *word;
+  const char *word;
   char capitalword[16];
   char *capitalwordPtr;
   memset(capitalword, 0, 16);
@@ -412,7 +423,7 @@ mn_encode (void *src, int srcsize, char *dest, int destsize, char *format)
 	    return MN_EFORMAT;
 	}
       word = mn_encode_word (src, srcsize, n);
-      for (int i =0; i<strlen(word); i++)
+      for (size_t i = 0; i < strlen(word); i++)
         capitalword[i] = (i == 0 && (n == 0 || n == 3)) ? toupper(word[i]) : word[i];
       if (word == 0)
 	return MN_EOVERRUN;	/* shouldn't happen, actually */

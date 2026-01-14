@@ -1,30 +1,16 @@
-/////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
-//  Copyright (C) 2015 D. R. Commander. All Rights Reserved.
-//  Copyright (C) 2000-2002 Const Kaplinsky. All Rights Reserved.
-//  Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
-//  Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
+// This file is part of UltraVNC
+// https://github.com/ultravnc/UltraVNC
+// https://uvnc.com/
 //
-//  This program is free software; you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation; either version 2 of the License, or
-//  (at your option) any later version.
+// SPDX-License-Identifier: GPL-3.0-or-later
 //
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
+// SPDX-FileCopyrightText: Copyright (C) 2002-2025 UltraVNC Team Members. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 1999-2002 Vdacc-VNC & eSVNC Projects. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 2015 D. R. Commander. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 2000-2002 Const Kaplinsky. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
 //
-//  You should have received a copy of the GNU General Public License
-//  along with this program; if not, write to the Free Software
-//  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
-//  USA.
-//
-//  If the source code for the program is not available from the place from
-//  which you received this file, check
-//  https://uvnc.com/
-//
-////////////////////////////////////////////////////////////////////////////
 
 
 // vncClient.cpp
@@ -1796,6 +1782,7 @@ BOOL vncClientThread::AuthSecureVNCPlugin_old(std::string& auth_message)
 		if (!m_socket->ReadExact((char*)&wResponseLength, sizeof(wResponseLength))) {
 			return FALSE;
 		}
+		if (wResponseLength > 2024) return FALSE;
 
 		BYTE* pResponseData = new BYTE[wResponseLength];
 
@@ -1865,10 +1852,7 @@ vncClientThread::AuthMsLogon(std::string& auth_message)
 	}
 
 	if (result) {
-		if (user != NULL)
-			m_client->m_client_domain_username = _strdup(user);
-		else
-			m_client->m_client_domain_username = _strdup("<unknown>");
+		m_client->m_client_domain_username = _strdup(user);
 		return TRUE;
 	}
 	else {
@@ -2069,11 +2053,8 @@ void GetIPString(char* buffer, int buflen)
 		hint.ai_socktype = SOCK_STREAM;
 		hint.ai_protocol = IPPROTO_TCP;
 		struct sockaddr_in6* pIpv6Addr;
-		struct sockaddr_in* pIpv4Addr;
 		struct sockaddr_in6 Ipv6Addr;
-		struct sockaddr_in Ipv4Addr;
 		memset(&Ipv6Addr, 0, sizeof(Ipv6Addr));
-		memset(&Ipv4Addr, 0, sizeof(Ipv4Addr));
 
 		//make sure the buffer is not overwritten
 

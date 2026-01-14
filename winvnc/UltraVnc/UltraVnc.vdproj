@@ -834,13 +834,13 @@
         "ProductVersion" = "8:1.5.07"
         "Manufacturer" = "8:uvnc bv"
         "ARPHELPTELEPHONE" = "8:"
-        "ARPHELPLINK" = "8:https://forum.uvnc.com"
+        "ARPHELPLINK" = "8:https://forum.uvnc.com/"
         "Title" = "8:UltraVNC"
         "Subject" = "8:"
         "ARPCONTACT" = "8:Rudi De Vos"
         "Keywords" = "8:"
         "ARPCOMMENTS" = "8:"
-        "ARPURLINFOABOUT" = "8:https://uvnc.com"
+        "ARPURLINFOABOUT" = "8:https://uvnc.com/"
         "ARPPRODUCTICON" = "8:"
         "ARPIconIndex" = "3:0"
         "SearchPath" = "8:"
@@ -948,7 +948,7 @@
             {
             "Name" = "8:UltraVNC Server"
             "Arguments" = "8:"
-            "Description" = "8:UltraVNC Server - Remote access tool"
+            "Description" = "8:UltraVNC Server - Remote Access Tool"
             "ShowCmd" = "3:1"
             "IconIndex" = "3:0"
             "Transitive" = "11:FALSE"
@@ -960,9 +960,9 @@
             }
             "{970C0BB2-C7D0-45D7-ABFA-7EC378858BC0}:_7A5A97D5C5844F3980E926DBF229662D"
             {
-            "Name" = "8:UltraVNC Settings"
+            "Name" = "8:UltraVNC Server Settings"
             "Arguments" = "8:-settings"
-            "Description" = "8:"
+            "Description" = "8:UltraVNC Server Settings - Remote Access Tool"
             "ShowCmd" = "3:1"
             "IconIndex" = "3:0"
             "Transitive" = "11:FALSE"
@@ -976,7 +976,7 @@
             {
             "Name" = "8:UltraVNC Viewer"
             "Arguments" = "8:"
-            "Description" = "8:UltraVNC Viewer - Remote access tool "
+            "Description" = "8:UltraVNC Viewer - Remote Access Tool"
             "ShowCmd" = "3:1"
             "IconIndex" = "3:0"
             "Transitive" = "11:FALSE"
@@ -990,7 +990,7 @@
             {
             "Name" = "8:UltraVNC Viewer"
             "Arguments" = "8:"
-            "Description" = "8:UltraVNC Viewer - Remote access tool"
+            "Description" = "8:UltraVNC Viewer - Remote Access Tool"
             "ShowCmd" = "3:1"
             "IconIndex" = "3:0"
             "Transitive" = "11:FALSE"
@@ -1004,7 +1004,7 @@
             {
             "Name" = "8:UltraVNC Server"
             "Arguments" = "8:"
-            "Description" = "8:UltraVNC Server - Remote access tool"
+            "Description" = "8:UltraVNC Server - Remote Access Tool"
             "ShowCmd" = "3:1"
             "IconIndex" = "3:9"
             "Transitive" = "11:FALSE"

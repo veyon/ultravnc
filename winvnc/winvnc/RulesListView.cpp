@@ -1,3 +1,14 @@
+// This file is part of UltraVNC
+// https://github.com/ultravnc/UltraVNC
+// https://uvnc.com/
+//
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// SPDX-FileCopyrightText: Copyright (C) 2002-2025 UltraVNC Team Members. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 1999-2002 Vdacc-VNC & eSVNC Projects. All Rights Reserved.
+//
+
+
 #include "RulesListView.h"
 #include <CommCtrl.h>
 #include "SettingsManager.h"
@@ -411,7 +422,8 @@ bool RulesListView::isValidIPAddress(const char* ip) {
 char* RulesListView::getAuthHost()
 {
 	int itemCount = ListView_GetItemCount(hListView);
-	char result[10000]{};
+	static char result[10000];
+	result[0] = '\0';  // Clear buffer for each call
 	for (int i = 0; i < itemCount; i++) {
 		// Define a LVITEM structure to hold the item's data
 		LVITEM lvItem;

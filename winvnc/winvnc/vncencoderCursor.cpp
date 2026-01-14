@@ -1,26 +1,13 @@
-/////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
+// This file is part of UltraVNC
+// https://github.com/ultravnc/UltraVNC
+// https://uvnc.com/
 //
-//  This program is free software; you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation; either version 2 of the License, or
-//  (at your option) any later version.
+// SPDX-License-Identifier: GPL-3.0-or-later
 //
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
+// SPDX-FileCopyrightText: Copyright (C) 2002-2025 UltraVNC Team Members. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 1999-2002 Vdacc-VNC & eSVNC Projects. All Rights Reserved.
 //
-//  You should have received a copy of the GNU General Public License
-//  along with this program; if not, write to the Free Software
-//  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
-//  USA.
-//
-//  If the source code for the program is not available from the place from
-//  which you received this file, check
-//  https://uvnc.com/
-//
-////////////////////////////////////////////////////////////////////////////
+
 
 //  Copyright (C) 2000 Const Kaplinsky. All Rights Reserved.
 #include "stdhdrs.h"
@@ -34,10 +21,51 @@
 BOOL
 vncEncoder::IsXCursorSupported()
 {
-	if (m_use_xcursor) return true;
-	if (m_use_richcursor) return true;
-	return false;
+	return m_use_xcursor || m_use_richcursor;
 }
+
+// Cache for accessibility cursor size (avoid reading registry on every cursor update)
+static DWORD s_cachedCursorBaseSize = 0;
+static DWORD s_lastCursorSizeCheck = 0;
+
+static DWORD GetAccessibilityCursorSize()
+{
+	// Cache cursor size for 5 seconds to avoid registry reads on every cursor update
+	DWORD now = GetTickCount();
+	if (s_cachedCursorBaseSize != 0 && (now - s_lastCursorSizeCheck) < 5000) {
+		return s_cachedCursorBaseSize;
+	}
+	
+	DWORD cursorBaseSize = 32;  // Default cursor size
+	HKEY hKey;
+	
+	// Try primary location: Control Panel\Cursors\CursorBaseSize
+	if (RegOpenKeyEx(HKEY_CURRENT_USER, "Control Panel\\Cursors", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+		DWORD dataSize = sizeof(DWORD);
+		RegQueryValueEx(hKey, "CursorBaseSize", NULL, NULL, (LPBYTE)&cursorBaseSize, &dataSize);
+		RegCloseKey(hKey);
+	}
+	
+	// Also check Software\Microsoft\Accessibility for CursorSize multiplier (Windows 10/11)
+	if (cursorBaseSize == 32) {
+		if (RegOpenKeyEx(HKEY_CURRENT_USER, "Software\\Microsoft\\Accessibility", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+			DWORD cursorSizeMultiplier = 1;
+			DWORD dataSize = sizeof(DWORD);
+			if (RegQueryValueEx(hKey, "CursorSize", NULL, NULL, (LPBYTE)&cursorSizeMultiplier, &dataSize) == ERROR_SUCCESS) {
+				// CursorSize is a multiplier (1-15), convert to pixel size
+				if (cursorSizeMultiplier > 1) {
+					cursorBaseSize = 32 + (cursorSizeMultiplier - 1) * 8;
+				}
+			}
+			RegCloseKey(hKey);
+		}
+	}
+	
+	s_cachedCursorBaseSize = cursorBaseSize;
+	s_lastCursorSizeCheck = now;
+	return cursorBaseSize;
+}
+
 BOOL
 vncEncoder::SendEmptyCursorShape(VSocket *outConn)
 {
@@ -76,8 +104,11 @@ vncEncoder::SendCursorShape(VSocket *outConn, vncDesktop *desktop)
 		return FALSE;
 	}
 	BOOL isColorCursor = FALSE;
+	BITMAP bmColor = {0};
 	if (IconInfo.hbmColor != NULL) {
 		isColorCursor = TRUE;
+		// Get color bitmap dimensions before deleting - needed for enlarged accessibility cursors
+		GetObject(IconInfo.hbmColor, sizeof(BITMAP), (LPVOID)&bmColor);
 		DeleteObject(IconInfo.hbmColor);
 	}
 	if (IconInfo.hbmMask == NULL) {
@@ -96,6 +127,32 @@ vncEncoder::SendCursorShape(VSocket *outConn, vncDesktop *desktop)
 		vnclog.Print(LL_INTINFO, VNCLOG("incorrect data in cursor bitmap.\n"));
 		DeleteObject(IconInfo.hbmMask);
 		return FALSE;
+	}
+
+	// Compute cursor dimensions
+	// For color cursors (including enlarged accessibility cursors), use color bitmap dimensions
+	// For monochrome cursors, mask height is doubled (AND mask + XOR mask)
+	int width, height;
+	if (isColorCursor && bmColor.bmWidth > 0 && bmColor.bmHeight > 0) {
+		width = bmColor.bmWidth;
+		height = bmColor.bmHeight;
+	} else {
+		width = bmMask.bmWidth;
+		height = (isColorCursor) ? bmMask.bmHeight : bmMask.bmHeight/2;
+	}
+
+	// Check for Windows accessibility cursor scaling (cached to avoid registry reads)
+	int xHotspot = IconInfo.xHotspot;
+	int yHotspot = IconInfo.yHotspot;
+	DWORD cursorBaseSize = GetAccessibilityCursorSize();
+	
+	// If cursor base size is larger than default, scale the cursor
+	if (cursorBaseSize > 32 && width == 32 && height == 32) {
+		width = cursorBaseSize;
+		height = cursorBaseSize;
+		// Scale hotspot proportionally
+		xHotspot = (IconInfo.xHotspot * cursorBaseSize) / 32;
+		yHotspot = (IconInfo.yHotspot * cursorBaseSize) / 32;
 	}
 
 	// Get monochrome bitmap data for cursor
@@ -117,33 +174,85 @@ vncEncoder::SendCursorShape(VSocket *outConn, vncDesktop *desktop)
 		return FALSE;
 	}
 
-	// Compute cursor dimensions
-	int width = bmMask.bmWidth;
-	int height = (isColorCursor) ? bmMask.bmHeight : bmMask.bmHeight/2;
+	// For enlarged accessibility cursors, the color bitmap may be larger than the mask bitmap.
+	// In this case, we need to generate a new mask that matches the color cursor dimensions.
+	BYTE *workMbits = mbits;
+	int workMaskWidthBytes = bmMask.bmWidthBytes;
+	BOOL needsGeneratedMask = isColorCursor && (width != bmMask.bmWidth || height != bmMask.bmHeight);
+
+	if (needsGeneratedMask) {
+		// Allocate a new mask buffer for the enlarged cursor dimensions
+		int newMaskWidthBytes = (width + 7) / 8;
+		workMbits = new BYTE[newMaskWidthBytes * height];
+		if (workMbits == NULL) {
+			delete[] mbits;
+			return FALSE;
+		}
+		memset(workMbits, 0, newMaskWidthBytes * height);  // Start with all transparent
+		workMaskWidthBytes = newMaskWidthBytes;
+	}
 
 	// Call appropriate routine to send cursor shape update
 	if (!isColorCursor && m_use_xcursor) {
-		FixCursorMask(mbits, NULL, width, bmMask.bmHeight, bmMask.bmWidthBytes);
-		success = SendXCursorShape(outConn, mbits,
-								   IconInfo.xHotspot, IconInfo.yHotspot,
+		FixCursorMask(workMbits, NULL, width, bmMask.bmHeight, workMaskWidthBytes);
+		success = SendXCursorShape(outConn, workMbits,
+								   xHotspot, yHotspot,
 								   width, height);
 	}
 	else if (m_use_richcursor) {
 		int cbits_size = width * height * 4;
 		BYTE *cbits = new BYTE[cbits_size];
 		if (cbits == NULL) {
+			if (needsGeneratedMask) delete[] workMbits;
 			delete[] mbits;
 			return FALSE;
 		}
 		if (!desktop->GetRichCursorData(cbits, hcursor, width, height)) {
 			vnclog.Print(LL_INTINFO, VNCLOG("vncDesktop::GetRichCursorData() failed.\n"));
+			if (needsGeneratedMask) delete[] workMbits;
 			delete[] mbits;
 			delete[] cbits;
 			return FALSE;
 		}
-		FixCursorMask(mbits, cbits, width, height, bmMask.bmWidthBytes);
-		success = SendRichCursorShape(outConn, mbits, cbits,
-									  IconInfo.xHotspot, IconInfo.yHotspot,
+		if (needsGeneratedMask) {
+			// For enlarged accessibility cursors, generate mask from color data
+			// Mask bit 1 = visible pixel, bit 0 = transparent
+			const int bytes_pixel = m_localformat.bitsPerPixel / 8;
+			int bytes_row = width * bytes_pixel;
+			while (bytes_row % sizeof(DWORD))
+				bytes_row++;
+			const int packed_width_bytes = workMaskWidthBytes;
+			
+			for (int y = 0; y < height; y++) {
+				BYTE *srcRow = cbits + y * bytes_row;
+				BYTE *dstRow = workMbits + y * packed_width_bytes;
+				BYTE bitmask = 0x80;
+				int dstByteIdx = 0;
+				
+				for (int x = 0; x < width; x++) {
+					// Check if pixel has any non-zero color component (visible)
+					BYTE *pixel = srcRow + x * bytes_pixel;
+					BOOL hasColor = FALSE;
+					for (int b = 0; b < bytes_pixel; b++) {
+						if (pixel[b] != 0) {
+							hasColor = TRUE;
+							break;
+						}
+					}
+					if (hasColor) {
+						dstRow[dstByteIdx] |= bitmask;
+					}
+					if ((bitmask >>= 1) == 0) {
+						bitmask = 0x80;
+						dstByteIdx++;
+					}
+				}
+			}
+		} else {
+			FixCursorMask(workMbits, cbits, width, height, workMaskWidthBytes);
+		}
+		success = SendRichCursorShape(outConn, workMbits, cbits,
+									  xHotspot, yHotspot,
 									  width, height);
 		delete[] cbits;
 	}
@@ -152,6 +261,7 @@ vncEncoder::SendCursorShape(VSocket *outConn, vncDesktop *desktop)
 	}
 
 	// Cleanup
+	if (needsGeneratedMask) delete[] workMbits;
 	delete[] mbits;
 
 	return success;

@@ -1,26 +1,13 @@
-/////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
+// This file is part of UltraVNC
+// https://github.com/ultravnc/UltraVNC
+// https://uvnc.com/
 //
-//  This program is free software; you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation; either version 2 of the License, or
-//  (at your option) any later version.
+// SPDX-License-Identifier: GPL-3.0-or-later
 //
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
+// SPDX-FileCopyrightText: Copyright (C) 2002-2025 UltraVNC Team Members. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 1999-2002 Vdacc-VNC & eSVNC Projects. All Rights Reserved.
 //
-//  You should have received a copy of the GNU General Public License
-//  along with this program; if not, write to the Free Software
-//  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
-//  USA.
-//
-//  If the source code for the program is not available from the place from
-//  which you received this file, check
-//  https://uvnc.com/
-//
-////////////////////////////////////////////////////////////////////////////
+
 
 #include "stdhdrs.h"
 #include "vncEncodeZlib.h"
@@ -41,7 +28,7 @@ vncEncodeZlib::vncEncodeZlib()
 	if (m_Queuebuffer == NULL)
 		vnclog.Print(LL_INTINFO, VNCLOG("Memory error"));
 	m_QueueCompressedbuffer = new BYTE [MaxQueuebufflen+(MaxQueuebufflen/100)+8];
-	if (m_Queuebuffer == NULL)
+	if (m_QueueCompressedbuffer == NULL)
 		vnclog.Print(LL_INTINFO, VNCLOG("Memory error"));
 }
 //------------------------------------------------------------------
@@ -230,12 +217,14 @@ void vncEncodeZlib::SendZlibrects(VSocket *outConn)
 	if (NRects==0) return; // NO update
 	if (m_nNbRects<3 && !must_be_zipped) {
 		outConn->SendExactQueue( (char *)m_Queuebuffer, m_Queuelen); // 1 Small update
-		m_nNbRects=0;
-		m_Queuelen=0;
 		encodedSize += m_Queuelen-sz_rfbFramebufferUpdateRectHeader;
 		rectangleOverhead += sz_rfbFramebufferUpdateRectHeader;
+		m_nNbRects=0;
+		m_Queuelen=0;
 		return;
 	}
+	encodedSize += m_Queuelen-sz_rfbFramebufferUpdateRectHeader;
+	rectangleOverhead += sz_rfbFramebufferUpdateRectHeader;
 	m_nNbRects=0;
 	m_Queuelen=0;
 	must_be_zipped=false;

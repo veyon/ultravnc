@@ -1,26 +1,12 @@
-/////////////////////////////////////////////////////////////////////////////
-//  Copyright (C) 2002-2024 UltraVNC Team Members. All Rights Reserved.
+// This file is part of UltraVNC
+// https://github.com/ultravnc/UltraVNC
+// https://uvnc.com/
 //
-//  This program is free software; you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation; either version 2 of the License, or
-//  (at your option) any later version.
+// SPDX-License-Identifier: GPL-3.0-or-later
 //
-//  This program is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
+// SPDX-FileCopyrightText: Copyright (C) 2002-2025 UltraVNC Team Members. All Rights Reserved.
+// SPDX-FileCopyrightText: Copyright (C) 1999-2002 Vdacc-VNC & eSVNC Projects. All Rights Reserved.
 //
-//  You should have received a copy of the GNU General Public License
-//  along with this program; if not, write to the Free Software
-//  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307,
-//  USA.
-//
-//  If the source code for the program is not available from the place from
-//  which you received this file, check
-//  https://uvnc.com/
-//
-////////////////////////////////////////////////////////////////////////////
 
 
 // Clipboard.h
@@ -755,12 +741,20 @@ bool Clipboard::UpdateClipTextEx(ClipboardData& clipboardData, CARD32 overrideFl
 			int nConvertedSize = MultiByteToWideChar(CP_UTF8, 0, (LPCSTR)clipboardData.m_pDataText, clipboardData.m_lengthText, NULL, 0);
 
 			if (nConvertedSize > 0) {
-				wchar_t* clipStr = new wchar_t[nConvertedSize];
+				wchar_t* clipStr = new wchar_t[nConvertedSize + 1];
 				int nFinalConvertedSize = MultiByteToWideChar(CP_UTF8, 0, (LPCSTR)clipboardData.m_pDataText, clipboardData.m_lengthText, (LPWSTR)clipStr, nConvertedSize);
 
 				if (nFinalConvertedSize > 0) {
-					std::wstring wstrClipboard(clipStr);
-					m_strLastCutText.assign(wstrClipboard.begin(), wstrClipboard.end());
+					clipStr[nFinalConvertedSize] = L'\0';
+					// Convert UTF-16 to ANSI for legacy clipboard support
+					int nAnsiSize = WideCharToMultiByte(CP_ACP, 0, clipStr, nFinalConvertedSize, NULL, 0, NULL, NULL);
+					if (nAnsiSize > 0) {
+						char* ansiStr = new char[nAnsiSize + 1];
+						WideCharToMultiByte(CP_ACP, 0, clipStr, nFinalConvertedSize, ansiStr, nAnsiSize, NULL, NULL);
+						ansiStr[nAnsiSize] = '\0';
+						m_strLastCutText.assign(ansiStr, nAnsiSize);
+						delete[] ansiStr;
+					}
 				}
 
 				delete[] clipStr;
