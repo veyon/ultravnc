@@ -357,6 +357,18 @@ ClientConnection::ClientConnection(VNCviewerApp *pApp, LPTSTR host, int port)
 	m_fUseProxy = m_opts->m_fUseProxy;
 }
 
+typedef LONG(WINAPI* RtlGetVersionPtr)(PRTL_OSVERSIONINFOW);
+bool GetRealOSVersion(OSVERSIONINFOW& osInfo) {
+	HMODULE hMod = ::GetModuleHandleW(L"ntdll.dll");
+	if (!hMod) return false;
+
+	RtlGetVersionPtr fxPtr = (RtlGetVersionPtr)::GetProcAddress(hMod, "RtlGetVersion");
+	if (!fxPtr) return false;
+
+	osInfo.dwOSVersionInfoSize = sizeof(osInfo);
+	return fxPtr(&osInfo) == 0;
+}
+
 void ClientConnection::Init(VNCviewerApp *pApp)
 {
 #ifdef _CLOUD
@@ -615,44 +627,47 @@ void ClientConnection::Init(VNCviewerApp *pApp)
 
 	OSVERSIONINFO osvi = { sizeof(OSVERSIONINFO) };
 	GetVersionEx(&osvi);
-	if (osvi.dwMajorVersion >= 6 && osvi.dwMinorVersion >= 3)
-	{
-		typedef BOOL(WINAPI* PFN_GetDpiForMonitor) (HMONITOR, MONITOR_DPI_TYPE, UINT*, UINT*);
-		PFN_GetDpiForMonitor getDpiForMonitor;
-		HMODULE hShcore = NULL;
-		HMODULE hUser32 = NULL;
 
+	typedef BOOL(WINAPI* PFN_GetDpiForMonitor) (HMONITOR, MONITOR_DPI_TYPE, UINT*, UINT*);
+	PFN_GetDpiForMonitor getDpiForMonitor = NULL;
+	HMODULE hShcore = NULL;
+	HMODULE hUser32 = NULL;
+
+	OSVERSIONINFOW osInfo = {};
+	GetRealOSVersion(osInfo);
+
+	if (osInfo.dwMajorVersion == 6 && osInfo.dwMinorVersion == 3 || osInfo.dwMajorVersion > 6) {
 		hShcore = LoadLibrary(_T("Shcore.dll"));
 		if (hShcore)
 			// GetDpiForMonitor, Windows 8.1 [desktop apps only]
 			getDpiForMonitor = (PFN_GetDpiForMonitor)GetProcAddress(hShcore, "GetDpiForMonitor");
-		if (getDpiForMonitor)
-		{
-			HMONITOR monitor = MonitorFromWindow(m_hwndMain, MONITOR_DEFAULTTONEAREST);
-			if (monitor) {
-				UINT xScale = 96, yScale = 96;
-				HRESULT hr = getDpiForMonitor(monitor, MDT_DEFAULT, &xScale, &yScale);
-				if (FAILED(hr)) // Ensure function call succeeded
-				{
-					m_Dpi = 96;
-				}
-				else
-				{
-					m_Dpi = xScale;
-				}
+	}
+
+	if (getDpiForMonitor)
+	{
+		HMONITOR monitor = MonitorFromWindow(m_hwndMain, MONITOR_DEFAULTTONEAREST);
+		if (monitor) {
+			UINT xScale = 96, yScale = 96;
+			HRESULT hr = getDpiForMonitor(monitor, MDT_DEFAULT, &xScale, &yScale);
+			if (FAILED(hr)) // Ensure function call succeeded
+			{
+				m_Dpi = 96;
 			}
 			else
-				m_Dpi = 96;
-
+			{
+				m_Dpi = xScale;
+			}
 		}
 		else
-		{
-			m_Dpi = GetDeviceCaps(GetDC(m_hwndMain), LOGPIXELSX);
-		}
-		FreeLibrary(hShcore);
+			m_Dpi = 96;
+
 	}
 	else
-		m_Dpi = 96;
+		m_Dpi = GetDeviceCaps(GetDC(m_hwndMain), LOGPIXELSX);
+	if (hShcore) {
+		FreeLibrary(hShcore);
+	}
+
 
 	m_DpiOld = m_Dpi;
 	vnclog.Print(2, _T("DPI %d\n"), m_Dpi);
@@ -3021,7 +3036,7 @@ void ClientConnection::AuthenticateServer(CARD32 authScheme, std::vector<CARD32>
 	case rfbUltraVNC:
 		new_ultra_server=true;
 		m_fServerKnowsFileTransfer = true;
-		//HandleQuickOption();
+		HandleQuickOption();
 		break;
 	case rfbUltraVNC_SecureVNCPluginAuth_new:
 		if (bSecureVNCPluginActive) {
@@ -3077,6 +3092,9 @@ void ClientConnection::AuthenticateServer(CARD32 authScheme, std::vector<CARD32>
 		{
 			throw WarningException("You refused a untrusted server.");
 		}
+		if (bCheckboxChecked)
+			SaveAllowUntrustedServers();
+		
 
 		if (m_minorVersion < 8)
 			{

@@ -243,6 +243,7 @@ VNCOptions::VNCOptions()
 	m_fAutoAcceptIncoming = false;
 	m_fAutoAcceptNoDSM = false;
 	m_fRequireEncryption = false;
+	m_UseOnlyDefaultConfigFile = true;
 	m_preemptiveUpdates = false;
 	m_saved_scale_num = 100;
 	m_saved_scale_den = 100;
@@ -261,7 +262,7 @@ VNCOptions::VNCOptions()
 	m_HideEndOfStreamError = false;
 	
 	setDefaultOptionsFileName(m_optionfile);
-	//LoadOptions(getDefaultOptionsFileName());
+	LoadOptions(getDefaultOptionsFileName());
 }
 
 void VNCOptions::setDefaultOptionsFileName(TCHAR * optionfile)
@@ -453,6 +454,7 @@ VNCOptions& VNCOptions::operator=(VNCOptions& s)
 
 	//adzm 2010-05-12
 	m_fRequireEncryption = s.m_fRequireEncryption;
+	m_UseOnlyDefaultConfigFile = s.m_UseOnlyDefaultConfigFile;
 
 	//adzm 2010-07-04
 	m_preemptiveUpdates = s.m_preemptiveUpdates;
@@ -1048,20 +1050,35 @@ void VNCOptions::SetFromCommandLine(LPTSTR szCmdLine) {
 		}
 		else
 		{
-			TCHAR phost[MAX_HOST_NAME_LEN];
-			if (!ParseDisplay(args[j], phost, MAX_HOST_NAME_LEN, &m_port)) {
-				ShowUsage(sz_D28);
-				PostQuitMessage(1);
+			if (j == 0 && (GetFileAttributesA(args[j]) != INVALID_FILE_ATTRIBUTES)
+				&& !(GetFileAttributesA(args[j]) & FILE_ATTRIBUTE_DIRECTORY)) {
+				// The GetPrivateProfile* stuff seems not to like some relative paths
+				_fullpath(m_configFilename, args[j], _MAX_PATH);
+				if (_access(m_configFilename, 04)) {
+					ArgError(sz_D17);
+					PostQuitMessage(1);
+					continue;
+				}
+				else {
+					LoadOptions(m_configFilename);
+					m_configSpecified = true;
+				}
 			}
 			else {
-				for (size_t l_i = 0, len = strlen(phost); l_i < len; l_i++)
-				{
-					phost[l_i] = toupper(phost[l_i]);
+				TCHAR phost[MAX_HOST_NAME_LEN];
+				if (!ParseDisplay(args[j], phost, MAX_HOST_NAME_LEN, &m_port)) {
+					ShowUsage(sz_D28);
+					PostQuitMessage(1);
 				}
-				_tcscpy_s(m_host_options, phost);
-				//adzm 2010-02-15
-				CheckProxyAndHost();
-				m_connectionSpecified = true;
+				else {
+					for (size_t l_i = 0, len = strlen(phost); l_i < len; l_i++) {
+						phost[l_i] = toupper(phost[l_i]);
+					}
+					_tcscpy_s(m_host_options, phost);
+					//adzm 2010-02-15
+					CheckProxyAndHost();
+					m_connectionSpecified = true;
+				}
 			}
 		}
 	}
@@ -1226,6 +1243,8 @@ void VNCOptions::SaveOptions(char* fname)
 
 	//adzm 2010-05-12
 	saveInt("RequireEncryption", m_fRequireEncryption, fname);
+	saveInt("UseOnlyDefaultConfigFile", m_UseOnlyDefaultConfigFile, fname);
+	
 
 	//adzm 2010-07-04
 	saveInt("PreemptiveUpdates", m_preemptiveUpdates, fname);
@@ -1337,13 +1356,15 @@ void VNCOptions::LoadOptions(char* fname)
 
 	//adzm 2010-05-12
 	m_fRequireEncryption = readInt("RequireEncryption", (int)m_fRequireEncryption, fname) ? true : false;
+	m_UseOnlyDefaultConfigFile = readInt("UseOnlyDefaultConfigFile", (int)m_UseOnlyDefaultConfigFile, fname) ? true : false;
+	
 
 	//adzm 2010-07-04
 	m_preemptiveUpdates = readInt("PreemptiveUpdates", (int)m_preemptiveUpdates, fname) ? true : false;
 }
 
 void VNCOptions::ShowUsage(LPTSTR info) {
-	TCHAR msg[1024];
+	TCHAR msg[2048];
 	TCHAR* tmpinf = _T("");
 	if (info != NULL)
 		tmpinf = info;

@@ -113,6 +113,7 @@ class CloudThread;
 #endif
 typedef void (ClientConnection:: *tightFilterFunc)(int);
 
+void JpegErrorHeader(j_common_ptr cinfo);
 struct mybool {
  bool b0 : 1;
  bool b1 : 1;
@@ -199,6 +200,7 @@ public:
 	void WriteExact(char *buf, int bytes); //adzm 2010-09
 	void WriteExactFT(char *buf, int bytes);
 	void ResizeToolbar(RECT& rect);
+	void SaveAllowUntrustedServers();
 
 private:
 	bool brfbClientInitExtraMsgSupportNew = false;
@@ -848,14 +850,16 @@ private:
 	DWORD prevMousekeyflags;
 	UINT prevMousemsg;
 
-	UINT m_Dpi;
+	
 	UINT m_DpiOld;
 	bool m_DpiMove;
-	HMODULE hUser32;
-	PFN_AdjustWindowRectExForDpi adjustWindowRectExForDpi;
+	HMODULE hUser32;	
 	short nbrMonitors = 0;
 
 public:
+	UINT m_Dpi;
+	PFN_AdjustWindowRectExForDpi adjustWindowRectExForDpi;
+
 	// RFB settings
 #ifdef _CLOUD
 	CloudThread* cloudThread = NULL;
