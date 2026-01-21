@@ -471,7 +471,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine2
 			if (strncmp(&szCmdLine[i], winvncKill, strlen(winvncKill)) == 0)
 			{
 				static HANDLE		hShutdownEventTmp;
+#ifdef ULTRAVNC_VEYON_SUPPORT
+				hShutdownEventTmp = OpenEvent(EVENT_ALL_ACCESS, FALSE, "Global\\SessionEventVeyon");
+#else
 				hShutdownEventTmp = OpenEvent(EVENT_ALL_ACCESS, FALSE, "Global\\SessionEventUltra");
+#endif
 				SetEvent(hShutdownEventTmp);
 				CloseHandle(hShutdownEventTmp);
 
@@ -1357,7 +1361,11 @@ int WinVNCAppMain()
 
 	// sf@2007 - New impersonation thread stuff for Tray icon & menu
 	// Subscribe to shutdown event
+#ifdef ULTRAVNC_VEYON_SUPPORT
+	hShutdownEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, "Global\\SessionEventVeyon");
+#else
 	hShutdownEvent = OpenEvent(EVENT_ALL_ACCESS, FALSE, "Global\\SessionEventUltra");
+#endif
 	if (hShutdownEvent) ResetEvent(hShutdownEvent);
 	//vnclog.Print(LL_STATE, VNCLOG("***************** SDEvent created \n"));
 	// Create the timer that looks periodicaly for shutdown event
