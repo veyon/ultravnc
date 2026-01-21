@@ -34,8 +34,10 @@
 #endif
 #endif
 
+#ifndef ULTRAVNC_VEYON_SUPPORT
 #ifndef _HAS_STD_BYTE
 #define _HAS_STD_BYTE 0
+#endif
 #endif
 
 /*#ifdef _USE_DESKTOPDUPLICATION
