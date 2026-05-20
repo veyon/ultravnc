@@ -1,5 +1,7 @@
 // Microsoft Visual C++ generated resource script.
 //
+#pragma code_page(65001)
+
 #include "resource.h"
 
 #define APSTUDIO_READONLY_SYMBOLS
@@ -8,16 +10,16 @@
 // Generated from the TEXTINCLUDE 2 resource.
 //
 #include "afxres.h"
+#pragma code_page(65001)
 
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// English (United States) resources
+// English resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
-LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
-#pragma code_page(1252)
+LANGUAGE LANG_ENGLISH, SUBLANG_NEUTRAL
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -66,12 +68,6 @@ IDB_PINUP               BITMAP                  "stat/pinup.bmp"
 
 IDB_VNC32               BITMAP                  "vnc32.BMP"
 
-IDB_GREEN               BITMAP                  "LedGreen.bmp"
-
-IDB_RED                 BITMAP                  "LedRed.bmp"
-
-IDB_YELLOW              BITMAP                  "LedYellow.bmp"
-
 IDB_BITMAPsx            BITMAP                  "Tango_sx.bmp"
 
 IDB_BITMAPl             BITMAP                  "Tango_l.bmp"
@@ -109,6 +105,7 @@ END
 2 TEXTINCLUDE 
 BEGIN
     "#include ""afxres.h""\r\n"
+    "#pragma code_page(65001)\r\n"
     "\0"
 END
 
@@ -258,7 +255,7 @@ BEGIN
 END
 
 IDD_FILETRANSFER_DLG DIALOGEX 0, 0, 555, 414
-STYLE DS_SYSMODAL | DS_SETFONT | DS_SETFOREGROUND | DS_3DLOOK | DS_FIXEDSYS | DS_CENTER | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+STYLE DS_SYSMODAL | DS_SETFONT | DS_SETFOREGROUND | DS_3DLOOK | DS_CENTER | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
 EXSTYLE WS_EX_TOPMOST
 CAPTION "UltraVNC Viewer - File Transfer"
 FONT 11, "MS Shell Dlg", 400, 0, 0x0
@@ -271,15 +268,15 @@ BEGIN
     CONTROL         "",IDC_REMOTE_STATUS,"Static",SS_LEFTNOWORDWRAP | WS_GROUP,314,359,238,14,WS_EX_STATICEDGE
     COMBOBOX        IDC_LOCAL_DRIVECB,3,3,98,171,CBS_DROPDOWNLIST | CBS_AUTOHSCROLL | WS_VSCROLL | WS_TABSTOP
     CTEXT           "LOCAL MACHINE",IDC_LM_STATIC,105,3,94,14,SS_CENTERIMAGE,WS_EX_CLIENTEDGE
-    PUSHBUTTON      "\\",IDC_LOCAL_ROOTB,204,3,17,14
+    PUSHBUTTON      "/",IDC_LOCAL_ROOTB,204,3,17,14
     PUSHBUTTON      "..",IDC_LOCAL_UPB,224,3,17,14
-    CONTROL         "",IDC_CURR_LOCAL,"RICHEDIT",TCS_VERTICAL | TCS_RAGGEDRIGHT,3,17,238,12,WS_EX_STATICEDGE
+    EDITTEXT        IDC_CURR_LOCAL,3,17,238,12,ES_AUTOHSCROLL
     CONTROL         "List2",IDC_LOCAL_FILELIST,"SysListView32",LVS_REPORT | LVS_SHOWSELALWAYS | LVS_SORTASCENDING | LVS_AUTOARRANGE | WS_BORDER | WS_TABSTOP,3,31,238,324
     PUSHBUTTON      "Local Drives List",IDC_LOCAL_ROOT_B,245,1,66,21,BS_FLAT | NOT WS_VISIBLE
     PUSHBUTTON      "Remote Drives List",IDC_REMOTE_ROOT_B,246,24,66,21,BS_FLAT | NOT WS_VISIBLE
     DEFPUSHBUTTON   "OK",IDOK,246,50,66,14,NOT WS_VISIBLE
     PUSHBUTTON      "Send >>",IDC_UPLOAD_B,246,103,66,14,BS_CENTER | BS_FLAT
-    PUSHBUTTON      "<< Receive",IDC_DOWNLOAD_B,246,122,66,14,BS_CENTER | BS_FLAT
+    PUSHBUTTON      "<< Receive",IDC_DOWNLOAD_B,246,119,66,14,BS_CENTER | BS_FLAT
     PUSHBUTTON      "Stop",IDC_ABORT_B,246,141,66,14,BS_FLAT | NOT WS_VISIBLE
     PUSHBUTTON      "Delete",IDC_DELETE_B,246,203,66,14,BS_FLAT
     PUSHBUTTON      "New Folder",IDC_NEWFOLDER_B,246,221,66,14,BS_FLAT
@@ -288,42 +285,41 @@ BEGIN
     PUSHBUTTON      "Close",IDCANCEL,246,323,66,14
     COMBOBOX        IDC_REMOTE_DRIVECB,314,3,98,172,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     CTEXT           "REMOTE MACHINE",IDC_RM_STATIC,415,3,95,14,SS_CENTERIMAGE,WS_EX_CLIENTEDGE
-    PUSHBUTTON      "\\",IDC_REMOTE_ROOTB,514,3,17,14
+    PUSHBUTTON      "/",IDC_REMOTE_ROOTB,514,3,17,14
     PUSHBUTTON      "..",IDC_REMOTE_UPB,534,3,17,14
-    CONTROL         "",IDC_CURR_REMOTE,"RICHEDIT",TCS_VERTICAL | TCS_RAGGEDRIGHT,314,17,238,12,WS_EX_STATICEDGE
+    EDITTEXT        IDC_CURR_REMOTE,314,17,238,12,ES_AUTOHSCROLL
     CONTROL         "List3",IDC_REMOTE_FILELIST,"SysListView32",LVS_REPORT | LVS_SHOWSELALWAYS | LVS_SORTASCENDING | LVS_AUTOARRANGE | WS_BORDER | WS_TABSTOP,314,31,238,324
     LTEXT           "",IDC_GLOBAL_STATUS,484,391,65,8,SS_SUNKEN
     LTEXT           "",IDC_PERCENT,356,388,120,8
     PUSHBUTTON      "Forced Stop",IDC_ABORT_B2,246,160,66,14,BS_FLAT | NOT WS_VISIBLE
     PUSHBUTTON      "Forced Close",IDCANCEL2,246,340,66,14
+    PUSHBUTTON      "Refresh",IDC_REFRESH,246,257,66,14,BS_CENTER | BS_FLAT
 END
 
-IDD_SESSION_DLG DIALOGEX 0, 0, 260, 297
+IDD_SESSION_DLG DIALOGEX 0, 0, 290, 297
 STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "UltraVNC Viewer 1.4.4.0-dev - Connection"
 FONT 11, "MS Shell Dlg", 400, 0, 0x0
 BEGIN
-    COMBOBOX        IDC_HOSTNAME_EDIT,81,30,103,66,CBS_DROPDOWN | CBS_AUTOHSCROLL | WS_VSCROLL | WS_TABSTOP
-    EDITTEXT        IDC_PROXY_EDIT,81,44,103,12,ES_AUTOHSCROLL
-    DEFPUSHBUTTON   "Connect",IDCONNECT,204,29,47,14
-    PUSHBUTTON      "Options",IDC_BUTTON_EXPAND,9,62,50,13,BS_ICON
+    COMBOBOX        IDC_HOSTNAME_EDIT,96,26,185,66,CBS_DROPDOWN | CBS_AUTOHSCROLL | WS_VSCROLL | WS_TABSTOP
+    EDITTEXT        IDC_PROXY_EDIT,96,39,185,12,ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "Connect",IDCONNECT,231,54,50,13
+    PUSHBUTTON      "Options",IDC_BUTTON_EXPAND,9,54,50,13,BS_ICON
     CONTROL         IDB_VNC64,IDC_STATIC,"Static",SS_BITMAP | SS_REALSIZEIMAGE,7,5,26,23
-    CONTROL         "Direct",IDC_RADIODIRECT,"Button",BS_AUTORADIOBUTTON | BS_LEFT | BS_VCENTER,83,18,47,10
-    CONTROL         "Repeater",IDC_RADIOREPEATER,"Button",BS_AUTORADIOBUTTON | BS_LEFT | BS_VCENTER,132,18,47,10
-    CONTROL         "",IDC_TAB,"SysTabControl32",TCS_RAGGEDRIGHT | WS_TABSTOP,9,80,243,172
-    PUSHBUTTON      "Delete",IDC_HOSTNAME_DEL,124,258,60,13
-    PUSHBUTTON      "Load ",IDC_LOADPROFILE_B,191,258,60,13
-    PUSHBUTTON      "About",IDC_ABOUT,9,277,60,13
-    PUSHBUTTON      "Save as",IDC_SAVEAS,124,277,60,13
-    PUSHBUTTON      "Restore defaults",IDC_RESET_DEFAULTS,9,258,60,13
-    PUSHBUTTON      "Save",IDC_SAVE,191,277,60,13
-    LTEXT           "Computer",IDC_LINE1,33,32,46,8
-    CTEXT           "UltraVNC Viewer",IDC_LOGO,46,7,156,8,SS_CENTERIMAGE
-    LTEXT           "Computer",IDC_LINE2,33,46,47,8
-    CONTROL         "",IDC_DEFAULTBOX,"Static",SS_BLACKFRAME | SS_REALSIZEIMAGE,4,0,255,84
-    CONTROL         IDB_GREEN,IDC_GREEN,"Static",SS_BITMAP,192,52,6,6
-    CONTROL         IDB_BITMAP1,IDC_YELLOW,"Static",SS_BITMAP,192,52,6,6
-    CONTROL         IDB_RED,IDC_RED,"Static",SS_BITMAP,192,52,6,6
+    CONTROL         "Direct",IDC_RADIODIRECT,"Button",BS_AUTORADIOBUTTON | BS_LEFT | BS_VCENTER | WS_GROUP | WS_TABSTOP,83,14,47,10
+    CONTROL         "Repeater",IDC_RADIOREPEATER,"Button",BS_AUTORADIOBUTTON | BS_LEFT | BS_VCENTER,133,14,47,10
+    CONTROL         "",IDC_TAB,"SysTabControl32",TCS_RAGGEDRIGHT | WS_TABSTOP,9,80,273,172
+    PUSHBUTTON      "Delete",IDC_HOSTNAME_DEL,148,258,60,13
+    PUSHBUTTON      "Load ",IDC_LOADPROFILE_B,221,258,60,13
+    PUSHBUTTON      "About",IDC_ABOUT,75,277,60,13
+    PUSHBUTTON      "Save as",IDC_SAVEAS,148,277,60,13
+    PUSHBUTTON      "Restore defaults",IDC_RESET_DEFAULTS,75,258,60,13
+    PUSHBUTTON      "Save",IDC_SAVE,221,277,60,13
+    COMBOBOX        IDC_LANGUAGE_COMBO,9,277,60,80,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Computer",IDC_LINE1,43,28,46,8
+    CTEXT           "UltraVNC Viewer",IDC_LOGO,46,4,156,8,SS_CENTERIMAGE
+    LTEXT           "Computer",IDC_LINE2,43,41,47,8
+    CONTROL         "",IDC_DEFAULTBOX,"Static",SS_BLACKFRAME | SS_REALSIZEIMAGE,4,0,286,75
 END
 
 IDD_SERVINFO_DLG DIALOGEX 0, 0, 224, 170
@@ -458,10 +454,10 @@ BEGIN
     DEFPUSHBUTTON   "OK",IDOK,198,48,62,14
     CONTROL         IDB_VNC64,IDC_STATIC,"Static",SS_BITMAP | SS_CENTERIMAGE,8,1,34,29
     LTEXT           "UltraVNC Viewer 1.4.4.0-dev",IDC_UVVERSION,44,7,199,11
-    LTEXT           "Copyright © 2002-2025 UltraVNC Team Members",IDC_STATIC,44,31,184,13
+    LTEXT           "Copyright Â© 2002-2026 UltraVNC Team Members",IDC_STATIC,44,31,184,13
     LTEXT           "Built",IDC_STATIC,44,18,15,11
     LTEXT           "BuildTime",IDC_BUILDTIME,78,18,98,11
-    LTEXT           "https://uvnc.com/",IDC_UVNCCOM,39,54,55,8
+    LTEXT           "https://uvnc.com/",IDC_UVNCCOM,39,54,81,8
     LTEXT           "Website:",IDC_STATIC,7,54,29,8
 END
 
@@ -478,13 +474,13 @@ BEGIN
     PUSHBUTTON      "No for all",IDC_NOALL_B,166,65,53,14
 END
 
-IDD_APP_MESSAGE2 DIALOGEX 0, 0, 273, 109
+IDD_APP_MESSAGE2 DIALOGEX 0, 0, 273, 136
 STYLE DS_SETFONT | DS_MODALFRAME | DS_SETFOREGROUND | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "UltraVNC Viewer - Information"
 FONT 11, "MS Shell Dlg", 400, 0, 0x0
 BEGIN
-    DEFPUSHBUTTON   "Close",IDOK,213,87,54,15
-    LTEXT           "Info Message",IDC_Message2,43,35,215,26
+    DEFPUSHBUTTON   "Close",IDOK,213,114,54,15
+    LTEXT           "Info Message",IDC_Message2,43,35,213,25
     CONTROL         IDB_VNC64,IDC_STATIC,"Static",SS_BITMAP | SS_CENTERIMAGE,5,7,34,29
     LTEXT           "UltraVNC Viewer 1.4.4.0-dev",IDC_UVVERSION2,43,6,199,11
     LTEXT           "Built",IDC_STATIC,43,17,15,10
@@ -492,7 +488,7 @@ BEGIN
     LTEXT           "https://forum.uvnc.com/",IDC_FORUMHYPERLINK,56,74,102,8
     LTEXT           "https://uvnc.com/",IDC_WEBSITE,56,64,94,8
     LTEXT           "https://github.com/ultravnc/UltraVNC",IDC_GIT,56,84,144,8
-    LTEXT           "https://uvnc.com/downloads/ultravnc.html",IDC_WEBDOWNLOAD,56,94,135,8
+    LTEXT           "https://uvnc.com/downloads/ultravnc.html",IDC_WEBDOWNLOAD,56,94,156,8
     LTEXT           "Website:",IDC_STATIC,10,64,38,8
     LTEXT           "Forum:",IDC_STATIC,10,74,38,8
     LTEXT           "Git:",IDC_STATIC,10,84,38,8
@@ -676,7 +672,7 @@ FONT 11, "MS Shell Dlg", 400, 0, 0x0
 BEGIN
     CONTROL         "Use Encryption",IDC_PLUGIN_CHECK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,4,8,66,10
     COMBOBOX        IDC_PLUGINS_COMBO,74,6,138,55,CBS_DROPDOWN | CBS_SORT | WS_VSCROLL | WS_TABSTOP
-    PUSHBUTTON      "Config encryption plugins",IDC_PLUGIN_BUTTON,74,20,138,12
+    PUSHBUTTON      "CONFIGURE ENCRYPTION",IDC_PLUGIN_BUTTON,74,20,138,12
     CONTROL         "Only allow encrypted servers.",IDC_ONLYENCRYPTED,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,4,35,112,10
     CONTROL         "Share the Server, allow other to connect.",IDC_SHARED,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,4,45,163,10
@@ -776,7 +772,6 @@ BEGIN
 
     IDD_SESSION_DLG, DIALOG
     BEGIN
-        RIGHTMARGIN, 259
         VERTGUIDE, 4
         VERTGUIDE, 9
         VERTGUIDE, 46
@@ -786,9 +781,10 @@ BEGIN
         VERTGUIDE, 213
         VERTGUIDE, 247
         VERTGUIDE, 251
+        VERTGUIDE, 281
         BOTTOMMARGIN, 293
         HORZGUIDE, 70
-        HORZGUIDE, 77
+        HORZGUIDE, 79
         HORZGUIDE, 145
         HORZGUIDE, 271
         HORZGUIDE, 290
@@ -907,11 +903,11 @@ BEGIN
         VERTGUIDE, 94
         VERTGUIDE, 108
         TOPMARGIN, 7
-        BOTTOMMARGIN, 102
+        BOTTOMMARGIN, 129
         HORZGUIDE, 35
         HORZGUIDE, 60
         HORZGUIDE, 78
-        HORZGUIDE, 86
+        HORZGUIDE, 89
     END
 
     IDD_AUTH_DIALOG3, DIALOG
@@ -1197,6 +1193,14 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 //
+// RT_MANIFEST
+//
+
+1                       RT_MANIFEST             "vncviewer.exe.manifest"
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
 // String Table
 //
 
@@ -1261,6 +1265,12 @@ BEGIN
     IDS_STRING50295         "File transfer interrupted: Connection with server lost"
     IDS_STRING50296         "Warning"
     IDS_STRING50297         "The server is sending a screen size that exceeds the limits"
+    IDS_TLS1                "Connection closed"
+    IDS_TLS2                "AcquireCredentialsHandle failed"
+    IDS_TLS3                "QueryContextAttributes failed"
+    IDS_TLS4                "Not enough I/O buffers"
+    IDS_TLS5                "Handshake aborted"
+    IDS_TLS6                "Handshake cannot be completed"
 END
 
 STRINGTABLE
@@ -1335,8 +1345,8 @@ BEGIN
     IDS_H6                  "Transfer completed"
     IDS_H7                  "Transfer interrupted by user"
     IDS_H8                  "> Browsing The Local Directory. Please Wait..."
-    IDS_H9                  "> ERROR: Media is not present in the Local Drive."
-    IDS_H10                 "> ERROR: Media is not present in the Remote Drive."
+    IDS_H9                  "> ERROR: No access to Local Drive."
+    IDS_H10                 "> ERROR: No access to Remote Drive."
     IDS_H11                 "> Browsing The Remote Directory. Please Wait..."
     IDS_H12                 "ERROR: File"
     IDS_H13                 "is not accessible on Remote Machine"
@@ -1424,6 +1434,14 @@ BEGIN
     IDS_K2                  "Error saving file"
     IDS_K1                  "Invalid filename"
     IDS_K3                  "Do you want to save the password in this file?\n\r Saving a password to a file is insecure."
+END
+
+STRINGTABLE
+BEGIN
+    IDS_N12                 "Insufficient memory to allocate zlib buffer."
+    IDS_N13                 "Invalid Discovery Code\n"
+    IDS_N14                 "Can't use IDEA authentication any more!"
+    IDS_I4                  "Daemon error"
 END
 
 STRINGTABLE
@@ -1566,7 +1584,39 @@ BEGIN
     IDS_L92                 "No authentication needed"
 END
 
-#endif    // English (United States) resources
+STRINGTABLE
+BEGIN
+    IDS_TLS7                "EncryptMessage failed"
+    IDS_TLS8                "DecryptMessage failed"
+    IDS_TLS9                "Unexpected DecryptMessage result"
+    IDS_TLS10               "ApplyControlToken failed"
+    IDS_TLS11               "CertGetCertificateChain failed"
+    IDS_N1                  "No Items in ListView"
+    IDS_N2                  "No VNC Server selected"
+    IDS_N3                  "TCVNC Multitouch Device"
+    IDS_N4                  "Function only supported in 1:1 mode"
+    IDS_N5                  "UltraVNC Viewer - Snapshot"
+    IDS_N6                  "UltraVNC Viewer - Connection Informations"
+    IDS_N7                  "UltraVNC Viewer - Connection dropped, trying to reconnect ("
+    IDS_N8                  "UltraVNC Viewer - Chat with <%s>"
+    IDS_N9                  "UltraVNC Viewer -"
+    IDS_N10                 "All displays"
+    IDS_N11                 "Default Monitor"
+END
+
+STRINGTABLE
+BEGIN
+    IDS_TAB_ENCODERS        "Encoders"
+    IDS_TAB_INPUT           "Input"
+    IDS_TAB_DISPLAY         "Display"
+    IDS_TAB_MISC            "Misc"
+    IDS_TAB_SECURITY        "Security"
+    IDS_TAB_QUICKENC        "Quick encoder"
+    IDS_TAB_LISTEN          "Listen"
+    IDS_TAB_CONF            "Config"
+END
+
+#endif    // English resources
 /////////////////////////////////////////////////////////////////////////////
 
 

@@ -26,6 +26,12 @@
 #define DOTCURSOR 1
 #define NORMALCURSOR 2
 
+// Connection type enumeration
+enum ConnectionType {
+	DIRECT_TCP = 0,      // Direct TCP connection
+	REPEATER_SERVER = 1, // Repeater server (proxy mode)
+};
+
 inline bool SwitchMatch(LPCTSTR arg, LPCTSTR swtch) {
 	return (arg[0] == '-' || arg[0] == '/') &&
 		(_tcsicmp(&arg[1], swtch) == 0);
@@ -39,16 +45,16 @@ public:
 	virtual ~VNCOptions();
 
 	// Save and load a set of options from a config file
-	void SaveOptions(char* fname);
-	void LoadOptions(char* fname);
+	void SaveOptions(const wchar_t* fname);
+	void LoadOptions(const wchar_t* fname);
 
 	// process options
 	bool	m_listening;
 	int     m_listenPort;
 	bool	m_connectionSpecified;
 	bool	m_configSpecified;
-	TCHAR   m_cmdlnUser[256]; // act: add user option on command line
-	TCHAR   m_clearPassword[256]; // Modif sf@2002
+	char   m_cmdlnUser[256]; // act: add user option on command line
+	char   m_clearPassword[256]; // Modif sf@2002
 	int     m_quickoption; // Modif sf@2002 - v1.1.2
 	TCHAR   m_configFilename[_MAX_PATH];
 	bool	m_restricted;
@@ -60,9 +66,11 @@ public:
 	bool	m_NoStatus;
 	bool	m_NoHotKeys;
 	bool	m_FullScreen;
+	TCHAR	m_language[32];  // Language preference (en, fr, de, es)
 	bool	m_SavePos;
 	bool	m_SaveSize;
 	bool	m_Directx;
+	bool	m_cmdDirectx;
 	bool    m_ShowToolbar;
 	bool	m_GNOME;
 
@@ -102,7 +110,7 @@ public:
 	bool    m_fEnableCache;
 	bool    m_fEnableZstd;
 	bool	m_fUseDSMPlugin;
-	TCHAR   m_szDSMPluginFilename[_MAX_PATH];
+	wchar_t   m_szDSMPluginFilename[_MAX_PATH];
 	bool	m_oldplugin;
 	int m_saved_scale_num;
 	int m_saved_scale_den;
@@ -114,7 +122,7 @@ public:
 	int     m_port;
 	TCHAR   m_proxyhost[MAX_HOST_NAME_LEN];
 	int     m_proxyport;
-	bool	m_fUseProxy;
+	ConnectionType	m_connectionType;
 	bool	m_allowMonitorSpanning;
 	bool	m_ChangeServerRes;
 	bool	m_extendDisplay;
@@ -146,23 +154,23 @@ public:
 
 	int DoDialog(bool running = false, HWND hwnd = NULL);
 	void SetFromCommandLine(LPTSTR szCmdLine);
-	char szCmdLine[8191]{};
+	wchar_t szCmdLine[8191]{};
 
 	void CancelDialog();
 	void setDefaultDocumentPath();
 	static BOOL CALLBACK OptDlgProc(HWND hwndDlg, UINT uMsg,
 		WPARAM wParam, LPARAM lParam);
 
-	TCHAR m_document_folder[MAX_PATH];
-	TCHAR m_prefix[56];
-	TCHAR m_imageFormat[56];
+	wchar_t m_document_folder[MAX_PATH];
+	wchar_t m_prefix[56];
+	wchar_t m_imageFormat[56];
 	bool m_running;
 
-	TCHAR m_optionfile[MAX_PATH];
-	static void setDefaultOptionsFileName(TCHAR* optionfile);
-	TCHAR* getDefaultOptionsFileName();
-	char m_InfoMsg[255]{ 0 };
-	char m_ClassName[255]{ 0 };
+	wchar_t m_optionfile[MAX_PATH];
+	static void setDefaultOptionsFileName(wchar_t* optionfile);
+	wchar_t* getDefaultOptionsFileName();
+	wchar_t m_InfoMsg[255];
+	wchar_t m_ClassName[255];
 
 	bool m_HideEndOfStreamError;
 

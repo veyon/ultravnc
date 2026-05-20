@@ -24,6 +24,7 @@
 #endif
 #include "common/win32_helpers.h"
 #include <fstream>
+#include "Localization.h"
 
 #pragma comment(lib, "libsodium.lib")
 
@@ -31,15 +32,13 @@ SettingsManager* SettingsManager::s_instance = NULL;
 #ifdef ULTRAVNC_VEYON_SUPPORT
 extern BOOL ultravnc_veyon_load_int( LPCSTR valname, LONG *out );
 extern void ultravnc_veyon_load_password( char* out, int size );
-SettingsManager* settings = nullptr;
 void initUltraVncSettingsManager()
 {
 	settings = SettingsManager::getInstance();
 	settings->load();
 }
-#else
-SettingsManager* settings = SettingsManager::getInstance();
 #endif
+SettingsManager* settings = nullptr;
 
 SettingsManager* SettingsManager::getInstance()
 {
@@ -150,6 +149,7 @@ void SettingsManager::setDefaults()
 	memset(reinterpret_cast<void*>(m_pref_authhosts), 0, sizeof(m_pref_authhosts));
 	strcpy(m_pref_authhosts, "?");
 
+	m_pref_fUseBridge = TRUE;
 	m_pref_alloweditclients = TRUE;
 	m_pref_allowproperties = TRUE;
 	m_pref_allowInjection = FALSE;
@@ -187,6 +187,7 @@ void SettingsManager::setDefaults()
 	m_pref_EnableRemoteInputs = TRUE;
 	m_pref_DisableLocalInputs = FALSE;
 	m_pref_EnableJapInput = FALSE;
+	m_pref_ForceCursorShape = FALSE;
 	m_pref_EnableUnicodeInput = TRUE;
 	m_pref_EnableWin8Helper = FALSE;
 	m_pref_clearconsole = FALSE;
@@ -206,6 +207,7 @@ void SettingsManager::setDefaults()
 	m_pref_RemoveFontSmoothing = FALSE;
 	m_pref_alloweditclients = TRUE;
 	m_pref_allowshutdown = TRUE;
+	m_pref_fUseBridge = TRUE;
 	m_pref_allowproperties = TRUE;
 	m_pref_allowInjection = FALSE;
 #ifdef DSM_SUPPORT
@@ -248,8 +250,8 @@ void SettingsManager::setDefaults()
 	m_pref_Avilog = 0;
 	m_pref_UseIpv6 = 0;
 	// ethernet packet 1500 - 40 tcp/ip header - 8 PPPoE info
-//unsigned int G_SENDBUFFER=8192;
-	G_SENDBUFFER_EX = 1452;
+	// Increased from 1452 to 8192 for better file transfer throughput on fast networks
+	G_SENDBUFFER_EX = 8192;
 
 	m_pref_fEnableStateUpdates = false;
 #ifdef KEEP_ALIVE_SUPPORT
@@ -301,6 +303,7 @@ void SettingsManager::setDefaults()
 	m_pref_cloudEnabled = false;
 #endif
 	m_pref_AllowUserSettingsWithPassword = false;
+	strcpy_s(m_pref_language, "en");  // Default to English
 
 };
 
@@ -335,6 +338,7 @@ void SettingsManager::load()
 	iniFile.ReadString("admin", "AuthHosts", m_pref_authhosts2, 1280);
 	m_pref_allowshutdown = iniFile.ReadInt("admin", "AllowShutdown", m_pref_allowshutdown);
 	m_pref_allowproperties = iniFile.ReadInt("admin", "AllowProperties", m_pref_allowproperties);
+	m_pref_fUseBridge = iniFile.ReadInt("admin", "UseBridge", m_pref_fUseBridge);
 	m_pref_allowInjection = iniFile.ReadInt("admin", "AllowInjection", m_pref_allowInjection);
 	m_pref_alloweditclients = iniFile.ReadInt("admin", "AllowEditClients", m_pref_alloweditclients);
 #ifdef FILETRANSFER_SUPPORT
@@ -397,7 +401,13 @@ void SettingsManager::load()
 	m_pref_LockSettings = iniFile.ReadInt("admin", "LockSetting", m_pref_LockSettings);
 	m_pref_DisableLocalInputs = iniFile.ReadInt("admin", "LocalInputsDisabled", m_pref_DisableLocalInputs);
 	m_pref_EnableJapInput = iniFile.ReadInt("admin", "EnableJapInput", m_pref_EnableJapInput);
+	m_pref_ForceCursorShape = iniFile.ReadInt("admin", "ForceCursorShape", m_pref_ForceCursorShape);
 	m_pref_EnableUnicodeInput = iniFile.ReadInt("admin", "EnableUnicodeInput", m_pref_EnableUnicodeInput);
+	// Safety check: Both JapInput and UnicodeInput enabled simultaneously causes "End of stream" bug
+	// If both are enabled, disable UnicodeInput (JapInput takes precedence when both are set)
+	if (m_pref_EnableJapInput && m_pref_EnableUnicodeInput) {
+		m_pref_EnableUnicodeInput = FALSE;
+	}
 	m_pref_EnableWin8Helper = iniFile.ReadInt("admin", "EnableWin8Helper", m_pref_EnableWin8Helper);
 	m_pref_clearconsole = iniFile.ReadInt("admin", "clearconsole", m_pref_clearconsole);
 	G_SENDBUFFER_EX = iniFile.ReadInt("admin", "sendbuffer", G_SENDBUFFER_EX);	
@@ -436,6 +446,9 @@ void SettingsManager::load()
 	m_pref_Hook = iniFile.ReadInt("poll", "EnableHook", m_pref_Hook);
 	m_pref_Virtual = iniFile.ReadInt("poll", "EnableVirtual", m_pref_Virtual);
 	m_pref_autocapt = iniFile.ReadInt("poll", "autocapt", m_pref_autocapt);
+	
+	// Language setting
+	iniFile.ReadString("admin", "Language", m_pref_language, 16);
 }
 
 void SettingsManager::savePassword() {
@@ -487,6 +500,7 @@ void SettingsManager::save()
 	iniFile.WriteInt("admin", "LocalInputsDisabled", m_pref_DisableLocalInputs);
 	iniFile.WriteInt("admin", "IdleTimeout", m_pref_IdleTimeout);
 	iniFile.WriteInt("admin", "EnableJapInput", m_pref_EnableJapInput);
+	iniFile.WriteInt("admin", "ForceCursorShape", m_pref_ForceCursorShape);
 	iniFile.WriteInt("admin", "EnableUnicodeInput", m_pref_EnableUnicodeInput);
 	iniFile.WriteInt("admin", "EnableWin8Helper", m_pref_EnableWin8Helper);
 	iniFile.WriteInt("admin", "QuerySetting", m_pref_QuerySetting);
@@ -514,6 +528,7 @@ void SettingsManager::save()
 	iniFile.WriteInt("admin", "LoopbackOnly", m_pref_LoopbackOnly);
 	iniFile.WriteInt("admin", "AllowShutdown", m_pref_allowshutdown);
 	iniFile.WriteInt("admin", "AllowProperties", m_pref_allowproperties);
+	iniFile.WriteInt("admin", "UseBridge", m_pref_fUseBridge);
 	iniFile.WriteInt("admin", "AllowInjection", m_pref_allowInjection);
 	iniFile.WriteInt("admin", "AllowEditClients", m_pref_alloweditclients);
 	iniFile.WriteInt("admin", "FileTransferTimeout", m_pref_ftTimeout);
@@ -552,7 +567,10 @@ void SettingsManager::save()
 
 	iniFile.WriteInt("admin_auth", "locdom1", m_pref_locdom1);
 	iniFile.WriteInt("admin_auth", "locdom2", m_pref_locdom2);
-	iniFile.WriteInt("admin_auth", "locdom3", m_pref_locdom3);	
+	iniFile.WriteInt("admin_auth", "locdom3", m_pref_locdom3);
+	
+	// Language setting
+	iniFile.WriteString("admin", "Language", m_pref_language);
 #endif
 }
 
@@ -627,7 +645,7 @@ bool SettingsManager::checkAdminPassword()
 				return true;
 			}
 			else {
-				DWORD result = MessageBoxSecure(NULL, "Wrong password, do you want to retry?", "Error", MB_OK);
+				DWORD result = MessageBoxSecure(NULL, sz_ID_WRONG_PASSWORD_RETRY, sz_ID_ERROR_CAPTION, MB_OK);
 				if (result == 1)
 					Sleep(2000);
 				else

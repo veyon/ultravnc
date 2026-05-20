@@ -76,9 +76,6 @@
     <ClCompile Include="vsocket.cpp" />
     <ClCompile Include="..\..\common\win32_helpers.cpp" />
     <ClCompile Include="winvnc.cpp" />
-    <ClCompile Include="..\..\ZipUnZip32\ZipUnzip32.cpp">
-      <Filter>headers</Filter>
-    </ClCompile>
     <ClCompile Include="credentials.cpp" />
     <ClCompile Include="DeskdupEngine.cpp" />
     <ClCompile Include="ScreenCapture.cpp" />
@@ -91,7 +88,6 @@
     <ClCompile Include="..\loadmemory\loadDllFromMemory.cpp" />
     <ClCompile Include="ScSelect.cpp" />
     <ClCompile Include="SettingsManager.cpp" />
-    <ClCompile Include="CloudDialog.cpp" />
     <ClCompile Include="..\..\common\d3des.c" />
     <ClCompile Include="UdpEchoServer.cpp" />
     <ClCompile Include="..\..\common\Hyperlinks.cpp" />
@@ -99,11 +95,9 @@
     <ClCompile Include="RulesListView.cpp" />
     <ClCompile Include="DlgChangePassword.cpp" />
     <ClCompile Include="..\..\common\inifile.cpp" />
+    <ClCompile Include="..\..\common\ZipUnzip\MiniZipNG.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\ZipUnZip32\ZipUnZip32.h">
-      <Filter>headers</Filter>
-    </ClInclude>
     <ClInclude Include="winvnc.h">
       <Filter>headers</Filter>
     </ClInclude>
@@ -285,9 +279,6 @@
     <ClInclude Include="cadthread.h">
       <Filter>headers</Filter>
     </ClInclude>
-    <ClInclude Include="CloudDialog.h">
-      <Filter>headers</Filter>
-    </ClInclude>
     <ClInclude Include="credentials.h">
       <Filter>headers</Filter>
     </ClInclude>
@@ -326,6 +317,7 @@
     <ClInclude Include="..\..\common\inifile.h">
       <Filter>headers</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\common\ZipUnzip\MiniZipNG.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="res\AuthPanel.class">
@@ -572,5 +564,8 @@
     <Image Include="res\world3a.bmp">
       <Filter>resources</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="winvnc.exe.manifest" />
   </ItemGroup>
 </Project>

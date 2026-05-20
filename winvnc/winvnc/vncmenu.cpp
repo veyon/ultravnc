@@ -8,10 +8,10 @@
 // SPDX-FileCopyrightText: Copyright (C) 1999-2002 Vdacc-VNC & eSVNC Projects. All Rights Reserved.
 // SPDX-FileCopyrightText: Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
 // SPDX-FileCopyrightText: Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
-//
 
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS 1
+#pragma warning(disable: 4995)
 // vncMenu
 
 // Implementation of a system Tray icon & menu for UltraVNC Server
@@ -73,6 +73,7 @@ extern char dnsname[255];
 
 HMENU vncMenu::m_hmenu = NULL;
 char vncMenu::exe_file_name[MAX_PATH]="";
+vncServer* vncMenu::s_server = NULL;
 
 BOOL pfnDwmEnableCompositiond = FALSE;
 static inline VOID DisableAero(VOID)
@@ -180,6 +181,7 @@ vncMenu::vncMenu(vncServer* server)
 
 	// Save the server pointer
 	m_server = server;
+	s_server = server;
 
 	// Set the initial user name to something sensible...
 	processHelper::CurrentUser((char*)&m_username, sizeof(m_username));
@@ -236,11 +238,9 @@ vncMenu::vncMenu(vncServer* server)
 		return;
 	}
 
-	m_server->setVNcPort();
 	if (settings->getAllowInjection()) {
 		ChangeWindowMessageFilter(postHelper::MENU_ADD_CLIENT_MSG, MSGFLT_ADD);
 		ChangeWindowMessageFilter(postHelper::MENU_ADD_CLIENT_MSG_INIT, MSGFLT_ADD);
-		ChangeWindowMessageFilter(postHelper::MENU_ADD_CLOUD_MSG, MSGFLT_ADD);
 		ChangeWindowMessageFilter(postHelper::MENU_ADD_CLIENT6_MSG, MSGFLT_ADD);
 		ChangeWindowMessageFilter(postHelper::MENU_ADD_CLIENT6_MSG_INIT, MSGFLT_ADD);
 	}
@@ -338,160 +338,8 @@ vncMenu::~vncMenu()
 	CoUninitialize();
 }
 
-void
+BOOL
 vncMenu::AddTrayIcon()
-{
-	// If the user name is non-null then we have a user!
-	if (strcmp(m_username, "") != 0 && strcmp(m_username, "SYSTEM") != 0)
-	{
-		// Make sure the server has not been configured to
-		// suppress the Tray icon.
-		HWND tray = FindWindow(("Shell_TrayWnd"), 0);
-		if (!tray) {
-			IsIconSet = false;
-			IconFaultCounter++;
-			//m_server->TriggerUpdate();
-			return;
-		}
-
-		if (!IsIconSet)
-			AddNotificationIcon();
-		setToolTip();
-		wcscpy_s(m_nid.szTip, m_tooltip);
-		Shell_NotifyIconW(NIM_MODIFY, &m_nid);
-
-		/*if (m_server->AuthClientCount() != 0) { //PGM @ Advantig
-			// adzm - 2010-07 - Disable more effects or font smoothing
-			if (IsUserDesktop()) {
-				if (m_server->RemoveWallpaperEnabled()) //PGM @ Advantig
-					KillWallpaper(); //PGM @ Advantig
-				if (m_server->RemoveEffectsEnabled())
-					KillEffects();
-				if (m_server->RemoveFontSmoothingEnabled())
-					KillFontSmoothing();
-			}
-			if (m_server->RemoveWallpaperEnabled()) //PGM @ Advantig
-				DisableAero(); //PGM @ Advantig
-			VNC_OSVersion::getInstance()->SetAeroState();
-		} //PGM @ Advantig*/
-	}
-}
-
-void
-vncMenu::DelTrayIcon()
-{
-	//vnclog.Print(LL_INTERR, VNCLOG("########### vncMenu::DelTrayIcon - DEL Tray icon call\n"));
-	SendTrayMsg(NIM_DELETE, false, FALSE);
-}
-
-void
-vncMenu::FlashTrayIcon(BOOL flash)
-{
-	//vnclog.Print(LL_INTERR, VNCLOG("########### vncMenu::FlashTrayIcon - FLASH Tray icon call\n"));
-	SendTrayMsg(NIM_MODIFY, false, flash);
-}
-
-// Get the local ip addresses as a human-readable string.
-// If more than one, then with \n between them.
-// If not available, then gets a message to that effect.
-// The ip address is not likely to change while running
-// this function is an overhead, each time calculating the ip
-// the ip is just used in the tray tip
-char old_buffer[512];
-char old_buflen = 0;
-int dns_counter = 0; // elimate to many dns requests once every 250s is ok
-void
-vncMenu::GetIPAddrString(char* buffer, int buflen) {
-	if (old_buflen != 0 && dns_counter < 12)
-	{
-		dns_counter++;
-		strcpy_s(buffer, buflen, old_buffer);
-		return;
-	}
-	dns_counter = 0;
-	char namebuf[256];
-
-	if (gethostname(namebuf, 256) != 0) {
-		strncpy_s(buffer, buflen, "Host name unavailable", buflen);
-		return;
-	};
-
-	if (settings->getIPV6()) {
-		* buffer = '\0';
-
-		LPSOCKADDR sockaddr_ip;
-		struct addrinfo hint;
-		struct addrinfo* serverinfo = 0;
-		memset(&hint, 0, sizeof(hint));
-		hint.ai_family = AF_UNSPEC;
-		hint.ai_socktype = SOCK_STREAM;
-		hint.ai_protocol = IPPROTO_TCP;
-		struct sockaddr_in6* pIpv6Addr;
-		struct sockaddr_in6 Ipv6Addr;
-		memset(&Ipv6Addr, 0, sizeof(Ipv6Addr));
-
-		//make sure the buffer is not overwritten
-
-		if (getaddrinfo(namebuf, 0, &hint, &serverinfo) == 0)
-		{
-			struct addrinfo* p;
-			p = serverinfo;
-			for (p = serverinfo; p != NULL; p = p->ai_next) {
-				switch (p->ai_family) {
-				case AF_INET:
-				{
-					break;
-				}
-				case AF_INET6:
-				{
-					char ipstringbuffer[46];
-					DWORD ipbufferlength = 46;
-					ipbufferlength = 46;
-					memset(ipstringbuffer, 0, 46);
-					pIpv6Addr = (struct sockaddr_in6*)p->ai_addr;
-					memcpy(&Ipv6Addr, pIpv6Addr, sizeof(Ipv6Addr));
-					Ipv6Addr.sin6_family = AF_INET6;
-					sockaddr_ip = (LPSOCKADDR)p->ai_addr;
-					WSAAddressToString(sockaddr_ip, (DWORD)p->ai_addrlen, NULL, ipstringbuffer, &ipbufferlength);
-					char			szText[256];
-					memset(szText, 0, 256);
-					strncpy_s(szText, ipstringbuffer, ipbufferlength - 4);
-					strcat_s(szText, "-");
-					int len = strlen(buffer);
-					int len2 = strlen(szText);
-					if (len + len2 < buflen)strcat_s(buffer, buflen, szText);
-					break;
-				}
-				default:
-					break;
-				}
-			}
-
-		}
-		freeaddrinfo(serverinfo);
-	}
-	 else {
-		 HOSTENT* ph = gethostbyname(namebuf);
-		 if (!ph) {
-			 strncpy_s(buffer, buflen, "IP address unavailable", buflen);
-			 return;
-		 };
-
-		 *buffer = '\0';
-		 char digtxt[5];
-		 for (int i = 0; ph->h_addr_list[i]; i++) {
-			 for (int j = 0; j < ph->h_length; j++) {
-				 sprintf_s(digtxt, "%d.", (unsigned char)ph->h_addr_list[i][j]);
-				 strncat_s(buffer, buflen, digtxt, (buflen - 1) - strlen(buffer));
-			 }
-			 buffer[strlen(buffer) - 1] = '\0';
-			 if (ph->h_addr_list[i + 1] != 0)
-				 strncat_s(buffer, buflen, ", ", (buflen - 1) - strlen(buffer));
-		 }
-	}
-}
-
-BOOL vncMenu::AddNotificationIcon()
 {
 	if (IsIconSet == true)
 		return true;
@@ -549,6 +397,7 @@ void vncMenu::addMenus()
 		(settings->getAllowProperties() && settings->getShowSettings()) ? MF_ENABLED : MF_GRAYED);
 	EnableMenuItem(m_hmenu, ID_CLOSE,
 		settings->getAllowShutdown() ? MF_ENABLED : MF_GRAYED);
+
 	if (settings->RunningFromExternalService())
 		ModifyMenu(m_hmenu, ID_CLOSE, MF_BYCOMMAND | MF_STRING, ID_CLOSE, "Restart UltraVNC Server");
 	else
@@ -603,6 +452,7 @@ void vncMenu::setToolTip()
 		wcsncat_s(m_tooltip, L" - ", _TRUNCATE);
 		wcsncat_s(m_tooltip, namebufw, _TRUNCATE);
 	}
+
 
 	if (settings->RunningFromExternalService())
 		wcsncat_s(m_tooltip, L" - service - ", _TRUNCATE);
@@ -688,6 +538,122 @@ vncMenu::SendTrayMsg(DWORD msg, bool balloon, BOOL flash)
 	}
 }
 
+void
+vncMenu::DelTrayIcon()
+{
+	//vnclog.Print(LL_INTERR, VNCLOG("########### vncMenu::DelTrayIcon - DEL Tray icon call\n"));
+	SendTrayMsg(NIM_DELETE, false, FALSE);
+}
+
+void
+vncMenu::FlashTrayIcon(BOOL flash)
+{
+	//vnclog.Print(LL_INTERR, VNCLOG("########### vncMenu::FlashTrayIcon - FLASH Tray icon call\n"));
+	SendTrayMsg(NIM_MODIFY, false, flash);
+}
+
+// Get the local ip addresses as a human-readable string.
+// If more than one, then with \n between them.
+// If not available, then gets a message to that effect.
+// The ip address is not likely to change while running
+// this function is an overhead, each time calculating the ip
+// the ip is just used in the tray tip
+char old_buffer[512];
+char old_buflen = 0;
+int dns_counter = 0; // elimate to many dns requests once every 250s is ok
+void
+vncMenu::GetIPAddrString(char* buffer, int buflen) {
+	if (old_buflen != 0 && dns_counter < 12)
+	{
+		dns_counter++;
+		strcpy_s(buffer, buflen, old_buffer);
+		return;
+	}
+	dns_counter = 0;
+	char namebuf[256];
+
+	if (gethostname(namebuf, 256) != 0) {
+		strncpy_s(buffer, buflen, "Host name unavailable", buflen);
+		return;
+	};
+
+	if (settings->getIPV6()) {
+		*buffer = '\0';
+
+		LPSOCKADDR sockaddr_ip;
+		struct addrinfo hint;
+		struct addrinfo* serverinfo = 0;
+		memset(&hint, 0, sizeof(hint));
+		hint.ai_family = AF_UNSPEC;
+		hint.ai_socktype = SOCK_STREAM;
+		hint.ai_protocol = IPPROTO_TCP;
+		struct sockaddr_in6* pIpv6Addr;
+		struct sockaddr_in6 Ipv6Addr;
+		memset(&Ipv6Addr, 0, sizeof(Ipv6Addr));
+
+		//make sure the buffer is not overwritten
+
+		if (getaddrinfo(namebuf, 0, &hint, &serverinfo) == 0)
+		{
+			struct addrinfo* p;
+			p = serverinfo;
+			for (p = serverinfo; p != NULL; p = p->ai_next) {
+				switch (p->ai_family) {
+				case AF_INET:
+				{
+					break;
+				}
+				case AF_INET6:
+				{
+					char ipstringbuffer[46];
+					DWORD ipbufferlength = 46;
+					ipbufferlength = 46;
+					memset(ipstringbuffer, 0, 46);
+					pIpv6Addr = (struct sockaddr_in6*)p->ai_addr;
+					memcpy(&Ipv6Addr, pIpv6Addr, sizeof(Ipv6Addr));
+					Ipv6Addr.sin6_family = AF_INET6;
+					sockaddr_ip = (LPSOCKADDR)p->ai_addr;
+					WSAAddressToString(sockaddr_ip, (DWORD)p->ai_addrlen, NULL, ipstringbuffer, &ipbufferlength);
+					char szText[256];
+					memset(szText, 0, 256);
+					strncpy_s(szText, ipstringbuffer, ipbufferlength - 4);
+					strcat_s(szText, "-");
+					int len = strlen(buffer);
+					int len2 = strlen(szText);
+					if (len + len2 < buflen)strcat_s(buffer, buflen, szText);
+					break;
+				}
+				default:
+					break;
+				}
+			}
+
+		}
+		freeaddrinfo(serverinfo);
+	}
+	else {
+		HOSTENT* ph = gethostbyname(namebuf);
+		if (!ph) {
+			strncpy_s(buffer, buflen, "IP address unavailable", buflen);
+			return;
+		};
+
+		*buffer = '\0';
+		char digtxt[5];
+		for (int i = 0; ph->h_addr_list[i]; i++) {
+			for (int j = 0; j < ph->h_length; j++) {
+				sprintf_s(digtxt, "%d.", (unsigned char)ph->h_addr_list[i][j]);
+				strncat_s(buffer, buflen, digtxt, (buflen - 1) - strlen(buffer));
+			}
+			buffer[strlen(buffer) - 1] = '\0';
+			if (ph->h_addr_list[i + 1] != 0)
+				strncat_s(buffer, buflen, ", ", (buflen - 1) - strlen(buffer));
+		}
+	}
+	strcpy_s(old_buffer, buffer);
+	old_buflen = 1;
+}
+
 // sf@2007
 void vncMenu::Shutdown(bool kill_client)
 {
@@ -751,26 +717,18 @@ bool vncMenu::OpenWebpageFromApp(int iMsg)
 	if (!hPToken)
 		return false;
 
-	char dir[MAX_PATH];
-	strcpy_s(dir, exe_file_name);
-	if (iMsg == ID_VISITUSONLINE_HOMEPAGE)
-		strcat_s(dir, " -openhomepage");
-	if (iMsg == ID_VISITUSONLINE_FORUM)
-		strcat_s(dir, " -openforum");
-	if (iMsg == ID_VISITUSONLINE_GITHUB)
-		strcat_s(dir, " -opengithub");
-	if (iMsg == ID_VISITUSONLINE_MASTODON)
-		strcat_s(dir, " -openmastodon");
-	if (iMsg == ID_VISITUSONLINE_BLUESKY)
-		strcat_s(dir, " -openbluesky");
-	if (iMsg == ID_VISITUSONLINE_FACEBOOK)
-		strcat_s(dir, " -openfacebook");
-	if (iMsg == ID_VISITUSONLINE_XTWITTER)
-		strcat_s(dir, " -openxtwitter");
-	if (iMsg == ID_VISITUSONLINE_REDDIT)
-		strcat_s(dir, " -openreddit");
-	if (iMsg == ID_VISITUSONLINE_OPENHUB)
-		strcat_s(dir, " -openopenhub");
+	char dir[MAX_PATH * 2];
+	const char* suffix = "";
+	if (iMsg == ID_VISITUSONLINE_HOMEPAGE) suffix = "-openhomepage";
+	else if (iMsg == ID_VISITUSONLINE_FORUM) suffix = "-openforum";
+	else if (iMsg == ID_VISITUSONLINE_GITHUB) suffix = "-opengithub";
+	else if (iMsg == ID_VISITUSONLINE_MASTODON) suffix = "-openmastodon";
+	else if (iMsg == ID_VISITUSONLINE_BLUESKY) suffix = "-openbluesky";
+	else if (iMsg == ID_VISITUSONLINE_FACEBOOK) suffix = "-openfacebook";
+	else if (iMsg == ID_VISITUSONLINE_XTWITTER) suffix = "-openxtwitter";
+	else if (iMsg == ID_VISITUSONLINE_REDDIT) suffix = "-openreddit";
+	else if (iMsg == ID_VISITUSONLINE_OPENHUB) suffix = "-openopenhub";
+	sprintf_s(dir, "\"%s\" %s", exe_file_name, suffix);
 
 	STARTUPINFO          StartUPInfo;
 	PROCESS_INFORMATION  ProcessInfo;
@@ -902,8 +860,6 @@ LRESULT CALLBACK vncMenu::WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 			_this->FlashTrayIcon(_this->m_server->AuthClientCount() != 0);
 			break;
 
-
-
 		case ID_OUTGOING_CONN:
 			// Connect out to a listening VNC Viewer
 		{
@@ -917,7 +873,7 @@ LRESULT CALLBACK vncMenu::WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 		break;
 
 		case ID_KILLCLIENTS: {
-			if (!MessageBoxSecure(NULL, "Do you want to kill all connected Viewers?", "", MB_YESNO))
+			if (!MessageBoxSecure(NULL, sz_ID_KILL_VIEWERS_QUESTION, "", MB_YESNO))
 				return 0;
 			// Disconnect all currently connected clients
 			vnclog.Print(LL_INTINFO, VNCLOG("KillAuthClients() ID_KILLCLIENTS \n"));
@@ -992,12 +948,12 @@ LRESULT CALLBACK vncMenu::WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 
 		case ID_CLOSE: {
 			if (settings->RunningFromExternalService()) {
-				if (!MessageBoxSecure(NULL, "Do you want to restart the UltraVNC Server?", "", MB_YESNO))
+				if (!MessageBoxSecure(NULL, sz_ID_RESTART_SERVER_QUESTION, "", MB_YESNO))
 					return 0;
 			}
 #ifndef SC_20
 			else {
-				if (!MessageBoxSecure(NULL, "Do you want to close the UltraVNC Server?", "", MB_YESNO))
+				if (!MessageBoxSecure(NULL, sz_ID_CLOSE_SERVER_QUESTION, "", MB_YESNO))
 					return 0;
 			}
 #endif
@@ -1013,7 +969,7 @@ LRESULT CALLBACK vncMenu::WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 #ifndef SC_20
 		case ID_REBOOTSAFEMODE:
 		{
-			if (!MessageBoxSecure(NULL, "Do you want to reboot the System?", "System", MB_YESNO))
+			if (!MessageBoxSecure(NULL, sz_ID_REBOOT_SYSTEM_QUESTION, sz_ID_SYSTEM_CAPTION, MB_YESNO))
 				return 0;
 			HANDLE hPToken = DesktopUsersToken::getInstance()->getDesktopUsersToken();
 			if (!hPToken) {
@@ -1021,9 +977,8 @@ LRESULT CALLBACK vncMenu::WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 				break;
 			}
 
-			char dir[MAX_PATH];			
-			strcpy_s(dir, exe_file_name);
-			strcat_s(dir, " -rebootsafemodehelper");
+			char dir[MAX_PATH + 32];			
+			sprintf_s(dir, "\"%s\" -rebootsafemodehelper", exe_file_name);
 
 			STARTUPINFO          StartUPInfo{};
 			PROCESS_INFORMATION  ProcessInfo{};
@@ -1046,7 +1001,7 @@ LRESULT CALLBACK vncMenu::WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 
 		case ID_REBOOT_FORCE:
 		{
-			if (!MessageBoxSecure(NULL, "Do you want to force reboot the System?", "System", MB_YESNO))
+			if (!MessageBoxSecure(NULL, sz_ID_FORCE_REBOOT_QUESTION, sz_ID_SYSTEM_CAPTION, MB_YESNO))
 				return 0;
 			HANDLE hPToken = DesktopUsersToken::getInstance()->getDesktopUsersToken();
 			if (!hPToken) {
@@ -1054,9 +1009,8 @@ LRESULT CALLBACK vncMenu::WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 				break;
 			}
 
-			char dir[MAX_PATH];
-			strcpy_s(dir, exe_file_name);
-			strcat_s(dir, " -rebootforcedehelper");
+			char dir[MAX_PATH + 32];
+			sprintf_s(dir, "\"%s\" -rebootforcedehelper", exe_file_name);
 
 			STARTUPINFO          StartUPInfo{};
 			PROCESS_INFORMATION  ProcessInfo{};
@@ -1080,18 +1034,17 @@ LRESULT CALLBACK vncMenu::WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 
 		case ID_UNINSTALL_SERVICE:
 		{
-			if (!MessageBoxSecure(NULL, "Do you want to uninstall the UltraVNC service?", "Service", MB_YESNO))
+			if (!MessageBoxSecure(NULL, sz_ID_UNINSTALL_SERVICE_QUESTION, sz_ID_SERVICE_CAPTION, MB_YESNO))
 				return 0;
 			HWND hwnd = postHelper::FindWinVNCWindow(true);
-			if (hwnd) SendMessage(hwnd, WM_COMMAND, ID_CLOSE, 0);
+			if (hwnd) SendMessage(hwnd, WM_COMMAND, ID_CLOSE_SILENT, 0);
 			HANDLE hPToken = DesktopUsersToken::getInstance()->getDesktopUsersToken();
 			if (!hPToken) {
 				serviceHelpers::Set_uninstall_service_as_admin();
 				break;
 			}
-			char dir[MAX_PATH];
-			strcpy_s(dir, exe_file_name);
-			strcat_s(dir, " -uninstallhelper");
+			char dir[MAX_PATH + 32];
+			sprintf_s(dir, "\"%s\" -uninstallhelper", exe_file_name);
 
 			STARTUPINFO          StartUPInfo{};
 			PROCESS_INFORMATION  ProcessInfo{};
@@ -1114,16 +1067,15 @@ LRESULT CALLBACK vncMenu::WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 
 		case ID_RUNASSERVICE:
 		{
-			if (!MessageBoxSecure(NULL, "Do you want to install UltraVNC as service?", "Service", MB_YESNO))
+			if (!MessageBoxSecure(NULL, sz_ID_INSTALL_SERVICE_QUESTION, sz_ID_SERVICE_CAPTION, MB_YESNO))
 				return 0;
 			DWORD errorcode = 0;
 			HANDLE hPToken = DesktopUsersToken::getInstance()->getDesktopUsersToken();
 			if (!hPToken)
 				goto error6;
 
-			char dir[MAX_PATH];
-			strcpy_s(dir, exe_file_name);
-			strcat_s(dir, " -installhelper");
+			char dir[MAX_PATH + 32];
+			sprintf_s(dir, "\"%s\" -installhelper", exe_file_name);
 
 			STARTUPINFO          StartUPInfo;
 			PROCESS_INFORMATION  ProcessInfo;
@@ -1163,7 +1115,7 @@ LRESULT CALLBACK vncMenu::WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 			DWORD id = processHelper::GetExplorerLogonPid();
 			if (id != 0)
 			{
-				if (!MessageBoxSecure(NULL, "Do you want to stop the UltravNC service?", "Service", MB_YESNO))
+				if (!MessageBoxSecure(NULL, sz_ID_STOP_SERVICE_QUESTION, sz_ID_SERVICE_CAPTION, MB_YESNO))
 					return 0;
 				DWORD errorcode = 0;
 				STARTUPINFO          StartUPInfo;
@@ -1183,9 +1135,8 @@ LRESULT CALLBACK vncMenu::WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 					goto error7;
 				}
 
-				char dir[MAX_PATH];
-				strcpy_s(dir, exe_file_name);
-				strcat_s(dir, " -stopservicehelper");
+				char dir[MAX_PATH + 32];
+				sprintf_s(dir, "\"%s\" -stopservicehelper", exe_file_name);
 
 				StartUPInfo.wShowWindow = SW_SHOW;
 				StartUPInfo.lpDesktop = "Winsta0\\Default";
@@ -1207,7 +1158,7 @@ LRESULT CALLBACK vncMenu::WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 		break;
 		case ID_START_SERVICE:
 		{
-			if (!MessageBoxSecure(NULL, "Do you want to start the UltraVNC service?", "Service", MB_YESNO))
+			if (!MessageBoxSecure(NULL, sz_ID_START_SERVICE_QUESTION, sz_ID_SERVICE_CAPTION, MB_YESNO))
 				return 0;
 			HANDLE hProcess{}, hPToken{};
 			const DWORD id = processHelper::GetExplorerLogonPid();
@@ -1238,9 +1189,8 @@ LRESULT CALLBACK vncMenu::WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 					break;
 				}
 
-				char dir[MAX_PATH];
-				strcpy_s(dir, exe_file_name);
-				strcat_s(dir, " -startservicehelper");
+				char dir[MAX_PATH + 32];
+				sprintf_s(dir, "\"%s\" -startservicehelper", exe_file_name);
 
 				STARTUPINFO          StartUPInfo{};
 				PROCESS_INFORMATION  ProcessInfo{};
@@ -1686,7 +1636,7 @@ LRESULT CALLBACK vncMenu::WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 				{
 					struct in_addr address;
 					nport = _this->m_server->AutoReconnectPort();
-					VCard32 ipaddress = VSocket::Resolve4(_this->m_server->AutoReconnectAdr());
+					VCard32 ipaddress = VSocket::Resolve(_this->m_server->AutoReconnectAdr());
 					unsigned long ipaddress_long = ipaddress;
 					address.S_un.S_addr = ipaddress_long;
 					char* name = inet_ntoa(address);
@@ -1911,7 +1861,7 @@ LRESULT CALLBACK vncMenu::WndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lP
 			{
 				// Get the IP address stringified
 				struct in_addr address {};
-				address.S_un.S_addr = (ULONG)lParam;
+				address.S_un.S_addr = lParam;
 				char* name = inet_ntoa(address);
 				if (name == 0)
 					return 0;
@@ -2053,6 +2003,7 @@ void vncMenu::updateMenu()
 		(settings->getAllowProperties() && settings->getShowSettings()) ? MF_ENABLED : MF_GRAYED);
 	EnableMenuItem(m_hmenu, ID_CLOSE,
 		settings->getAllowShutdown() ? MF_ENABLED : MF_GRAYED);
+	
 	EnableMenuItem(m_hmenu, ID_KILLCLIENTS,
 		settings->getAllowEditClients() ? MF_ENABLED : MF_GRAYED);
 	EnableMenuItem(m_hmenu, ID_OUTGOING_CONN,

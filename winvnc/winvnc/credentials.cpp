@@ -6,7 +6,6 @@
 //
 // SPDX-FileCopyrightText: Copyright (C) 2002-2025 UltraVNC Team Members. All Rights Reserved.
 // SPDX-FileCopyrightText: Copyright (C) 1999-2002 Vdacc-VNC & eSVNC Projects. All Rights Reserved.
-//
 
 
 #include "stdhdrs.h"
@@ -15,6 +14,7 @@
 #include "common/ScopeGuard.h"
 #include "SettingsManager.h"
 #include "credentials.h"
+#include <wtsapi32.h>
 
 DesktopUsersToken* DesktopUsersToken::instance = nullptr;
 
@@ -40,7 +40,6 @@ DWORD Credentials::GetCurrentUserToken(HANDLE& process, HANDLE& Token, bool Runn
 	return 2;
 }
 
-#ifndef ULTRAVNC_VEYON_SUPPORT
 bool Credentials::RunningAsAdministrator(bool RunningFromExternalService)
 {
 	BOOL   fAdmin = FALSE;
@@ -104,7 +103,6 @@ bool Credentials::RunningAsAdministrator(bool RunningFromExternalService)
 
 	return fAdmin;
 }
-#endif
 
 DesktopUsersToken* DesktopUsersToken::getInstance() {
 	if (instance == nullptr) {
@@ -130,18 +128,16 @@ DesktopUsersToken::~DesktopUsersToken()
 HANDLE DesktopUsersToken::getDesktopUsersToken()
 {
 	DWORD explorerLogonPid = processHelper::GetExplorerLogonPid();
-	if (explorerLogonPid == 0) 
-		vnclog.Print(LL_LOGSCREEN, "explorer shell NOT found");
 
-	
 	if (explorerLogonPid != 0 && dwExplorerLogonPid != explorerLogonPid) {
-		vnclog.Print(LL_INTWARN, VNCLOG("DesktopUsersToken failed OpenProcess error %i\n"), GetLastError());
-
 		vnclog.Print(LL_INTWARN, VNCLOG("GetExplorerLogonPid %i\n"), explorerLogonPid);
+		if (hProcess) { CloseHandle(hProcess); hProcess = NULL; }
+		if (hPToken) { CloseHandle(hPToken); hPToken = NULL; }
 		hProcess = OpenProcess(MAXIMUM_ALLOWED, FALSE, explorerLogonPid);
 		if (hProcess == NULL) {
 			vnclog.Print(LL_LOGSCREEN, "UsersToken Failed");
 			vnclog.Print(LL_INTWARN, VNCLOG("DesktopUsersToken failed OpenProcess error %i\n"), GetLastError());
+			dwExplorerLogonPid = 0;
 			return NULL;
 		}
 		vnclog.Print(LL_LOGSCREEN, "UsersToken found");
@@ -150,13 +146,26 @@ HANDLE DesktopUsersToken::getDesktopUsersToken()
 			| TOKEN_READ | TOKEN_WRITE, &hPToken)) {
 			vnclog.Print(LL_INTWARN, VNCLOG("OpenProcessToken failed  %i\n"), GetLastError());
 			vnclog.Print(LL_LOGSCREEN, "OpenProcessToken Failed");
+			dwExplorerLogonPid = 0;
 			return NULL;
 		}
 		vnclog.Print(LL_LOGSCREEN, "OpenProcessToken OK");
+		dwExplorerLogonPid = explorerLogonPid;
+	} else if (explorerLogonPid == 0) {
+		vnclog.Print(LL_LOGSCREEN, "explorer shell NOT found, trying WTSQueryUserToken");
+		// No explorer/shell running (kiosk mode) - fall back to active console session token
+		DWORD dwSessionId = WTSGetActiveConsoleSessionId();
+		HANDLE hWtsToken = NULL;
+		if (WTSQueryUserToken(dwSessionId, &hWtsToken)) {
+			if (hPToken) CloseHandle(hPToken);
+			hPToken = hWtsToken;
+			dwExplorerLogonPid = 0;
+			vnclog.Print(LL_LOGSCREEN, "WTSQueryUserToken OK (kiosk/no-shell mode)");
+		} else {
+			vnclog.Print(LL_INTWARN, VNCLOG("WTSQueryUserToken failed error %i\n"), GetLastError());
+		}
 	}
 
-
-	dwExplorerLogonPid = explorerLogonPid;
 	return hPToken;
 }
 

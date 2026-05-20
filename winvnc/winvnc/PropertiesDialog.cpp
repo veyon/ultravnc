@@ -133,7 +133,7 @@ bool PropertiesDialog::InitDialog(HWND hwnd)
 	TabCtrl_InsertItem(hTabControl, 3, &item);
 	item.pszText = "Notifications";
 	TabCtrl_InsertItem(hTabControl, 4, &item);
-	item.pszText = "Reverse";
+	item.pszText = "Network";
 	TabCtrl_InsertItem(hTabControl, 5, &item);
 	item.pszText = "Rules";
 	TabCtrl_InsertItem(hTabControl, 6, &item);
@@ -180,8 +180,8 @@ bool PropertiesDialog::InitDialog(HWND hwnd)
 		hwnd,
 		(DLGPROC)DlgProc,
 		(LONG_PTR)this);
-	hTabReverse = CreateDialogParam(hInstResDLL,
-		MAKEINTRESOURCE(IDD_FORM_Reverse),
+	hTabNetwork = CreateDialogParam(hInstResDLL,
+		MAKEINTRESOURCE(IDD_FORM_Network),
 		hwnd,
 		(DLGPROC)DlgProc,
 		(LONG_PTR)this);
@@ -229,7 +229,7 @@ bool PropertiesDialog::InitDialog(HWND hwnd)
 	SetWindowPos(hTabNotifications, HWND_TOP, rc.left, rc.top,
 		rc.right - rc.left, rc.bottom - rc.top,
 		SWP_HIDEWINDOW);
-	SetWindowPos(hTabReverse, HWND_TOP, rc.left, rc.top,
+	SetWindowPos(hTabNetwork, HWND_TOP, rc.left, rc.top,
 		rc.right - rc.left, rc.bottom - rc.top,
 		SWP_HIDEWINDOW);
 	SetWindowPos(hTabRules, HWND_TOP, rc.left, rc.top,
@@ -283,8 +283,8 @@ int PropertiesDialog::HandleNotify(HWND hwndDlg, WPARAM wParam, LPARAM lParam)
 				return 0;
 
 			case 5:
-				ShowWindow(hTabReverse, SW_SHOW);
-				SetFocus(hTabReverse);
+				ShowWindow(hTabNetwork, SW_SHOW);
+				SetFocus(hTabNetwork);
 				return 0;
 
 			case 6:
@@ -338,7 +338,7 @@ int PropertiesDialog::HandleNotify(HWND hwndDlg, WPARAM wParam, LPARAM lParam)
 				break;
 
 			case 5:
-				ShowWindow(hTabReverse, SW_HIDE);
+				ShowWindow(hTabNetwork, SW_HIDE);
 				break;
 
 			case 6:
@@ -408,6 +408,18 @@ BOOL CALLBACK DlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		return true;
 	case WM_COMMAND:
 		_this->onCommand(LOWORD(wParam), hwnd, HIWORD(wParam));
+		break;
+	case WM_DESTROY:
+		// Free language combobox item data (combo lives in the Misc tab)
+		if (GetDlgItem(hwnd, IDC_LANGUAGE_COMBO)) {
+			HWND hCombo = GetDlgItem(hwnd, IDC_LANGUAGE_COMBO);
+			int count = (int)SendMessage(hCombo, CB_GETCOUNT, 0, 0);
+			for (int i = 0; i < count; i++) {
+				wchar_t* langCode = (wchar_t*)SendMessage(hCombo, CB_GETITEMDATA, i, 0);
+				if (langCode) free(langCode);
+			}
+		}
+		break;
 	}
 	return (INT_PTR)FALSE;
 }
@@ -477,10 +489,10 @@ bool PropertiesDialog::DlgInitDialog(HWND hwnd)
 
 	if (GetDlgItem(hwnd, IDC_BLANK)) {
 		SendMessage(GetDlgItem(hwnd, IDC_BLANK), BM_SETCHECK, settings->getEnableBlankMonitor(), 0);
-		/*if (!VNC_OSVersion::getInstance()->OS_WIN10_TRANS && VNC_OSVersion::getInstance()->OS_WIN10)
+		if (!VNC_OSVersion::getInstance()->OS_WIN10_TRANS && VNC_OSVersion::getInstance()->OS_WIN10)
 			SetDlgItemText(hwnd, IDC_BLANK, "Enable Blank Monitor on Viewer Request require Min Win10 build 19041 ");
 		if (VNC_OSVersion::getInstance()->OS_WIN8)
-			SetDlgItemText(hwnd, IDC_BLANK, "Enable Blank Monitor on Viewer Not supported on windows 8 ");*/
+			SetDlgItemText(hwnd, IDC_BLANK, "Enable Blank Monitor on Viewer Not supported on windows 8 ");
 	}
 
 	if (GetDlgItem(hwnd, IDC_BLANK2)) //PGM
@@ -561,6 +573,10 @@ bool PropertiesDialog::DlgInitDialog(HWND hwnd)
 	if (GetDlgItem(hwnd, IDC_REVERSEAUTH))
 		SendMessage(GetDlgItem(hwnd, IDC_REVERSEAUTH), BM_SETCHECK, settings->getReverseAuthRequired(), 0);
 
+	if (GetDlgItem(hwnd, IDC_CHECKBRIDGE))
+		SendMessage(GetDlgItem(hwnd, IDC_CHECKBRIDGE), BM_SETCHECK, settings->getUseBridge(), 0);
+	
+
 	SetDlgItemInt(hwnd, IDC_SCALE, settings->getDefaultScale(), false);
 
 	// Remote input settings
@@ -574,6 +590,9 @@ bool PropertiesDialog::DlgInitDialog(HWND hwnd)
 	// japanese keybaord
 	if (GetDlgItem(hwnd, IDC_JAP_INPUTS))
 		SendMessage(GetDlgItem(hwnd, IDC_JAP_INPUTS), BM_SETCHECK, settings->getEnableJapInput(), 0);
+
+	if (GetDlgItem(hwnd, IDC_FORCE_SHAPE))
+		SendMessage(GetDlgItem(hwnd, IDC_FORCE_SHAPE), BM_SETCHECK, settings->getForceCursorShape(), 0);
 
 	if (GetDlgItem(hwnd, IDC_UNICODE_INPUTS))
 		SendMessage(GetDlgItem(hwnd, IDC_UNICODE_INPUTS), BM_SETCHECK, settings->getEnableUnicodeInput(), 0);
@@ -870,6 +889,93 @@ bool PropertiesDialog::DlgInitDialog(HWND hwnd)
 	if (GetDlgItem(hwnd, IDC_SEC))
 		SendMessage(GetDlgItem(hwnd, IDC_SEC), BM_SETCHECK, settings->getSecondary(), 0);
 
+	// Initialize language combobox by scanning languages folder for DLLs
+	if (GetDlgItem(hwnd, IDC_LANGUAGE_COMBO)) {
+		HWND hCombo = GetDlgItem(hwnd, IDC_LANGUAGE_COMBO);
+		SendMessage(hCombo, CB_RESETCONTENT, 0, 0);
+		
+		// Add English as default (always available, no DLL needed)
+		int idx = (int)SendMessageW(hCombo, CB_ADDSTRING, 0, (LPARAM)L"English");
+		SendMessage(hCombo, CB_SETITEMDATA, idx, (LPARAM)_wcsdup(L"en"));
+		
+		// Get exe path to find languages folder (use Unicode for proper international support)
+		wchar_t exePathW[MAX_PATH];
+		wchar_t languagesPathW[MAX_PATH];
+		wchar_t dllPathW[MAX_PATH];
+		GetModuleFileNameW(NULL, exePathW, MAX_PATH);
+		wchar_t* lastSlashW = wcsrchr(exePathW, L'\\');
+		if (lastSlashW) *lastSlashW = L'\0';
+		
+		// Search for winvnclang_*.dll in languages subfolder
+		swprintf_s(languagesPathW, L"%s\\languages\\winvnclang_*.dll", exePathW);
+		
+		WIN32_FIND_DATAW findDataW;
+		HANDLE hFind = FindFirstFileW(languagesPathW, &findDataW);
+		
+		if (hFind != INVALID_HANDLE_VALUE) {
+			do {
+				// Extract language code from filename (winvnclang_XX.dll)
+				wchar_t* underscoreW = wcsstr(findDataW.cFileName, L"_");
+				wchar_t* dotW = wcsstr(findDataW.cFileName, L".");
+				
+				if (underscoreW && dotW && dotW > underscoreW) {
+					wchar_t langCodeW[32] = {0};
+					size_t len = (size_t)(dotW - underscoreW - 1);
+					if (len > 31) len = 31;
+					wcsncpy_s(langCodeW, underscoreW + 1, len);
+					
+					// Build full path to DLL
+					swprintf_s(dllPathW, L"%s\\languages\\%s", exePathW, findDataW.cFileName);
+					
+					// Load DLL temporarily to read language name
+					HMODULE hLangDll = LoadLibraryExW(dllPathW, NULL, LOAD_LIBRARY_AS_DATAFILE);
+					wchar_t displayNameW[64] = {0};
+					
+					if (hLangDll) {
+						// Try to load IDS_LANGUAGE_NAME string resource from DLL using Unicode
+						if (LoadStringW(hLangDll, IDS_LANGUAGE_NAME, displayNameW, _countof(displayNameW)) > 0) {
+							// Successfully loaded language name from DLL
+							idx = (int)SendMessageW(hCombo, CB_ADDSTRING, 0, (LPARAM)displayNameW);
+							SendMessage(hCombo, CB_SETITEMDATA, idx, (LPARAM)_wcsdup(langCodeW));
+						}
+						else {
+							// Fallback: use language code if string not found
+							swprintf_s(displayNameW, _countof(displayNameW), L"Language (%s)", langCodeW);
+							idx = (int)SendMessageW(hCombo, CB_ADDSTRING, 0, (LPARAM)displayNameW);
+							SendMessage(hCombo, CB_SETITEMDATA, idx, (LPARAM)_wcsdup(langCodeW));
+						}
+						FreeLibrary(hLangDll);
+					}
+					else {
+						// DLL couldn't be loaded, use code as fallback
+						swprintf_s(displayNameW, _countof(displayNameW), L"Language (%s)", langCodeW);
+						idx = (int)SendMessageW(hCombo, CB_ADDSTRING, 0, (LPARAM)displayNameW);
+						SendMessage(hCombo, CB_SETITEMDATA, idx, (LPARAM)_wcsdup(langCodeW));
+					}
+				}
+			} while (FindNextFileW(hFind, &findDataW));
+			FindClose(hFind);
+		}
+		
+		// Select current language
+		const char* currentLang = settings->getLanguage();
+		wchar_t currentLangW[32] = {0};
+		MultiByteToWideChar(CP_UTF8, 0, currentLang, -1, currentLangW, 32);
+		
+		int count = (int)SendMessage(hCombo, CB_GETCOUNT, 0, 0);
+		for (int i = 0; i < count; i++) {
+			wchar_t* langCodeW = (wchar_t*)SendMessage(hCombo, CB_GETITEMDATA, i, 0);
+			if (langCodeW && _wcsicmp(langCodeW, currentLangW) == 0) {
+				SendMessage(hCombo, CB_SETCURSEL, i, 0);
+				break;
+			}
+		}
+		// If no match found, select English (index 0)
+		if (SendMessage(hCombo, CB_GETCURSEL, 0, 0) == CB_ERR) {
+			SendMessage(hCombo, CB_SETCURSEL, 0, 0);
+		}
+	}
+
 	SetForegroundWindow(hwnd);
 	EnableWindow(GetDlgItem(PropertiesDialogHwnd, IDC_APPLY), false);
 
@@ -1026,6 +1132,7 @@ void PropertiesDialog::UpdateServer()
 	m_server->EnableHTTPConnect(settings->getHTTPConnect());
 	m_server->EnableRemoteInputs(settings->getEnableRemoteInputs());
 	m_server->EnableJapInput(settings->getEnableJapInput());
+	m_server->ForceCursorShape(settings->getForceCursorShape());
 	m_server->EnableUnicodeInput(settings->getEnableUnicodeInput());
 
 	// Update the password
@@ -1045,6 +1152,7 @@ void PropertiesDialog::UpdateServer()
 	m_server->EnableHTTPConnect(settings->getHTTPConnect());
 	m_server->EnableRemoteInputs(settings->getEnableRemoteInputs());
 	m_server->EnableJapInput(settings->getEnableJapInput());
+	m_server->ForceCursorShape(settings->getForceCursorShape());
 	m_server->EnableUnicodeInput(settings->getEnableUnicodeInput());
 
 	// Now change the listening port settings
@@ -1382,11 +1490,10 @@ bool PropertiesDialog::onCommand( int command, HWND hwnd, int subcommand)
 			if (!hPToken)
 				break;
 
-			char dir[MAX_PATH];
+			char dir[MAX_PATH + 32];
 			char exe_file_name[MAX_PATH];
 			GetModuleFileName(0, exe_file_name, MAX_PATH);
-			strcpy_s(dir, exe_file_name);
-			strcat_s(dir, " -securityeditorhelper");
+			sprintf_s(dir, "\"%s\" -securityeditorhelper", exe_file_name);
 
 			STARTUPINFO          StartUPInfo;
 			PROCESS_INFORMATION  ProcessInfo;
@@ -1563,6 +1670,30 @@ bool PropertiesDialog::onCommand( int command, HWND hwnd, int subcommand)
 		}
 		break; 
 		}
+	case IDC_JAP_INPUTS:
+	{
+		// If enabling Japanese/Alternate keyboard, disable Unicode/International keys
+		// Both options enabled simultaneously causes "End of stream" connection failures
+		HWND hJap = GetDlgItem(hwnd, IDC_JAP_INPUTS);
+		BOOL japChecked = (SendMessage(hJap, BM_GETCHECK, 0, 0) == BST_CHECKED);
+		if (japChecked) {
+			SendDlgItemMessage(hwnd, IDC_UNICODE_INPUTS, BM_SETCHECK, BST_UNCHECKED, 0);
+		}
+	}
+	return TRUE;
+
+	case IDC_UNICODE_INPUTS:
+	{
+		// If enabling Unicode/International keys, disable Japanese/Alternate keyboard
+		// Both options enabled simultaneously causes "End of stream" connection failures
+		HWND hUnicode = GetDlgItem(hwnd, IDC_UNICODE_INPUTS);
+		BOOL unicodeChecked = (SendMessage(hUnicode, BM_GETCHECK, 0, 0) == BST_CHECKED);
+		if (unicodeChecked) {
+			SendDlgItemMessage(hwnd, IDC_JAP_INPUTS, BM_SETCHECK, BST_UNCHECKED, 0);
+		}
+	}
+	return TRUE;
+
 	default:
 		break;
 	}
@@ -1626,6 +1757,20 @@ void PropertiesDialog::onTabsAPPLY(HWND hwnd)
 		settings->setPrimary(SendMessage(GetDlgItem(hwnd, IDC_PRIM), BM_GETCHECK, 0, 0) == BST_CHECKED);
 	if (GetDlgItem(hwnd, IDC_SEC))
 		settings->setSecondary(SendMessage(GetDlgItem(hwnd, IDC_SEC), BM_GETCHECK, 0, 0) == BST_CHECKED);
+
+	// Save language setting (restart required for changes to take effect)
+	if (GetDlgItem(hwnd, IDC_LANGUAGE_COMBO)) {
+		HWND hCombo = GetDlgItem(hwnd, IDC_LANGUAGE_COMBO);
+		int sel = (int)SendMessage(hCombo, CB_GETCURSEL, 0, 0);
+		if (sel >= 0) {
+			wchar_t* langCodeW = (wchar_t*)SendMessage(hCombo, CB_GETITEMDATA, sel, 0);
+			if (langCodeW) {
+				char langCodeA[32] = {0};
+				WideCharToMultiByte(CP_UTF8, 0, langCodeW, -1, langCodeA, sizeof(langCodeA), NULL, NULL);
+				settings->setLanguage(langCodeA);
+			}
+		}
+	}
 
 	if (GetDlgItem(hwnd, IDC_MAXCPU)) {
 		int maxcpu = GetDlgItemInt(hwnd, IDC_MAXCPU, NULL, FALSE);
@@ -1820,11 +1965,25 @@ void PropertiesDialog::onTabsAPPLY(HWND hwnd)
 		settings->setEnableJapInput(SendMessage(hJapInputs, BM_GETCHECK, 0, 0) == BST_CHECKED);
 	}
 
+	if (GetDlgItem(hwnd, IDC_FORCE_SHAPE)) {
+		HWND hForceCursorShape = GetDlgItem(hwnd, IDC_FORCE_SHAPE);
+		if (m_server)
+			m_server->ForceCursorShape(SendMessage(hForceCursorShape, BM_GETCHECK, 0, 0) == BST_CHECKED);
+		settings->setForceCursorShape(SendMessage(hForceCursorShape, BM_GETCHECK, 0, 0) == BST_CHECKED);
+	}
+
 	if (GetDlgItem(hwnd, IDC_UNICODE_INPUTS)) {
 		HWND hUnicodeInputs = GetDlgItem(hwnd, IDC_UNICODE_INPUTS);
+		BOOL unicodeChecked = (SendMessage(hUnicodeInputs, BM_GETCHECK, 0, 0) == BST_CHECKED);
+		// Safety check: Ensure both JapInput and UnicodeInput are not enabled simultaneously
+		// This prevents the "End of stream" connection failure bug
+		if (unicodeChecked && settings->getEnableJapInput()) {
+			unicodeChecked = FALSE;
+			SendDlgItemMessage(hwnd, IDC_UNICODE_INPUTS, BM_SETCHECK, BST_UNCHECKED, 0);
+		}
 		if (m_server)
-			m_server->EnableUnicodeInput(SendMessage(hUnicodeInputs, BM_GETCHECK, 0, 0) == BST_CHECKED);
-		settings->setEnableUnicodeInput(SendMessage(hUnicodeInputs, BM_GETCHECK, 0, 0) == BST_CHECKED);
+			m_server->EnableUnicodeInput(unicodeChecked);
+		settings->setEnableUnicodeInput(unicodeChecked);
 	}
 
 	if (GetDlgItem(hwnd, IDC_WIN8_HELPER)) {
@@ -2142,7 +2301,7 @@ void PropertiesDialog::onApply(HWND hwnd)
 	SendMessage(hTabInput, WM_COMMAND, IDC_APPLY, 0);
 	SendMessage(hTabMisc, WM_COMMAND, IDC_APPLY, 0);
 	SendMessage(hTabNotifications, WM_COMMAND, IDC_APPLY, 0);
-	SendMessage(hTabReverse, WM_COMMAND, IDC_APPLY, 0);
+	SendMessage(hTabNetwork, WM_COMMAND, IDC_APPLY, 0);
 	SendMessage(hTabRules, WM_COMMAND, IDC_APPLY, 0);
 	SendMessage(hTabCapture, WM_COMMAND, IDC_APPLY, 0);
 	SendMessage(hTabLog, WM_COMMAND, IDC_APPLY, 0);
@@ -2159,7 +2318,7 @@ void PropertiesDialog::onOK(HWND hwnd)
 	SendMessage(hTabInput, WM_COMMAND, IDOK, 0);
 	SendMessage(hTabMisc, WM_COMMAND, IDOK, 0);
 	SendMessage(hTabNotifications, WM_COMMAND, IDOK, 0);
-	SendMessage(hTabReverse, WM_COMMAND, IDOK, 0);
+	SendMessage(hTabNetwork, WM_COMMAND, IDOK, 0);
 	SendMessage(hTabRules, WM_COMMAND, IDOK, 0);
 	SendMessage(hTabCapture, WM_COMMAND, IDOK, 0);
 	SendMessage(hTabLog, WM_COMMAND, IDOK, 0);
@@ -2175,7 +2334,7 @@ void PropertiesDialog::onOK(HWND hwnd)
 	DestroyWindow(hTabInput);
 	DestroyWindow(hTabMisc);
 	DestroyWindow(hTabNotifications);
-	DestroyWindow(hTabReverse);
+	DestroyWindow(hTabNetwork);
 	DestroyWindow(hTabRules);
 	DestroyWindow(hTabCapture);
 	DestroyWindow(hTabLog);
@@ -2190,7 +2349,7 @@ void PropertiesDialog::onCancel(HWND hwnd)
 	SendMessage(hTabInput, WM_COMMAND, IDCANCEL, 0);
 	SendMessage(hTabMisc, WM_COMMAND, IDCANCEL, 0);
 	SendMessage(hTabNotifications, WM_COMMAND, IDCANCEL, 0);
-	SendMessage(hTabReverse, WM_COMMAND, IDCANCEL, 0);
+	SendMessage(hTabNetwork, WM_COMMAND, IDCANCEL, 0);
 	SendMessage(hTabRules, WM_COMMAND, IDCANCEL, 0);
 	SendMessage(hTabCapture, WM_COMMAND, IDCANCEL, 0);
 	SendMessage(hTabLog, WM_COMMAND, IDCANCEL, 0);
@@ -2201,7 +2360,7 @@ void PropertiesDialog::onCancel(HWND hwnd)
 	DestroyWindow(hTabInput);
 	DestroyWindow(hTabMisc);
 	DestroyWindow(hTabNotifications);
-	DestroyWindow(hTabReverse);
+	DestroyWindow(hTabNetwork);
 	DestroyWindow(hTabRules);
 	DestroyWindow(hTabCapture);
 	DestroyWindow(hTabLog);

@@ -43,6 +43,9 @@ class VirtualDisplay;
 #include "stdhdrs.h"
 #include <omnithread.h>
 #include <list>
+#include <thread>
+#include <string>
+#include <memory>
 
 // adzm - 2010-07 - Extended clipboard
 #include "common/Clipboard.h"
@@ -187,6 +190,7 @@ public:
 	virtual void SetAutoPortSelect(const BOOL autoport);
 	virtual void EnableRemoteInputs(BOOL enable);
 	virtual void EnableJapInput(BOOL enable);
+	virtual void ForceCursorShape(BOOL enable);
 	virtual void EnableUnicodeInput(BOOL enable);
 
 	// General connection handling
@@ -285,13 +289,6 @@ public:
 	VirtualDisplay *virtualDisplay;
 #endif
 
-
-	void cloudConnect(bool start, char* cloudServer);
-	bool isCloudThreadRunning();
-	char* getExternalIpAddress();
-	int getStatus();
-	void setVNcPort();
-
 protected:
 	// The vncServer UpdateTracker class
 	// Behaves like a standard UpdateTracker, but propagates update
@@ -379,9 +376,7 @@ protected:
     BOOL m_fSendExtraMouse;
 	bool KillAuthClientsBuzy;	
 	BOOL sethook;
-#ifdef _CLOUD
-	CloudThread* cloudThread;
-#endif
+	
 };
 
 #endif

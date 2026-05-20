@@ -29,6 +29,7 @@ public:
 	void savePassword();
 	void saveViewOnlyPassword();
 	BOOL getAllowProperties() { return m_pref_allowproperties; };
+	BOOL getUseBridge() { return m_pref_fUseBridge; };
 	BOOL getAllowInjection() { return m_pref_allowInjection; };
 	BOOL getAllowShutdown() { return m_pref_allowshutdown; };
 	BOOL getAllowEditClients() { return m_pref_alloweditclients; };
@@ -69,6 +70,7 @@ public:
 	BOOL getEnableRemoteInputs() { return m_pref_EnableRemoteInputs; };
 	BOOL getDisableLocalInputs() { return m_pref_DisableLocalInputs; };
 	BOOL getEnableJapInput() { return m_pref_EnableJapInput; };
+	BOOL getForceCursorShape() { return m_pref_ForceCursorShape; };
 	BOOL getEnableUnicodeInput() { return m_pref_EnableUnicodeInput; };
 	BOOL getEnableWin8Helper() { return m_pref_EnableWin8Helper; };
 	BOOL getClearconsole() { return m_pref_clearconsole; };
@@ -116,6 +118,7 @@ public:
 
 	void setQueryIfNoLogon(BOOL value) { m_pref_QueryIfNoLogon = value; };
 	void setAllowProperties(BOOL value) { m_pref_allowproperties = value; };
+	void setUseBridge(BOOL value) { m_pref_fUseBridge = value; };
 	void setAllowInjection(BOOL value) { m_pref_allowInjection = value; };
 	void setAllowShutdown(BOOL value) { m_pref_allowshutdown = value; };
 	void setAllowEditClients(BOOL value) { m_pref_alloweditclients = value; };
@@ -137,6 +140,7 @@ public:
 	void setEnableRemoteInputs(BOOL value) { m_pref_EnableRemoteInputs = value; };
 	void setDisableLocalInputs(BOOL value) { m_pref_DisableLocalInputs = value; };
 	void setEnableJapInput(BOOL value) { m_pref_EnableJapInput = value; };
+	void setForceCursorShape(BOOL value) { m_pref_ForceCursorShape = value; };
 	void setEnableUnicodeInput(BOOL value) { m_pref_EnableUnicodeInput = value; };
 	void setLoopbackOnly(BOOL value) { m_pref_LoopbackOnly = value; if (value) setAllowLoopback(true);};
 	void setAllowLoopback(BOOL value) { m_pref_AllowLoopback = value; };
@@ -296,6 +300,7 @@ private:
 	void initTemp();
 	IniFile iniFile;
 
+	BOOL	m_pref_fUseBridge;
 	BOOL	m_pref_allowproperties;
 	BOOL	m_pref_allowInjection;
 	BOOL	m_pref_allowshutdown;
@@ -333,6 +338,7 @@ private:
 	int m_pref_LockSettings;
 	BOOL m_pref_DisableLocalInputs;
 	BOOL m_pref_EnableJapInput;
+	BOOL m_pref_ForceCursorShape;
 	BOOL m_pref_EnableUnicodeInput;
 	BOOL m_pref_EnableWin8Helper;
 	BOOL m_pref_clearconsole;
@@ -418,6 +424,11 @@ private:
 	bool m_pref_AllowUserSettingsWithPassword;
 	bool showAllLogs = false;
 	bool showSettings = false;
+	char m_pref_language[16];
+
+public:
+	void setLanguage(const char* value) { strncpy_s(m_pref_language, value, 15); m_pref_language[15] = '\0'; }
+	const char* getLanguage() { return m_pref_language; }
 };
 
 extern SettingsManager* settings;

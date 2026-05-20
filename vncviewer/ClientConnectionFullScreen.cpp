@@ -31,7 +31,7 @@ void ClientConnection::saveScreenPosition()
 //	if (!m_opts->m_SavePos)
 	GetWindowRect(m_hwndMain, &mainRect);
 
-	// if doubleclick Title don´t save     
+	// if doubleclick Title donï¿½t save     
 	HMONITOR hMonitor = ::MonitorFromWindow(m_hwndMain, MONITOR_DEFAULTTONEAREST);
 	MONITORINFO mi;
 	mi.cbSize = sizeof(MONITORINFO);
@@ -136,6 +136,7 @@ void ClientConnection::RealiseFullScreenMode()
 		}
 
 		SetWindowPos(m_hwndMain, HWND_TOPMOST, x, y, cx, cy, SWP_FRAMECHANGED);
+		ShowWindow(m_hwndMain, SW_SHOW);
         TitleBar.MoveToMonitor(hMonitor);
 		// adzm - 2010-07 - Extended clipboard
 		CheckMenuItem(m_hPopupMenuDisplay, ID_FULLSCREEN, MF_BYCOMMAND|MF_CHECKED);

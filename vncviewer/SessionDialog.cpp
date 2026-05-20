@@ -20,9 +20,6 @@
 #include <sys/stat.h>
 #include <direct.h>
 #include "display.h"
-#ifdef _CLOUD
-#include "../UdtCloudlib/proxy/Cloudthread.h"
-#endif
 #include "AboutBox.h"
 #include "UltraVNCHelperFunctions.h"
 using namespace helper;
@@ -31,17 +28,17 @@ extern HINSTANCE m_hInstResDLL;
 #define SESSION_MRU_KEY_NAME _T("Software\\ORL\\VNCviewer\\MRU")
 #define NUM_MRU_ENTRIES 8
 
-extern char sz_F1[64];
-extern char sz_F2[64];
-extern char sz_F3[64];
-extern char sz_F4[64];
-extern char sz_F5[128];
-extern char sz_F6[64];
-extern char sz_F7[128];
-extern char sz_F8[128];
-extern char sz_F9[64];
-extern char sz_F10[64];
-extern char sz_F11[64];
+extern wchar_t sz_F1[64];
+extern wchar_t sz_F2[64];
+extern wchar_t sz_F3[64];
+extern wchar_t sz_F4[64];
+extern wchar_t sz_F5[128];
+extern wchar_t sz_F6[64];
+extern wchar_t sz_F7[128];
+extern wchar_t sz_F8[128];
+extern wchar_t sz_F9[64];
+extern wchar_t sz_F10[64];
+extern wchar_t sz_F11[64];
 
 SessionDialog::SessionDialog(VNCOptions* pOpt, ClientConnection* pCC, CDSMPlugin* pDSMPlugin)
 {
@@ -54,9 +51,10 @@ SessionDialog::SessionDialog(VNCOptions* pOpt, ClientConnection* pCC, CDSMPlugin
 	/////////////////////////////////////////////////
 	TCHAR tmphost2[256];
 	_tcscpy_s(m_proxyhost, m_pOpt->m_proxyhost);
-	if (strcmp(m_proxyhost, "") != 0) {
-		_tcscat_s(m_proxyhost, ":");
-		_tcscat_s(m_proxyhost, 256, _itoa(m_pOpt->m_proxyport, tmphost2, 10));
+	if (_tcscmp(m_proxyhost, _T("")) != 0) {
+		_tcscat_s(m_proxyhost, _countof(m_proxyhost), _T(":"));
+		_itot_s(m_pOpt->m_proxyport, tmphost2, _countof(tmphost2), 10);
+		_tcscat_s(m_proxyhost, _countof(m_proxyhost), tmphost2);
 	}
 
 	for (int i = rfbEncodingRaw; i <= LASTENCODING; i++) {
@@ -72,7 +70,7 @@ SessionDialog::SessionDialog(VNCOptions* pOpt, ClientConnection* pCC, CDSMPlugin
 	fAutoScalingEven = m_pOpt->m_fAutoScalingEven;
 	fAutoScalingLimit = m_pOpt->m_fAutoScalingLimit;
 	fExitCheck = m_pOpt->m_fExitCheck;
-	m_fUseProxy = m_pOpt->m_fUseProxy;
+	m_connectionType = m_pOpt->m_connectionType;
 	allowMonitorSpanning = m_pOpt->m_allowMonitorSpanning;
 	changeServerRes = m_pOpt->m_ChangeServerRes;
 	extendDisplay = m_pOpt->m_extendDisplay;
@@ -115,13 +113,13 @@ SessionDialog::SessionDialog(VNCOptions* pOpt, ClientConnection* pCC, CDSMPlugin
 	SaveSize = m_pOpt->m_SaveSize;
 	GNOME = m_pOpt->m_GNOME;
 	fUseDSMPlugin = m_pOpt->m_fUseDSMPlugin;
-	strcpy_s(szDSMPluginFilename, m_pOpt->m_szDSMPluginFilename);
+	_tcscpy_s(szDSMPluginFilename, _countof(szDSMPluginFilename), m_pOpt->m_szDSMPluginFilename);
 	listening = m_pOpt->m_listening;
 	oldplugin = m_pOpt->m_oldplugin;
 
-	strcpy_s(folder, m_pOpt->m_document_folder);
-	strcpy_s(prefix, m_pOpt->m_prefix);
-	strcpy_s(imageFormat, m_pOpt->m_imageFormat);
+	_tcscpy_s(folder, _countof(folder), m_pOpt->m_document_folder);
+	_tcscpy_s(prefix, _countof(prefix), m_pOpt->m_prefix);
+	_tcscpy_s(imageFormat, _countof(imageFormat), m_pOpt->m_imageFormat);
 
 	scaling = m_pOpt->m_scaling;
 
@@ -141,8 +139,9 @@ SessionDialog::SessionDialog(VNCOptions* pOpt, ClientConnection* pCC, CDSMPlugin
 	NoHotKeys = m_pOpt->m_NoHotKeys;
 	setdefaults = false;
 	/////////////////////////////////////////////////
-	hBmpExpand = (HBITMAP)::LoadImage(pApp->m_instance, MAKEINTRESOURCE(IDB_EXPAND), IMAGE_BITMAP, 0, 0, LR_LOADTRANSPARENT);
-	hBmpCollaps = (HBITMAP)::LoadImage(pApp->m_instance, MAKEINTRESOURCE(IDB_COLLAPS), IMAGE_BITMAP, 0, 0, LR_LOADTRANSPARENT);
+	extern HINSTANCE hInstance;
+	hBmpExpand = (HBITMAP)::LoadImage(hInstance, MAKEINTRESOURCE(IDB_EXPAND), IMAGE_BITMAP, 0, 0, LR_LOADTRANSPARENT);
+	hBmpCollaps = (HBITMAP)::LoadImage(hInstance, MAKEINTRESOURCE(IDB_COLLAPS), IMAGE_BITMAP, 0, 0, LR_LOADTRANSPARENT);
 	hTabEncoders = NULL;
 	hTabKeyboardMouse = NULL;
 	hTabDisplay = NULL;
@@ -181,7 +180,8 @@ BOOL CALLBACK SessDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 // window procedure and this method could overwrite each other.
 int SessionDialog::DoDialog()
 {
-	return DialogBoxParam(pApp->m_instance, DIALOG_MAKEINTRESOURCE(IDD_SESSION_DLG),
+	// Use m_hInstResDLL for dialog resources (contains translated dialogs)
+	return DialogBoxParam(m_hInstResDLL, DIALOG_MAKEINTRESOURCE(IDD_SESSION_DLG),
 		NULL, (DLGPROC)SessDlgProc, (LONG_PTR)this);
 }
 
@@ -194,10 +194,12 @@ BOOL CALLBACK SessDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
 		_this = (SessionDialog*)lParam;
 		helper::SafeSetWindowUserData(hwnd, lParam);
-		char version[50]{};
-		char title[256]{};
-		strcpy_s(title, "UltraVNC Viewer -");
-		strcat_s(title, GetVersionFromResource(version));
+		char cver[50]{};
+		wchar_t title[256]{};
+		wcscpy_s(title, _countof(title), L"UltraVNC Viewer -");
+		wchar_t wver[50]{};
+		MultiByteToWideChar(CP_ACP, 0, GetVersionFromResource(cver), -1, wver, _countof(wver));
+		wcscat_s(title, _countof(title), wver);
 		SetWindowText(hwnd, title);
 	}
 	else
@@ -216,6 +218,7 @@ BOOL CALLBACK SessDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 		l_this->m_pCC->m_hSessionDialog = hwnd;
 		l_this->SessHwnd = hwnd;
 		_this->InitDlgProc();
+		_this->InitLanguage(hwnd);
 		HWND hExitCheck = GetDlgItem(hwnd, IDC_EXIT_CHECK); //PGM @ Advantig
 		SendMessage(hExitCheck, BM_SETCHECK, l_this->fExitCheck, 0); //PGM @ Advantig
 
@@ -264,10 +267,13 @@ BOOL CALLBACK SessDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			_this->SetDefaults();
 			return TRUE;
 		case IDC_SAVE:
+			_this->ReadDlgProcConfig();
 			if (_this->fUseOnlyDefaultConfigFile)
 				_this->SaveToFile(_this->m_pOpt->getDefaultOptionsFileName(), true);
-			else
-				_this->SaveConnection(hwnd, false);				
+			else {
+				_this->SaveConnection(hwnd, false);
+				_this->saveInt(L"UseOnlyDefaultConfigFile", _this->fUseOnlyDefaultConfigFile, _this->m_pOpt->getDefaultOptionsFileName());
+			}
 			break;
 		case IDC_SAVEAS:
 			_this->SaveConnection(hwnd, true);
@@ -320,16 +326,16 @@ BOOL CALLBACK SessDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			{
 				TCHAR szHost[250];
 				if (_this->m_pCC->m_port == 5900)
-					_tcscpy_s(szHost, _this->m_pCC->m_host);
+					_tcscpy_s(szHost, _countof(szHost), _this->m_pCC->m_host);
 				else if (_this->m_pCC->m_port > 5900 && _this->m_pCC->m_port <= 5999)
-					_snprintf_s(szHost, 250, TEXT("%s:%d"), _this->m_pCC->m_host, _this->m_pCC->m_port - 5900);
+					_sntprintf_s(szHost, _countof(szHost), _TRUNCATE, _T("%s:%d"), _this->m_pCC->m_host, _this->m_pCC->m_port - 5900);
 				else
-					_snprintf_s(szHost, 250, TEXT("%s::%d"), _this->m_pCC->m_host, _this->m_pCC->m_port);
+					_sntprintf_s(szHost, _countof(szHost), _TRUNCATE, _T("%s::%d"), _this->m_pCC->m_host, _this->m_pCC->m_port);
 
 				SetDlgItemText(hwnd, IDC_HOSTNAME_EDIT, szHost);
 				//AaronP
 				HWND hPlugins = GetDlgItem(hwnd, IDC_PLUGINS_COMBO);
-				if (strcmp(_this->szDSMPluginFilename, "") != 0 && _this->fUseDSMPlugin) {
+				if (_tcscmp(_this->szDSMPluginFilename, _T("")) != 0 && _this->fUseDSMPlugin) {
 					int pos = SendMessage(hPlugins, CB_FINDSTRINGEXACT, -1,
 						(LPARAM) & (_this->szDSMPluginFilename[0]));
 
@@ -350,25 +356,39 @@ BOOL CALLBACK SessDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 		// [v1.0.2-jp1 fix]
 		case IDC_HOSTNAME_DEL:
+		{
 			_this->SettingsFromUI();
 			HWND hcombo = GetDlgItem(hwnd, IDC_HOSTNAME_EDIT);
 			int sel = SendMessage(hcombo, CB_GETCURSEL, 0, 0);
 			if (sel != CB_ERR) {
 				SendMessage(hcombo, CB_DELETESTRING, sel, 0);
 				_this->m_pMRU->RemoveItem(sel);
-				char fname[_MAX_PATH];
+				wchar_t fname[_MAX_PATH];
 				int disp = PORT_TO_DISPLAY(_this->m_port);
-				sprintf_s(fname, "%.15s-%d.vnc", _this->m_host_dialog, (disp > 0 && disp < 100) ? disp : _this->m_port);
-				char buffer[_MAX_PATH];
+				swprintf_s(fname, _countof(fname), L"%.15s-%d.vnc", _this->m_host_dialog, (disp > 0 && disp < 100) ? disp : _this->m_port);
+				wchar_t buffer[_MAX_PATH];
 				_this->getAppData(buffer);
-				strcat_s(buffer, "\\UltraVNC");
-				_mkdir(buffer);
-				strcat_s(buffer, "\\");
-				strcat_s(buffer, fname);
-				DeleteFile(buffer);
+				wcscat_s(buffer, _countof(buffer), L"\\UltraVNC");
+				_wmkdir(buffer);
+				wcscat_s(buffer, _countof(buffer), L"\\");
+				wcscat_s(buffer, _countof(buffer), fname);
+				DeleteFileW(buffer);
 				_this->SetDefaults();
 			}
 			return TRUE;
+		}
+		case IDC_LANGUAGE_COMBO:
+			if (HIWORD(wParam) == CBN_SELCHANGE) {
+				HWND hLangCombo = GetDlgItem(hwnd, IDC_LANGUAGE_COMBO);
+				int selIdx = SendMessage(hLangCombo, CB_GETCURSEL, 0, 0);
+				if (selIdx != CB_ERR) {
+					wchar_t* langCode = (wchar_t*)SendMessage(hLangCombo, CB_GETITEMDATA, selIdx, 0);
+					if (langCode) {
+						_this->SwitchLanguage(langCode);
+					}
+				}
+			}
+			break;
 		}
 
 		break;
@@ -380,6 +400,15 @@ BOOL CALLBACK SessDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	case WM_CLOSE:
 		return FALSE;*/
 	case WM_DESTROY:
+		// Free language combobox item data
+		if (GetDlgItem(hwnd, IDC_LANGUAGE_COMBO)) {
+			HWND hLangCombo = GetDlgItem(hwnd, IDC_LANGUAGE_COMBO);
+			int langCount = (int)SendMessage(hLangCombo, CB_GETCOUNT, 0, 0);
+			for (int i = 0; i < langCount; i++) {
+				wchar_t* langCode = (wchar_t*)SendMessage(hLangCombo, CB_GETITEMDATA, i, 0);
+				if (langCode) free(langCode);
+			}
+		}
 		EndDialog(hwnd, FALSE);
 		KillTimer(hwnd, 100);
 		KillTimer(hwnd, 101);
@@ -415,7 +444,8 @@ void SessionDialog::ExpandBox(HWND hDlg, BOOL fExpand)
 	//else SetWindowText(GetDlgItem(hDlg, IDC_BUTTON_EXPAND), "Hide Options");
 	// retrieve coordinates for the default child window
 	GetWindowRect(wndDefaultBox, &rcDefaultBox);
-	rcDefaultBox.left += 2;
+	//rcDefaultBox.left += 2;
+	rcDefaultBox.right += 6;
 	// enable/disable all of the child window outside of the default box.
 	wndChild = GetTopWindow(hDlg);
 
@@ -496,7 +526,7 @@ void SessionDialog::InitPlugin(HWND hwnd)
 	int nPlugins = m_pDSMPlugin->ListPlugins(hPlugins);
 	if (!nPlugins)
 	{
-		SendMessage(hPlugins, CB_ADDSTRING, 0, (LPARAM)sz_F11);
+		SendMessageW(hPlugins, CB_ADDSTRING, 0, (LPARAM)sz_F11);
 	}
 
 	SendMessage(hPlugins, CB_SETCURSEL, 0, 0);
@@ -505,7 +535,7 @@ void SessionDialog::InitPlugin(HWND hwnd)
 	EnableWindow(GetDlgItem(hwnd, IDC_PLUGINS_COMBO), fUseDSMPlugin);
 
 	//AaronP
-	if (strcmp(szDSMPluginFilename, "") != 0 && fUseDSMPlugin)
+	if (_tcscmp(szDSMPluginFilename, _T("")) != 0 && fUseDSMPlugin)
 	{
 		int pos = SendMessage(hPlugins, CB_FINDSTRINGEXACT, -1,
 			(LPARAM) & (szDSMPluginFilename[0]));
@@ -525,14 +555,14 @@ void SessionDialog::InitDlgProc(bool loadhost, bool initMruNeeded)
 {
 	HWND hwnd = SessHwnd;
 	if (!setdefaults) {
-		if (loadhost && (m_pCC->m_port != 0 || strlen(m_pCC->m_host) != 0)) {
+		if (loadhost && (m_pCC->m_port != 0 || _tcslen(m_pCC->m_host) != 0)) {
 			TCHAR szHost[250];
 			if (m_pCC->m_port == 5900)
-				_tcscpy_s(szHost, m_pCC->m_host);
+				_tcscpy_s(szHost, _countof(szHost), m_pCC->m_host);
 			else if (m_pCC->m_port > 5900 && m_pCC->m_port <= 5999)
-				_snprintf_s(szHost, 250, TEXT("%s:%d"), m_pCC->m_host, m_pCC->m_port - 5900);
+				_sntprintf_s(szHost, _countof(szHost), _TRUNCATE, _T("%s:%d"), m_pCC->m_host, m_pCC->m_port - 5900);
 			else
-				_snprintf_s(szHost, 250, TEXT("%s::%d"), m_pCC->m_host, m_pCC->m_port);
+				_sntprintf_s(szHost, _countof(szHost), _TRUNCATE, _T("%s::%d"), m_pCC->m_host, m_pCC->m_port);
 			SetDlgItemText(hwnd, IDC_HOSTNAME_EDIT, szHost);
 		}
 		else if (initMruNeeded)
@@ -540,15 +570,19 @@ void SessionDialog::InitDlgProc(bool loadhost, bool initMruNeeded)
 	}
 	TCHAR tmphost[256];
 	TCHAR tmphost2[256];
-	if (strcmp(m_proxyhost, "") != 0) {
-		_tcscpy_s(tmphost, m_proxyhost);
-		_tcscat_s(tmphost, ":");
-		_tcscat_s(tmphost, 256, _itoa(m_proxyport, tmphost2, 10));
+	if (_tcscmp(m_proxyhost, _T("")) != 0) {
+		_tcscpy_s(tmphost, _countof(tmphost), m_proxyhost);
+		_tcscat_s(tmphost, _countof(tmphost), _T(":"));
+		_itot_s(m_proxyport, tmphost2, _countof(tmphost2), 10);
+		_tcscat_s(tmphost, _countof(tmphost), tmphost2);
 		SetDlgItemText(hwnd, IDC_PROXY_EDIT, tmphost);
 	}
 
-	if (m_fUseProxy) {
-		SendMessage(GetDlgItem(hwnd, IDC_RADIOREPEATER), BM_SETCHECK, m_fUseProxy, 0);
+	SendMessage(GetDlgItem(hwnd, IDC_RADIOREPEATER), BM_SETCHECK, false, 0);
+	SendMessage(GetDlgItem(hwnd, IDC_RADIODIRECT), BM_SETCHECK, false, 0);
+
+	if (m_connectionType == REPEATER_SERVER) {
+		SendMessage(GetDlgItem(hwnd, IDC_RADIOREPEATER), BM_SETCHECK, true, 0);
 		ModeSwitch(hwnd, IDC_RADIOREPEATER);
 	}
 	else {
@@ -583,8 +617,8 @@ void SessionDialog::InitMRU(HWND hwnd)
 	SendMessage(hcombo, CB_RESETCONTENT, 0, 0);
 	for (int i = 0; i < m_pMRU->NumItems(); i++) {
 		m_pMRU->GetItem(i, valname, 255);
-		if (strlen(valname) != 0)
-			SendMessage(hcombo, CB_ADDSTRING, 0, (LPARAM)valname);
+		if (_tcslen(valname) != 0)
+			SendMessageW(hcombo, CB_ADDSTRING, 0, (LPARAM)valname);
 	}
 	SendMessage(hcombo, CB_SETCURSEL, 0, 0);
 
@@ -605,7 +639,7 @@ bool SessionDialog::connect(HWND hwnd)
 
 	m_pOpt->autoDetect = autoDetect;
 	m_pOpt->m_fExitCheck = fExitCheck;
-	m_pOpt->m_fUseProxy = m_fUseProxy;
+	m_pOpt->m_connectionType = m_connectionType;
 	m_pOpt->m_allowMonitorSpanning = allowMonitorSpanning;
 	m_pOpt->m_ChangeServerRes = changeServerRes;
 	m_pOpt->m_extendDisplay = extendDisplay;
@@ -651,12 +685,12 @@ bool SessionDialog::connect(HWND hwnd)
 	m_pOpt->m_SaveSize = SaveSize;
 	m_pOpt->m_GNOME = GNOME;
 	m_pOpt->m_fUseDSMPlugin = fUseDSMPlugin;
-	strcpy_s(m_pOpt->m_szDSMPluginFilename, szDSMPluginFilename);
+	_tcscpy_s(m_pOpt->m_szDSMPluginFilename, _countof(m_pOpt->m_szDSMPluginFilename), szDSMPluginFilename);
 	m_pOpt->m_listening = listening;
 	m_pOpt->m_oldplugin = oldplugin;
-	strcpy_s(m_pOpt->m_document_folder, folder);
-	strcpy_s(m_pOpt->m_prefix, prefix);
-	strcpy_s(m_pOpt->m_imageFormat, imageFormat);
+	_tcscpy_s(m_pOpt->m_document_folder, _countof(m_pOpt->m_document_folder), folder);
+	_tcscpy_s(m_pOpt->m_prefix, _countof(m_pOpt->m_prefix), prefix);
+	_tcscpy_s(m_pOpt->m_imageFormat, _countof(m_pOpt->m_imageFormat), imageFormat);
 	m_pOpt->m_scaling = scaling;
 	m_pOpt->m_keepAliveInterval = keepAliveInterval;
 #ifdef _Gii
@@ -675,7 +709,9 @@ bool SessionDialog::connect(HWND hwnd)
 
 	if (fUseDSMPlugin) {
 		if (!m_pDSMPlugin->IsLoaded()) {
-			m_pDSMPlugin->LoadPlugin(szDSMPluginFilename, listening);
+			char szPluginA[MAX_PATH];
+			WideCharToMultiByte(CP_ACP, 0, szDSMPluginFilename, -1, szPluginA, MAX_PATH, NULL, NULL);
+			m_pDSMPlugin->LoadPlugin(szPluginA, listening);
 			if (m_pDSMPlugin->IsLoaded()) {
 				if (m_pDSMPlugin->InitPlugin()) {
 					if (!m_pDSMPlugin->SupportsMultithreaded())
@@ -703,11 +739,13 @@ bool SessionDialog::connect(HWND hwnd)
 			// But we must first check that the loaded plugin is the same that
 			// the one currently selected...
 			m_pDSMPlugin->DescribePlugin();
-			if (_stricmp(m_pDSMPlugin->GetPluginFileName(), szDSMPluginFilename)) {
+			if (_tcsicmp((LPCTSTR)m_pDSMPlugin->GetPluginFileName(), szDSMPluginFilename)) {
 				// Unload the previous plugin
 				m_pDSMPlugin->UnloadPlugin();
 				// Load the new selected one
-				m_pDSMPlugin->LoadPlugin(szDSMPluginFilename, listening);
+				char szPluginA[MAX_PATH];
+			WideCharToMultiByte(CP_ACP, 0, szDSMPluginFilename, -1, szPluginA, MAX_PATH, NULL, NULL);
+			m_pDSMPlugin->LoadPlugin(szPluginA, listening);
 			}
 			if (m_pDSMPlugin->IsLoaded()) {
 				if (m_pDSMPlugin->InitPlugin()) {
@@ -738,55 +776,144 @@ bool SessionDialog::connect(HWND hwnd)
 		}
 	}
 
-	char fname[_MAX_PATH];
+	wchar_t fname[_MAX_PATH];
 	int disp = PORT_TO_DISPLAY(m_port);
-	char buffer[_MAX_PATH];
+	wchar_t buffer[_MAX_PATH];
 
-	sprintf_s(fname, "%.15s-%d.vnc", m_host_dialog, (disp > 0 && disp < 100) ? disp : m_port);
+	swprintf_s(fname, _countof(fname), L"%.15s-%d.vnc", m_host_dialog, (disp > 0 && disp < 100) ? disp : m_port);
 	getAppData(buffer);
-	strcat_s(buffer, "\\UltraVNC");
-	_mkdir(buffer);
-	strcat_s(buffer, "\\");
-	strcat_s(buffer, fname);
+	wcscat_s(buffer, _countof(buffer), L"\\UltraVNC");
+	_wmkdir(buffer);
+	wcscat_s(buffer, _countof(buffer), L"\\");
+	wcscat_s(buffer, _countof(buffer), fname);
 	SaveToFile(buffer);
 
 	TCHAR hostname[256];
 	GetDlgItemText(hwnd, IDC_HOSTNAME_EDIT, hostname, 256);		
 	m_pMRU->AddItem(hostname);
-	strcpy_s(m_pOpt->m_InfoMsg, 255, InfoMsg);
-	//if (m_fUseCloud)
-	//	strcpy_s(hostname, "127.0.0.1:5953");
+	_tcsncpy_s(m_pOpt->m_InfoMsg, _countof(m_pOpt->m_InfoMsg), InfoMsg, 254);
 	EndDialog(hwnd, TRUE);
 	return TRUE;
 }
 
 void SessionDialog::ModeSwitch(HWND hwnd, WPARAM wParam)
 {
+	SetTimer(hwnd, 100, 1000, NULL);
 	switch (LOWORD(wParam))
 	{
 	case IDC_RADIOREPEATER:
-		SetTimer(hwnd, 100, 1000, NULL);
 		EnableWindow(GetDlgItem(hwnd, IDC_PROXY_EDIT), true);
 		ShowWindow(GetDlgItem(hwnd, IDC_HOSTNAME_EDIT), true);
 		ShowWindow(GetDlgItem(hwnd, IDC_PROXY_EDIT), true);
-		SetDlgItemText(hwnd, IDC_LINE1, "ID:12345679");
-		SetDlgItemText(hwnd, IDC_LINE2, "repeater:port");
-		ShowWindow(GetDlgItem(hwnd, IDC_GREEN), false);
-		ShowWindow(GetDlgItem(hwnd, IDC_RED), false);
-		ShowWindow(GetDlgItem(hwnd, IDC_YELLOW), false);
+		SetDlgItemText(hwnd, IDC_LINE1, _T("ID:12345679"));
+		SetDlgItemText(hwnd, IDC_LINE2, _T("repeater:port"));
 		EnableWindow(GetDlgItem(hwnd, IDCONNECT), true);
 		break;
 	case IDC_RADIODIRECT:
-		SetTimer(hwnd, 100, 1000, NULL);
 		EnableWindow(GetDlgItem(hwnd, IDC_PROXY_EDIT), false);
 		ShowWindow(GetDlgItem(hwnd, IDC_HOSTNAME_EDIT), true);
 		ShowWindow(GetDlgItem(hwnd, IDC_PROXY_EDIT), false);
-		SetDlgItemText(hwnd, IDC_LINE1, "server[:port]");
-		SetDlgItemText(hwnd, IDC_LINE2, "");
-		ShowWindow(GetDlgItem(hwnd, IDC_GREEN), false);
-		ShowWindow(GetDlgItem(hwnd, IDC_RED), false);
-		ShowWindow(GetDlgItem(hwnd, IDC_YELLOW), false);
+		SetDlgItemText(hwnd, IDC_LINE1, _T("server[:port]"));
+		SetDlgItemText(hwnd, IDC_LINE2, _T(""));
 		EnableWindow(GetDlgItem(hwnd, IDCONNECT), true);
 		break;
 	}
+}
+
+void SessionDialog::InitLanguage(HWND hwnd)
+{
+	HWND hLanguageCombo = GetDlgItem(hwnd, IDC_LANGUAGE_COMBO);
+	if (!hLanguageCombo) return;
+
+	SendMessage(hLanguageCombo, CB_RESETCONTENT, 0, 0);
+
+	// Add English (default - no DLL needed)
+	int idx = SendMessageW(hLanguageCombo, CB_ADDSTRING, 0, (LPARAM)_T("English"));
+	SendMessage(hLanguageCombo, CB_SETITEMDATA, idx, (LPARAM)_wcsdup(L"en"));
+
+	// Get viewer executable path
+	wchar_t exePath[MAX_PATH];
+	wchar_t languagesPath[MAX_PATH];
+	wchar_t dllPath[MAX_PATH];
+	
+	if (GetModuleFileNameW(NULL, exePath, MAX_PATH)) {
+		wchar_t* lastSlash = wcsrchr(exePath, L'\\');
+		if (lastSlash) {
+			*lastSlash = L'\0';
+			swprintf_s(languagesPath, _countof(languagesPath), L"%s\\languages\\vnclang_*.dll", exePath);
+
+			WIN32_FIND_DATAW findData;
+			HANDLE hFind = FindFirstFileW(languagesPath, &findData);
+			
+			if (hFind != INVALID_HANDLE_VALUE) {
+				do {
+					// Extract language code from filename (vnclang_XX.dll)
+					wchar_t* underscore = wcsstr(findData.cFileName, L"_");
+					wchar_t* dot = wcsstr(findData.cFileName, L".");
+					
+					if (underscore && dot && dot > underscore) {
+						wchar_t langCode[8] = {0};
+						size_t len = min(static_cast<size_t>(dot - underscore - 1), static_cast<size_t>(7));
+						wcsncpy_s(langCode, _countof(langCode), underscore + 1, len);
+						
+						// Build full path to DLL
+						swprintf_s(dllPath, _countof(dllPath), L"%s\\languages\\%s", exePath, findData.cFileName);
+						
+						// Load DLL temporarily to read language name
+						HMODULE hLangDll = LoadLibraryExW(dllPath, NULL, LOAD_LIBRARY_AS_DATAFILE);
+						wchar_t displayName[64] = {0};
+						
+						if (hLangDll) {
+							// Try to load IDS_LANGUAGE_NAME string resource from DLL
+							if (LoadStringW(hLangDll, IDS_LANGUAGE_NAME, displayName, _countof(displayName)) > 0) {
+								// Successfully loaded language name from DLL
+								int idx = SendMessageW(hLanguageCombo, CB_ADDSTRING, 0, (LPARAM)displayName);
+								SendMessage(hLanguageCombo, CB_SETITEMDATA, idx, (LPARAM)_wcsdup(langCode));
+							}
+							else {
+								// Fallback: use language code if string not found
+								swprintf_s(displayName, _countof(displayName), L"Language (%s)", langCode);
+								int idx = SendMessageW(hLanguageCombo, CB_ADDSTRING, 0, (LPARAM)displayName);
+								SendMessage(hLanguageCombo, CB_SETITEMDATA, idx, (LPARAM)_wcsdup(langCode));
+							}
+							FreeLibrary(hLangDll);
+						}
+						else {
+							// DLL couldn't be loaded, use code as fallback
+							swprintf_s(displayName, _countof(displayName), L"Language (%s)", langCode);
+							int idx = SendMessageW(hLanguageCombo, CB_ADDSTRING, 0, (LPARAM)displayName);
+							SendMessage(hLanguageCombo, CB_SETITEMDATA, idx, (LPARAM)_wcsdup(langCode));
+						}
+					}
+				} while (FindNextFileW(hFind, &findData));
+				FindClose(hFind);
+			}
+		}
+	}
+
+	// Select current language
+	int count = SendMessage(hLanguageCombo, CB_GETCOUNT, 0, 0);
+	for (int i = 0; i < count; i++) {
+		wchar_t* langCode = (wchar_t*)SendMessage(hLanguageCombo, CB_GETITEMDATA, i, 0);
+		if (langCode && _wcsicmp(langCode, m_pOpt->m_language) == 0) {
+			SendMessage(hLanguageCombo, CB_SETCURSEL, i, 0);
+			return;
+		}
+	}
+	
+	SendMessage(hLanguageCombo, CB_SETCURSEL, 0, 0);
+}
+
+void SessionDialog::SwitchLanguage(const wchar_t* langCode)
+{
+	if (!langCode) return;
+	
+	_tcscpy_s(m_pOpt->m_language, _countof(m_pOpt->m_language), langCode);
+	m_pOpt->SaveOptions(m_pOpt->getDefaultOptionsFileName());
+	
+	// Reload language DLL and all strings
+	ReloadLanguage(langCode);
+	
+	// Close and reopen the dialog to refresh UI
+	EndDialog(SessHwnd, -2);  // Special code to indicate language change
 }

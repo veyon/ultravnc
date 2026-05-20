@@ -365,7 +365,8 @@ typedef struct {
 typedef enum {
     clientInitNotShare      = 0x00, // 00
 	clientInitShared        = 0x01, // 01
-    clientInitExtraMsgSupport = 0x02
+    clientInitExtraMsgSupport = 0x02,
+    clientInitExtraMsgUnicode = 0x04  // Client sends UTF-16LE encoded text (textLength is byte count, not char count)
 } rfbClientInitMsgFlags;
 
 #define sz_rfbClientInitMsg 1
@@ -501,6 +502,8 @@ typedef struct {
 #define rfbEncodingpseudoSession    		0xFFFF8003
 #define rfbEncodingEnableIdleTime           0xFFFF8004
 #define rfbEncodingMonitorInfo              0xFFFF8005
+#define rfbEncodingUnicodeTextChat          0xFFFF8006
+#define rfbEncodingChatFileTransfer         0xFFFF8007
 
 // Same encoder number as in tight 
 /*
@@ -1139,6 +1142,8 @@ typedef struct _rfbFileTransferMsg {
 #define rfbRDrivesList			2 // Request the server's drives list
 #define rfbRDirRecursiveList	3 // Request a server directory content recursive sorted list
 #define rfbRDirRecursiveSize	4 // Request a server directory content recursive size
+// Extension flags ORed into contentParam of rfbDirContentRequest (backward compatible: old servers ignore high bits)
+#define rfbRDirContentUnicode	0x8000 // Client supports unicode WIN32_FIND_DATAW entries in rfbDirPacket
 
 								// rfbDirPacket & rfbCommandReturn  server Answer - content params
 #define rfbADirectory			1 // Reception of a directory name
@@ -1152,6 +1157,11 @@ typedef struct _rfbFileTransferMsg {
 #define rfbADirRename			9 // Response to a rename dir command 
 #define rfbADirRecursiveListItem	10 
 #define rfbADirRecursiveSize		11 
+#define rfbADirInaccessible		18 // Folder exists but cannot be read (permission denied etc.)
+                                   // Old viewers receive contentParam=18 with length=0 and treat it as end-of-dir (graceful degradation)
+#define rfbFD_INACCESSIBLE		0xFFFFFFFE // Sentinel set in WIN32_FIND_DATA.dwReserved0 to flag a subfolder as inaccessible in the listing
+// Extension flag ORed into contentParam of rfbDirPacket directory/file entries when server sends unicode data
+#define rfbADirUnicode			0x8000 // WIN32_FIND_DATAW used instead of WIN32_FIND_DATA
 
 								// rfbCommand Command - content params
 #define rfbCDirCreate			1 // Request the server to create the given directory
@@ -1165,7 +1175,7 @@ typedef struct _rfbFileTransferMsg {
 #define rfbRErrorUnknownCmd     1  // Unknown File Transfer command.
 #define rfbRErrorCmd			0xFFFFFFFF// Error when a command fails on remote side (ret in "size" field)
 
-#define sz_rfbBlockSize			8192  // Size of a File Transfer packet (before compression)
+#define sz_rfbBlockSize			32768  // Size of a File Transfer packet (before compression) - increased from 8192 for better throughput on fast networks
 #define rfbZipDirectoryPrefix   "!UVNCDIR-\0" // Transfered directory are zipped in a file with this prefix. Must end with "-"
 #define sz_rfbZipDirectoryPrefix 9 
 #define rfbDirPrefix			"[ "
@@ -1309,6 +1319,7 @@ typedef struct {
 #define rfbServerRemoteInputsState  1
 #define rfbKeepAliveInterval        2
 #define rfbIdleInputTimeout				3
+#define rfbUnicodeTextChatState     4
 
 typedef struct {
     CARD8   type;          /* always rfbServerState */

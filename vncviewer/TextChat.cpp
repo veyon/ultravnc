@@ -32,8 +32,40 @@ LRESULT CALLBACK SBProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LONG_PTR pDefSBProc;
 extern HINSTANCE m_hInstResDLL;
 
-extern char sz_E1[64];
-extern char sz_E2[64];
+extern wchar_t sz_E1[64];
+extern wchar_t sz_E2[64];
+
+// Convert network bytes (ANSI or UTF-8) to a wide string
+static bool NetBytesToWide(const char* inBytes, int inLen, UINT assumedCodepage, wchar_t* outW, int outCap)
+{
+	if (!outW || outCap <= 0) return false;
+	outW[0] = 0;
+	if (!inBytes || inLen <= 0) return true;
+
+	// Validate UTF-8 assumption: fall back to ACP if invalid
+	if (assumedCodepage == CP_UTF8) {
+		// Quick validation: try conversion with error flag
+		if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, inBytes, inLen, NULL, 0) <= 0)
+			assumedCodepage = CP_ACP;
+	}
+
+	int n = MultiByteToWideChar(assumedCodepage, 0, inBytes, inLen, outW, outCap - 1);
+	if (n <= 0) return false;
+	outW[n] = 0;
+	return true;
+}
+
+// Convert wide string to network bytes (UTF-8 or ACP)
+static int WideToNetBytes(const wchar_t* w, UINT codepage, char* out, int outCap)
+{
+	if (!out || outCap <= 0) return 0;
+	out[0] = 0;
+	if (!w || !w[0]) return 0;
+	int n = WideCharToMultiByte(codepage, 0, w, -1, out, outCap - 1, NULL, NULL);
+	if (n <= 0) return 0;
+	out[n] = 0;
+	return n;
+}
 
 //
 //
@@ -47,34 +79,25 @@ TextChat::TextChat(VNCviewerApp *pApp, ClientConnection *pCC)
 	m_fVisible = false;
 	
 	m_fPersistentTexts = false;
-	m_szLocalText = new char [TEXTMAXSIZE];
-	memset(m_szLocalText, 0, TEXTMAXSIZE);
-	m_szLastLocalText = new char [TEXTMAXSIZE];
-	memset(m_szLastLocalText, 0, TEXTMAXSIZE);
-	m_szRemoteText = new char [TEXTMAXSIZE];
-	memset(m_szRemoteText, 0, TEXTMAXSIZE);
-	m_szRemoteName = new char[MAXNAMESIZE];
-	memset(m_szRemoteName,0,MAXNAMESIZE);
-	m_szLocalName =  new char[MAXNAMESIZE];
-	memset(m_szLocalName,0,MAXNAMESIZE);
+	m_szLocalText    = new wchar_t[TEXTMAXSIZE];
+	memset(m_szLocalText,    0, TEXTMAXSIZE * sizeof(wchar_t));
+	m_szLastLocalText = new wchar_t[TEXTMAXSIZE];
+	memset(m_szLastLocalText, 0, TEXTMAXSIZE * sizeof(wchar_t));
+	m_szRemoteText   = new wchar_t[TEXTMAXSIZE];
+	memset(m_szRemoteText,   0, TEXTMAXSIZE * sizeof(wchar_t));
+	m_szRemoteName   = new wchar_t[MAXNAMESIZE];
+	memset(m_szRemoteName,   0, MAXNAMESIZE  * sizeof(wchar_t));
+	m_szLocalName    = new wchar_t[MAXNAMESIZE];
+	memset(m_szLocalName,    0, MAXNAMESIZE  * sizeof(wchar_t));
 
-	m_szTextBoxBuffer = new char[TEXTMAXSIZE]; // History Text (containing all chat messages from everybody)
-	memset(m_szTextBoxBuffer,0,TEXTMAXSIZE);
+	m_szTextBoxBuffer = new wchar_t[TEXTMAXSIZE];
+	memset(m_szTextBoxBuffer, 0, TEXTMAXSIZE * sizeof(wchar_t));
 
-	unsigned long pcSize=MAXNAMESIZE;
-	if (GetComputerName(m_szLocalName,&pcSize))
-	{
-		if( pcSize >= MAXNAMESIZE)
-		{
-			m_szLocalName[MAXNAMESIZE-4]='.';
-			m_szLocalName[MAXNAMESIZE-3]='.';
-			m_szLocalName[MAXNAMESIZE-2]='.';
-			m_szLocalName[MAXNAMESIZE-1]=0x00;
-		}
-	}
+	unsigned long pcSize = MAXNAMESIZE;
+	GetComputerNameW(m_szLocalName, &pcSize);
 
 	//  Load the Rich Edit control DLL
-	m_hRichEdit = LoadLibrary( "RICHED32.DLL" );
+	m_hRichEdit = LoadLibraryEx( _T("RICHED32.DLL"), NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
 	if (!m_hRichEdit)
 	{  
 		yesUVNCMessageBox(m_hInstResDLL, NULL, sz_E1, sz_E2, MB_ICONEXCLAMATION );
@@ -108,7 +131,7 @@ TextChat::~TextChat()
 // Set text format to a selection in the Chat area
 //
 void TextChat::SetTextFormat(bool bBold /*= false */, bool bItalic /*= false*/
-	, long nSize /*= 0x75*/, const char* szFaceName /*= "MS Sans Serif"*/, DWORD dwColor /*= BLACK*/)
+	, long nSize /*= 0x75*/, const wchar_t* szFaceName /*= L"MS Shell Dlg 2"*/, DWORD dwColor /*= BLACK*/)
 {
 	if ( GetDlgItem( m_hDlg, IDC_CHATAREA_EDIT ) )  //  Sanity Check
 	{		
@@ -129,7 +152,7 @@ void TextChat::SetTextFormat(bool bBold /*= false */, bool bItalic /*= false*/
 		}
 		cf.crTextColor = dwColor;					// set color in AABBGGRR mode (alpha-RGB)
 		cf.yHeight = nSize;							// set size in points
-		strcpy_s( cf.szFaceName,32, szFaceName);
+		wcscpy_s(cf.szFaceName, 32, szFaceName);
 													
 		SendDlgItemMessage( m_hDlg, IDC_CHATAREA_EDIT, EM_SETCHARFORMAT, SCF_SELECTION, (LPARAM)&cf );
 	}
@@ -173,13 +196,23 @@ void TextChat::ProcessTextChatMsg()
 		if (len > TEXTMAXSIZE) return; // Todo: Improve this...
 		if (len == 0)
 		{
-			SetDlgItemText(m_hDlg, IDC_REMOTETEXT_EDIT, "");
-			memset(m_szRemoteText, 0, TEXTMAXSIZE);
+			SetDlgItemTextW(m_hDlg, IDC_REMOTETEXT_EDIT, L"");
+			memset(m_szRemoteText, 0, TEXTMAXSIZE * sizeof(wchar_t));
 		}
 		else
 		{
-			memset(m_szRemoteText, 0, TEXTMAXSIZE);
-			m_pCC->ReadExact(m_szRemoteText, len);
+			char* raw = new char[len + 1];
+			raw[len] = 0;
+			m_pCC->ReadExact(raw, len);
+
+			memset(m_szRemoteText, 0, TEXTMAXSIZE * sizeof(wchar_t));
+			UINT assumed = m_pCC->m_supportsUnicodeTextChat ? CP_UTF8 : CP_ACP;
+			if (!NetBytesToWide(raw, (int)len, assumed, m_szRemoteText, TEXTMAXSIZE)) {
+				// fallback: force ACP
+				NetBytesToWide(raw, (int)len, CP_ACP, m_szRemoteText, TEXTMAXSIZE);
+			}
+			delete[] raw;
+
 			PrintMessage(m_szRemoteText, m_szRemoteName, RED);
 			ShowChatWindow(true); // Show the chat window on new message reception
 		}
@@ -192,6 +225,7 @@ void TextChat::ProcessTextChatMsg()
 //
 void TextChat::SendTextChatRequest(int nMsg)
 {
+	if (m_pCC->m_bKillThread) return;
     rfbTextChatMsg tcm;
 	memset(&tcm, 0, sizeof(rfbTextChatMsg));
     tcm.type = rfbTextChat;
@@ -204,83 +238,59 @@ void TextChat::SendTextChatRequest(int nMsg)
 // Output messages in the chat area 
 //
 //
-void TextChat::PrintMessage(const char* szMessage,const char* szSender,DWORD dwColor /*= BLACK*/)
+void TextChat::PrintMessage(const wchar_t* szMessage, const wchar_t* szSender, DWORD dwColor /*= BLACK*/)
 {
-	// char szTextBoxBuffer[TEXTMAXSIZE];			
-	// memset(szTextBoxBuffer,0,TEXTMAXSIZE);			
 	CHARRANGE cr;	
 	
 	GETTEXTLENGTHEX lpG;
 	lpG.flags = GTL_NUMBYTES;
-	lpG.codepage = CP_ACP; // ANSI
+	lpG.codepage = CP_UTF8;
 
 	int nLen = SendDlgItemMessage(m_hDlg, IDC_CHATAREA_EDIT, EM_GETTEXTLENGTHEX, (WPARAM)&lpG, 0L);
-	if (nLen + 32 > TEXTMAXSIZE )
+	if (nLen + 32 > TEXTMAXSIZE)
 	{
-		memset(m_szTextBoxBuffer, 0, TEXTMAXSIZE);
-		strcpy_s(m_szTextBoxBuffer, TEXTMAXSIZE, "------------------------------------------------------------------------------------------------------------------------\n");
-		SetDlgItemText(m_hDlg, IDC_CHATAREA_EDIT, m_szTextBoxBuffer);
+		SetDlgItemTextW(m_hDlg, IDC_CHATAREA_EDIT, L"------------------------------------------------------------------------------------------------------------------------\n");
+		nLen = 0;
 	}
+
+	// Helper: insert wide text at end of RichEdit using EM_SETTEXTEX with CP_UTF8
+	auto InsertWide = [&](const wchar_t* text) {
+		char utf8[TEXTMAXSIZE];
+		int n = WideCharToMultiByte(CP_UTF8, 0, text, -1, utf8, TEXTMAXSIZE - 1, NULL, NULL);
+		if (n <= 0) return;
+		utf8[n] = 0;
+		SETTEXTEX st;
+		st.flags = ST_SELECTION;
+		st.codepage = CP_UTF8;
+		SendDlgItemMessage(m_hDlg, IDC_CHATAREA_EDIT, EM_SETTEXTEX, (WPARAM)&st, (LPARAM)utf8);
+	};
 
 	// Todo: test if chat text + sender + message > TEXTMAXSIZE -> Modulo display
 	if (szSender != NULL) //print the sender's name
 	{
-		/*
-		// Time
-		char tbuffer[9];
-		_tzset();
-		_strtime(tbuffer);
-
-		SendDlgItemMessage(m_hDlg, IDC_CHATAREA_EDIT,WM_GETTEXT, TEXTMAXSIZE-1,(LPARAM)m_szTextBoxBuffer);
-		cr.cpMax = strlen(m_szTextBoxBuffer);	 // Select the last caracter to make the text insertion
-		cr.cpMin  = cr.cpMax;
-		SendDlgItemMessage(m_hDlg, IDC_CHATAREA_EDIT,EM_EXSETSEL,0,(LPARAM) &cr);
-		SetTextFormat(false, false, 0x75, "MS Sans Serif", GREY);
-		_snprintf(m_szTextBoxBuffer, TEXTMAXSIZE-1, "[%s]", tbuffer);		
-		SendDlgItemMessage(m_hDlg, IDC_CHATAREA_EDIT,EM_REPLACESEL,FALSE,(LPARAM)m_szTextBoxBuffer); // Replace the selection with the message
-		*/
-
-		// Sender
-		// SendDlgItemMessage(m_hDlg, IDC_CHATAREA_EDIT,WM_GETTEXT, TEXTMAXSIZE-1,(LPARAM)m_szTextBoxBuffer);
-		cr.cpMax = nLen; //strlen(m_szTextBoxBuffer);	 // Select the last caracter to make the text insertion
-		cr.cpMin  = cr.cpMax;
+		cr.cpMax = nLen;
+		cr.cpMin = cr.cpMax;
 		SendDlgItemMessage(m_hDlg, IDC_CHATAREA_EDIT, EM_EXSETSEL, 0, (LPARAM)&cr);
-		/***/
 
-		// [v1.0.2-jp1 fix-->]
-		//SetTextFormat(false, false, 0x75, "MS Sans Serif", dwColor);
-		if(!m_hInstResDLL){
-			SetTextFormat(false, false, 0x75, "MS Sans Serif", dwColor);
-		}
-		else{
-			SetTextFormat(false, false, 0xb4, "ＭＳ ゴシック", dwColor);
-		}
-		// [<--v1.0.2-jp1 fix]
+		// [v1.0.2-jp1 fix]
+		SetTextFormat(false, false, 0x75, L"MS Shell Dlg 2", dwColor);
 
-		_snprintf_s(m_szTextBoxBuffer, TEXTMAXSIZE -1, _TRUNCATE, "<%s>: ", szSender);
-		SendDlgItemMessage(m_hDlg, IDC_CHATAREA_EDIT,EM_REPLACESEL,FALSE,(LPARAM)m_szTextBoxBuffer); // Replace the selection with the message
+		_snwprintf_s(m_szTextBoxBuffer, TEXTMAXSIZE - 1, _TRUNCATE, L"<%s>: ", szSender);
+		InsertWide(m_szTextBoxBuffer);
 	}
 
 	nLen = SendDlgItemMessage(m_hDlg, IDC_CHATAREA_EDIT, EM_GETTEXTLENGTHEX, (WPARAM)&lpG, 0L);
 	if (szMessage != NULL) //print the sender's message
 	{	
-		SendDlgItemMessage(m_hDlg, IDC_CHATAREA_EDIT,WM_GETTEXT, TEXTMAXSIZE-1,(LPARAM)m_szTextBoxBuffer);
-		cr.cpMax = nLen; //strlen(m_szTextBoxBuffer);	 // Select the last caracter to make the text insertion
-		cr.cpMin  = cr.cpMax;
-		SendDlgItemMessage(m_hDlg, IDC_CHATAREA_EDIT,EM_EXSETSEL,0,(LPARAM) &cr);
-		/***/
-		// [v1.0.2-jp1 fix-->]
-		//SetTextFormat(false, false, 0x75, "MS Sans Serif", dwColor != GREY ? BLACK : GREY);	
-		if(!m_hInstResDLL){
-			SetTextFormat(false, false, 0x75, "MS Sans Serif", dwColor != GREY ? BLACK : GREY);	
-		}
-		else{
-			SetTextFormat(false, false, 0xb4, "ＭＳ ゴシック", dwColor != GREY ? BLACK : GREY);
-		}
-		// [<--v1.0.2-jp1 fix]
+		cr.cpMax = nLen;
+		cr.cpMin = cr.cpMax;
+		SendDlgItemMessage(m_hDlg, IDC_CHATAREA_EDIT, EM_EXSETSEL, 0, (LPARAM)&cr);
 
-		_snprintf_s(m_szTextBoxBuffer, TEXTMAXSIZE-1, _TRUNCATE, "%s", szMessage);
-		SendDlgItemMessage(m_hDlg, IDC_CHATAREA_EDIT, EM_REPLACESEL, FALSE, (LPARAM)m_szTextBoxBuffer); 
+		// [v1.0.2-jp1 fix]
+		SetTextFormat(false, false, 0x75, L"MS Shell Dlg 2", dwColor != GREY ? BLACK : GREY);
+
+		_snwprintf_s(m_szTextBoxBuffer, TEXTMAXSIZE - 1, _TRUNCATE, L"%s", szMessage);
+		InsertWide(m_szTextBoxBuffer);
 	}
 
 	// Scroll down the chat window
@@ -303,23 +313,43 @@ void TextChat::PrintMessage(const char* szMessage,const char* szSender,DWORD dwC
 //
 void TextChat::SendLocalText(void)
 {
-	// We keep it because we could use it
-	// for future retype functionality. (F3)
-	memcpy(m_szLastLocalText, m_szLocalText, strlen(m_szLocalText));
+	// Keep for future retype functionality (F3)
+	wcsncpy_s(m_szLastLocalText, TEXTMAXSIZE, m_szLocalText, _TRUNCATE);
+
+	// Read input as UTF-16 directly from the control
+	GetDlgItemTextW(m_hDlg, IDC_INPUTAREA_EDIT, m_szLocalText, TEXTMAXSIZE - 2);
+	if (m_szLocalText[0] == 0) {
+		SetDlgItemTextW(m_hDlg, IDC_INPUTAREA_EDIT, L"");
+		return;
+	}
+	// Keep original behavior of appending newline
+	wcscat_s(m_szLocalText, TEXTMAXSIZE, L"\n");
 
 	PrintMessage(m_szLocalText, m_szLocalName, BLUE);
 
-    rfbTextChatMsg tcm;
+	// Backward compatible send:
+	// - New UltraVNC server: send UTF-8 bytes.
+	// - Legacy server: send ACP bytes.
+	char sendBytes[TEXTMAXSIZE * 3]; // UTF-8 can be up to 3x wchar count
+	UINT sendCp = m_pCC->m_supportsUnicodeTextChat ? CP_UTF8 : CP_ACP;
+	int sendLen = WideToNetBytes(m_szLocalText, sendCp, sendBytes, sizeof(sendBytes));
+	if (sendLen <= 0 && sendCp != CP_UTF8) {
+		// fallback to UTF-8 if ACP conversion failed
+		sendLen = WideToNetBytes(m_szLocalText, CP_UTF8, sendBytes, sizeof(sendBytes));
+	}
+
+	rfbTextChatMsg tcm;
 	memset(&tcm, 0, sizeof(rfbTextChatMsg));
-    tcm.type = rfbTextChat;
-	tcm.length = Swap32IfLE(strlen(m_szLocalText));
+	tcm.type = rfbTextChat;
+	tcm.length = Swap32IfLE((CARD32)sendLen);
 	//adzm 2010-09
-    m_pCC->WriteExactQueue((char *)&tcm, sz_rfbTextChatMsg, rfbTextChat);
-	m_pCC->WriteExact((char *)m_szLocalText, strlen(m_szLocalText));
+	m_pCC->WriteExactQueue((char *)&tcm, sz_rfbTextChatMsg, rfbTextChat);
+	if (sendLen > 0) {
+		m_pCC->WriteExact((char *)sendBytes, sendLen);
+	}
 
 	//and we clear the input box
-	SetDlgItemText(m_hDlg, IDC_INPUTAREA_EDIT, "");
-	return;
+	SetDlgItemTextW(m_hDlg, IDC_INPUTAREA_EDIT, L"");
 }
 
 
@@ -328,7 +358,8 @@ void TextChat::SendLocalText(void)
 //
 int TextChat::DoDialog()
 {
- 	return DialogBoxParam(pApp->m_instance, DIALOG_MAKEINTRESOURCE(IDD_TEXTCHAT_DLG), 
+	extern HINSTANCE m_hInstResDLL;
+ 	return DialogBoxParam(m_hInstResDLL, DIALOG_MAKEINTRESOURCE(IDD_TEXTCHAT_DLG), 
 							NULL, (DLGPROC) TextChatDlgProc, (LONG_PTR) this);
 }
 
@@ -445,46 +476,39 @@ BOOL CALLBACK TextChat::TextChatDlgProc(  HWND hWnd,  UINT uMsg,  WPARAM wParam,
 			_this->m_hWnd = hWnd;
 			_this->m_hDlg = hWnd;
 			
-			if (_snprintf_s(_this->m_szRemoteName, MAXNAMESIZE-1, _TRUNCATE, "%s", _this->m_pCC->m_desktopName) < 0 )
-			{
-				_this->m_szRemoteName[MAXNAMESIZE-4]='.';
-				_this->m_szRemoteName[MAXNAMESIZE-3]='.';
-				_this->m_szRemoteName[MAXNAMESIZE-2]='.';
-				_this->m_szRemoteName[MAXNAMESIZE-1]=0x00;
-			}	
-			
+			wcsncpy_s(_this->m_szRemoteName, MAXNAMESIZE, _this->m_pCC->m_desktopName, _TRUNCATE);
 
-			const long lTitleBufSize=256;			
-			char szTitle[lTitleBufSize] = {};
-
-			_snprintf_s(szTitle, lTitleBufSize-1, _TRUNCATE, "UltraVNC Viewer - Chat with <%s>",_this->m_szRemoteName);
-			SetWindowText(hWnd, szTitle);			
+			wchar_t szTitle[256] = {};
+			_snwprintf_s(szTitle, 256, _TRUNCATE, L"UltraVNC Viewer - Chat with <%s>", _this->m_szRemoteName);
+			SetWindowTextW(hWnd, szTitle);
 
 			// Trunc the remote name for display in Chat Area before the first parenthesis, if any.
-			char *p = strchr(_this->m_szRemoteName, '('); 
-			if (p != NULL) *(p - 1) = '\0';
+			wchar_t *p = wcschr(_this->m_szRemoteName, L'(');
+			if (p != NULL) *(p - 1) = L'\0';
 
 			//  Chat area			
 			_this->SetTextFormat(); //  Set character formatting and background color
 			SendDlgItemMessage( hWnd, IDC_CHATAREA_EDIT, EM_SETBKGNDCOLOR, FALSE, 0xFFFFFF ); 
 
-			memset(_this->m_szLocalText, 0, TEXTMAXSIZE);
+			memset(_this->m_szLocalText, 0, TEXTMAXSIZE * sizeof(wchar_t));
 			// if (!_this->m_fPersistentTexts)
 			{
-				memset(_this->m_szLastLocalText, 0, TEXTMAXSIZE);
-				memset(_this->m_szTextBoxBuffer, 0, TEXTMAXSIZE); // Clear Chat area 
+				memset(_this->m_szLastLocalText, 0, TEXTMAXSIZE * sizeof(wchar_t));
+				memset(_this->m_szTextBoxBuffer, 0, TEXTMAXSIZE * sizeof(wchar_t)); // Clear Chat area 
 				 //  Load and display diclaimer message
 				// sf@2005 - Only if the DSMplugin is used
 				if (_this->m_szRemoteText)
 				if (!_this->m_pCC->m_fUsePlugin)
 				{
-					if (LoadString(_this->m_pApp->m_instance, IDS_WARNING, _this->m_szRemoteText, TEXTMAXSIZE -1) )
-						_this->PrintMessage(_this->m_szRemoteText, NULL ,GREY);
+					if (LoadStringW(m_hInstResDLL, IDS_WARNING, _this->m_szRemoteText, TEXTMAXSIZE - 1))
+				{
+					_this->PrintMessage(_this->m_szRemoteText, NULL, GREY);
+				}
 				}
 			}
 
-			if (_this->m_szLocalText) SetDlgItemText(hWnd, IDC_INPUTAREA_EDIT, _this->m_szLocalText);
-			if (_this->m_szTextBoxBuffer) SetDlgItemText(hWnd, IDC_CHATAREA_EDIT, _this->m_szTextBoxBuffer); // Chat area
+			if (_this->m_szLocalText)    SetDlgItemTextW(hWnd, IDC_INPUTAREA_EDIT, _this->m_szLocalText);
+			if (_this->m_szTextBoxBuffer) SetDlgItemTextW(hWnd, IDC_CHATAREA_EDIT,  _this->m_szTextBoxBuffer);
 
 			// Scroll down the chat window
 			// The following seems necessary under W9x & Me if we want the Edit to scroll to bottom...
@@ -540,13 +564,8 @@ BOOL CALLBACK TextChat::TextChatDlgProc(  HWND hWnd,  UINT uMsg,  WPARAM wParam,
 			return TRUE;
 
 		case IDC_SEND_B:
-			{
-			memset(_this->m_szLocalText,0,TEXTMAXSIZE);
-			UINT nRes = GetDlgItemText( hWnd, IDC_INPUTAREA_EDIT, _this->m_szLocalText, TEXTMAXSIZE-1);
-			strcat_s(_this->m_szLocalText, TEXTMAXSIZE, "\n");
-			_this->SendLocalText();		
+			_this->SendLocalText();
 			SetFocus(GetDlgItem(hWnd, IDC_INPUTAREA_EDIT));
-			}
 			return TRUE;
 
 		case IDC_HIDE_B:
@@ -554,14 +573,13 @@ BOOL CALLBACK TextChat::TextChatDlgProc(  HWND hWnd,  UINT uMsg,  WPARAM wParam,
 			return TRUE;
 
 		case IDC_INPUTAREA_EDIT:
-			if(HIWORD(wParam) == EN_UPDATE)			
+			if (HIWORD(wParam) == EN_UPDATE)
 			{
-				memset(_this->m_szLocalText,0,TEXTMAXSIZE);
-				UINT nRes = GetDlgItemText( hWnd, IDC_INPUTAREA_EDIT, _this->m_szLocalText, TEXTMAXSIZE);
-				if (strstr(_this->m_szLocalText, "\n") != 0 )
+				GetDlgItemTextW(hWnd, IDC_INPUTAREA_EDIT, _this->m_szLocalText, TEXTMAXSIZE - 1);
+				if (wcschr(_this->m_szLocalText, L'\n') != nullptr)
 				{
-					_this->SendLocalText();			
-				}								
+					_this->SendLocalText();
+				}
 			}
 			return TRUE;
 		}

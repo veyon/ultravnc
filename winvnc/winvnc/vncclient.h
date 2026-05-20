@@ -55,7 +55,7 @@ typedef std::list<vncClientId> vncClientList;
 #include "TextChat.h" // sf@2002 - Text Chat
 #endif
 #ifdef FILETRANSFER_SUPPORT
-#include "ZipUnZip32/ZipUnZip32.h"
+#include "common/ZipUnzip/MiniZipNG.h"
 #endif
 //#include "timer.h"
 // adzm - 2010-07 - Extended clipboard
@@ -74,6 +74,7 @@ class vncClientUpdateThread;
 #define FT_PROTO_VERSION_OLD 1  // <= RC18 UltraVNC Server "fOldFTPRotocole" version
 #define FT_PROTO_VERSION_2   2  // base File Transfer Protocol
 #define FT_PROTO_VERSION_3   3  // new File Transfer Protocol session messages
+#define FT_PROTO_VERSION_4   4  // Adds: rfbADirInaccessible, rfbRDirContentUnicode/rfbADirUnicode
 
 #ifdef _Gii
 struct MyTouchINfo
@@ -173,12 +174,12 @@ public:
 	//     AND no changed or copied updates intersect it
 	virtual BOOL UpdateWanted() {
 		omni_mutex_lock l(GetUpdateLock(),324);
-#ifdef _DEBUG
+/*#ifdef _DEBUG
 										OutputDevMessage("%i %i %i %i",!m_incr_rgn.is_empty(),
 											m_incr_rgn.intersect(m_update_tracker.get_changed_region()).is_empty() ,
 											m_incr_rgn.intersect(m_update_tracker.get_cached_region()).is_empty() ,
 											m_incr_rgn.intersect(m_update_tracker.get_copied_region()).is_empty());
-#endif
+#endif*/
 		if (sendingUpdate == true)		
 			return true;
 		BOOL value =!m_incr_rgn.is_empty() && m_incr_rgn.intersect(m_update_tracker.get_changed_region()).is_empty() &&
@@ -229,6 +230,7 @@ public:
 	};
 
 	virtual void EnableJap(bool enable) {m_jap = enable;};
+	virtual void ForceCursorShape(bool enable) { m_ForceCursorShape = enable; };
 	virtual void EnableUnicode(bool enable) {m_unicode = enable;};
 	virtual void SetCapability(int capability) {m_capability = capability;};
 
@@ -369,7 +371,7 @@ public:
 #endif
 	bool cl_connected;
 	int filetransferrequestPart2(int nDirZipRet);
-	char m_szSrcFileName[MAX_PATH + 64]; // Path + timestring
+	char m_szSrcFileName[MAX_PATH * 4]; // Path + timestring
 	HANDLE ThreadHandleCompressFolder;
 	// sf@2002 
 	// Update routines
@@ -500,7 +502,10 @@ protected:
 	bool			m_pointerenabled = true;
 	bool			m_GiiEnabled = true;
 	bool			m_jap;
+	bool			m_ForceCursorShape;
 	bool			m_unicode;
+	bool			m_supportsUnicodeTextChat;
+	bool			m_supportsChatFileTransfer;
 	int				m_capability;
 	vncClientId		m_id;
 	long			m_lConnectTime;
@@ -581,9 +586,11 @@ protected:
 	// Modif sf@2002 - File Transfer 
 	BOOL m_fFileTransferRunning;
 #ifdef FILETRANSFER_SUPPORT
-	CZipUnZip32		*m_pZipUnZip;
+	CMiniZipNG		*m_pZipUnZip;
 
-	char  m_szFullDestName[MAX_PATH + 64];
+	bool m_fClientSupportsUnicode; // Set if client responds to protocol version (UTF-8 capable)
+
+	char  m_szFullDestName[MAX_PATH * 4];
 	char  m_szFileTime[18];
 	char* m_pBuff;
 	char* m_pCompBuff;

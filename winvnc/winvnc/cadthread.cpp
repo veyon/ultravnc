@@ -6,9 +6,10 @@
 //
 // SPDX-FileCopyrightText: Copyright (C) 2002-2025 UltraVNC Team Members. All Rights Reserved.
 // SPDX-FileCopyrightText: Copyright (C) 1999-2002 Vdacc-VNC & eSVNC Projects. All Rights Reserved.
-//
 
 
+#pragma warning(push)
+#pragma warning(disable: 4996)
 #include "cadthread.h"
 #include "Localization.h"
 #include "SettingsManager.h"
@@ -185,15 +186,14 @@ DWORD WINAPI vncCad::Cadthread(LPVOID lpParam)
 	GetVersionEx(&OSversion);
 	//
 	if (OSversion.dwMajorVersion >= 6 && settings->RunningFromExternalService() && !IsSoftwareCadEnabled()) {
-		DWORD result = MessageBoxSecure(NULL, "UAC is disabled, make registry changes to allow CAD", "Warning", MB_YESNO);
+		DWORD result = MessageBoxSecure(NULL, sz_ID_UAC_DISABLED_REGISTRY, sz_ID_WARNING_CAPTION, MB_YESNO);
 		if (result == IDYES) {
 			HANDLE hPToken = DesktopUsersToken::getInstance()->getDesktopUsersToken();
 			if (hPToken) {
-				char dir[MAX_PATH];
+				char dir[MAX_PATH + 32];
 				char exe_file_name[MAX_PATH];
 				GetModuleFileName(0, exe_file_name, MAX_PATH);
-				strcpy_s(dir, exe_file_name);
-				strcat_s(dir, " -softwarecadhelper");
+				sprintf_s(dir, "\"%s\" -softwarecadhelper", exe_file_name);
 
 				STARTUPINFO          StartUPInfo{};
 				PROCESS_INFORMATION  ProcessInfo{};
@@ -247,3 +247,4 @@ gotome:
 		CloseDesktop(desktop);
 	return 0;
 }
+#pragma warning(pop)

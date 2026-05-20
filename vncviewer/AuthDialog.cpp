@@ -27,39 +27,74 @@ AuthDialog::AuthDialog()
 	m_passwd[0]=__T('\0');
 	//adzm 2010-05-12 - passphrase
 	m_bPassphraseMode = false;
+	m_hwndStatus = NULL;
+	m_className[0] = L'\0';
+	m_statusWasVisible = false;
 }
 
 AuthDialog::~AuthDialog()
 {
 }
 
+void AuthDialog::SetStatusWindow(HWND hwndStatus, const wchar_t* className)
+{
+	m_hwndStatus = hwndStatus;
+	if (className)
+		wcscpy_s(m_className, _countof(m_className), className);
+	else
+		m_className[0] = L'\0';
+}
+
 int AuthDialog::DoDialog(DialogType dialogType, TCHAR IN_host[MAX_HOST_NAME_LEN], int IN_port, char hex[24], char catchphrase[1024])
 {
 	TCHAR tempchar[10];
-	strcpy_s(_host, IN_host);
-	strcat_s(_host, ":");
-	strcat_s(_host, _itoa(IN_port, tempchar, 10));
+	_tcscpy_s(_host, _countof(_host), IN_host);
+	_tcscat_s(_host, _countof(_host), _T(":"));
+	_itot_s(IN_port, tempchar, _countof(tempchar), 10);
+	_tcscat_s(_host, _countof(_host), tempchar);
 	this->dialogType = dialogType;
 	strcpy(this->hex, hex);
 	strcpy(this->catchphrase, catchphrase);
+	
+	// Hide status window during authentication if classname is used
+	m_statusWasVisible = false;
+	if (wcslen(m_className) > 0 && m_hwndStatus && IsWindowVisible(m_hwndStatus)) {
+		m_statusWasVisible = true;
+		ShowWindow(m_hwndStatus, SW_HIDE);
+	}
+	
+	extern HINSTANCE m_hInstResDLL;
+	int result = 0;
 	switch (dialogType)
 	{
 	case dtUserPass:
-		return DialogBoxParam(pApp->m_instance, DIALOG_MAKEINTRESOURCE(IDD_AUTH_DIALOG), NULL, (DLGPROC)DlgProc, (LONG_PTR)this);
+		result = DialogBoxParam(m_hInstResDLL, DIALOG_MAKEINTRESOURCE(IDD_AUTH_DIALOG), NULL, (DLGPROC)DlgProc, (LONG_PTR)this);
+		break;
 	case dtPass:
-		return DialogBoxParam(pApp->m_instance, DIALOG_MAKEINTRESOURCE(IDD_AUTH_DIALOG3), NULL, (DLGPROC)DlgProc1, (LONG_PTR)this);
+		result = DialogBoxParam(m_hInstResDLL, DIALOG_MAKEINTRESOURCE(IDD_AUTH_DIALOG3), NULL, (DLGPROC)DlgProc1, (LONG_PTR)this);
+		break;
 	case  dtUserPassNotEncryption:
-		return DialogBoxParam(pApp->m_instance, DIALOG_MAKEINTRESOURCE(IDD_AUTH_DIALOG2), NULL, (DLGPROC)DlgProc, (LONG_PTR)this);
+		result = DialogBoxParam(m_hInstResDLL, DIALOG_MAKEINTRESOURCE(IDD_AUTH_DIALOG2), NULL, (DLGPROC)DlgProc, (LONG_PTR)this);
+		break;
 	case dtPassUpgrade:
-		return DialogBoxParam(pApp->m_instance, DIALOG_MAKEINTRESOURCE(IDD_AUTH_DIALOG1), NULL, (DLGPROC)DlgProc1, (LONG_PTR)this);
+		result = DialogBoxParam(m_hInstResDLL, DIALOG_MAKEINTRESOURCE(IDD_AUTH_DIALOG1), NULL, (DLGPROC)DlgProc1, (LONG_PTR)this);
+		break;
 	case dtUserPassRSA:
 		m_bPassphraseMode = true;
-		return DialogBoxParam(pApp->m_instance, DIALOG_MAKEINTRESOURCE(IDD_AUTH_DIALOG4), NULL, (DLGPROC)DlgProc, (LONG_PTR)this);
+		result = DialogBoxParam(m_hInstResDLL, DIALOG_MAKEINTRESOURCE(IDD_AUTH_DIALOG4), NULL, (DLGPROC)DlgProc, (LONG_PTR)this);
+		break;
 	case dtPassRSA:
 		m_bPassphraseMode = true;
-		return DialogBoxParam(pApp->m_instance, DIALOG_MAKEINTRESOURCE(IDD_AUTH_DIALOG5), NULL, (DLGPROC)DlgProc1, (LONG_PTR)this);
+		result = DialogBoxParam(m_hInstResDLL, DIALOG_MAKEINTRESOURCE(IDD_AUTH_DIALOG5), NULL, (DLGPROC)DlgProc1, (LONG_PTR)this);
+		break;
 	}
-	return 0;
+	
+	// Restore status window after authentication if classname is used
+	if (m_statusWasVisible && m_hwndStatus) {
+		ShowWindow(m_hwndStatus, SW_SHOW);
+	}
+	
+	return result;
 }
 
 BOOL CALLBACK AuthDialog::DlgProc(  HWND hwnd,  UINT uMsg,  
@@ -86,12 +121,12 @@ BOOL CALLBACK AuthDialog::DlgProc(  HWND hwnd,  UINT uMsg,
 			//CentreWindow(hwnd);
 			TCHAR tempchar[MAX_HOST_NAME_LEN];
 			GetWindowText(hwnd, tempchar, MAX_HOST_NAME_LEN);
-			strcat_s(tempchar, "   ");
-			strcat_s(tempchar, _this->_host);
+			_tcscat_s(tempchar, _countof(tempchar), _T("   "));
+			_tcscat_s(tempchar, _countof(tempchar), _this->_host);
 			SetWindowText(hwnd, tempchar);
 			SetForegroundWindow(hwnd);
-			SetDlgItemText(hwnd, IDC_CATCHPHRASE, _this->catchphrase);
-			SetDlgItemText(hwnd, IDC_SIGNATURE, _this->hex);
+			{ wchar_t _wcp[1024]; MultiByteToWideChar(CP_UTF8,0,_this->catchphrase,-1,_wcp,1024); SetDlgItemTextW(hwnd, IDC_CATCHPHRASE, _wcp); }
+			{ wchar_t _whx[64]; MultiByteToWideChar(CP_UTF8,0,_this->hex,-1,_whx,64); SetDlgItemTextW(hwnd, IDC_SIGNATURE, _whx); }
 			HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDR_TRAY));
 			SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
 			SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
@@ -101,11 +136,11 @@ BOOL CALLBACK AuthDialog::DlgProc(  HWND hwnd,  UINT uMsg,
 		switch (LOWORD(wParam)) {
 		case IDOK:
 			{
-				UINT res= GetDlgItemText( hwnd,  IDC_PASSWD_EDIT,
+				UINT res= GetDlgItemTextA( hwnd,  IDC_PASSWD_EDIT,
 					_this->m_passwd, 256);
-				res= GetDlgItemText( hwnd,  IDD_DOMAIN,
+				res= GetDlgItemTextA( hwnd,  IDD_DOMAIN,
 					_this->m_domain, 256);
-				res= GetDlgItemText( hwnd,  IDD_USER_NAME,
+				res= GetDlgItemTextA( hwnd,  IDD_USER_NAME,
 					_this->m_user, 256);
 				
 				EndDialog(hwnd, TRUE);
@@ -143,11 +178,11 @@ BOOL CALLBACK AuthDialog::DlgProc1(  HWND hwnd,  UINT uMsg,
 			//CentreWindow(hwnd);
 			TCHAR tempchar[MAX_HOST_NAME_LEN];
 			GetWindowText(hwnd, tempchar, MAX_HOST_NAME_LEN);
-			strcat_s(tempchar, "   ");
-			strcat_s(tempchar, _this->_host);
+			_tcscat_s(tempchar, _countof(tempchar), _T("   "));
+			_tcscat_s(tempchar, _countof(tempchar), _this->_host);
 			SetWindowText(hwnd, tempchar);
-			SetDlgItemText(hwnd, IDC_CATCHPHRASE, _this->catchphrase);
-			SetDlgItemText(hwnd, IDC_SIGNATURE, _this->hex);
+			{ wchar_t _wcp[1024]; MultiByteToWideChar(CP_UTF8,0,_this->catchphrase,-1,_wcp,1024); SetDlgItemTextW(hwnd, IDC_CATCHPHRASE, _wcp); }
+			{ wchar_t _whx[64]; MultiByteToWideChar(CP_UTF8,0,_this->hex,-1,_whx,64); SetDlgItemTextW(hwnd, IDC_SIGNATURE, _whx); }
 			HICON hIcon = LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDR_TRAY));
 			SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
 			SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
@@ -157,7 +192,7 @@ BOOL CALLBACK AuthDialog::DlgProc1(  HWND hwnd,  UINT uMsg,
 		switch (LOWORD(wParam)) {
 		case IDOK:
 			{
-				UINT res= GetDlgItemText( hwnd,  IDC_PASSWD_EDIT,
+				UINT res= GetDlgItemTextA( hwnd,  IDC_PASSWD_EDIT,
 					_this->m_passwd, 256);
 				EndDialog(hwnd, TRUE);
 

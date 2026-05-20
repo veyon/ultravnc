@@ -7,6 +7,7 @@
 // SPDX-FileCopyrightText: Copyright (C) 2002-2025 UltraVNC Team Members. All Rights Reserved.
 // SPDX-FileCopyrightText: Copyright (C) 1999-2002 Vdacc-VNC & eSVNC Projects. All Rights Reserved.
 //
+#pragma warning(disable: 4996)
 
 
 #ifndef SC_20
@@ -19,7 +20,9 @@
 #include <userenv.h>
 #include <shlobj.h>
 #include <direct.h>
+#include <errno.h>
 #include <fstream>
+#include "Localization.h"
 
 
 
@@ -40,14 +43,81 @@ char UltraVNCService::configfilename[MAX_PATH] = "";
 char UltraVNCService::inifile[MAX_PATH] = "";
 IniFile UltraVNCService::iniFileService;
 
+// Constants for portable mode and configuration
+const char* SERVICE_PORTABLE_MARKER_FILE = "ultravnc.portable";
+const char* SERVICE_CONFIG_SUBFOLDER = "\\UltraVNC";
+
 void GetServiceExecutablePath(char* path, size_t size) {
 	if (GetModuleFileName(NULL, path, static_cast<DWORD>(size)))
 	{
 		char* p = strrchr(path, '\\');
-		*p = '\0';
+		if (p) *p = '\0';
 	}
 	else
-		path = '\0';
+		path[0] = '\0';
+}
+
+// Check if running in portable mode (service version)
+// Portable mode is detected by the presence of "ultravnc.portable" file in the application folder
+bool IsServicePortableMode(const char* appFolder) {
+	char portableMarker[MAX_PATH]{};
+	strcpy_s(portableMarker, appFolder);
+	strcat_s(portableMarker, "\\");
+	strcat_s(portableMarker, SERVICE_PORTABLE_MARKER_FILE);
+	
+	// Check if marker file exists
+	std::ifstream markerFile(portableMarker);
+	bool isPortable = markerFile.good();
+	markerFile.close();
+	
+	return isPortable;
+}
+
+// Migrate INI file from install folder to ProgramData (service version)
+// Returns true if migration was performed or file already exists in target
+bool MigrateServiceIniToProgramData(const char* installFolderPath, const char* programDataPath, const char* configFileName) {
+	char sourceIni[MAX_PATH]{};
+	char targetIni[MAX_PATH]{};
+	char targetFolder[MAX_PATH]{};
+
+	// Build paths
+	strcpy_s(sourceIni, installFolderPath);
+	strcat_s(sourceIni, "\\");
+	strcat_s(sourceIni, configFileName);
+
+	strcpy_s(targetIni, programDataPath);
+	strcat_s(targetIni, SERVICE_CONFIG_SUBFOLDER);
+	strcpy_s(targetFolder, targetIni);
+	strcat_s(targetIni, "\\");
+	strcat_s(targetIni, configFileName);
+
+	// Check if target already exists
+	std::ifstream targetFile(targetIni);
+	if (targetFile.good()) {
+		targetFile.close();
+		return true;
+	}
+	targetFile.close();
+
+	// Check if source exists
+	std::ifstream sourceFile(sourceIni);
+	if (!sourceFile.good()) {
+		sourceFile.close();
+		return false;
+	}
+	sourceFile.close();
+
+	// Create target directory if it doesn't exist
+	if (_mkdir(targetFolder) != 0 && errno != EEXIST) {
+		// Directory creation failed, but continue to try copying anyway
+		// in case the directory exists but _mkdir still failed
+	}
+
+	// Copy the file
+	if (CopyFileA(sourceIni, targetIni, FALSE)) {
+		return true;
+	}
+	return false;
 }
 
 UltraVNCService::UltraVNCService()
@@ -57,6 +127,19 @@ UltraVNCService::UltraVNCService()
 
 ////////////////////////////////////////////////////////////////////////////////
 void WINAPI UltraVNCService::service_main(DWORD argc, LPTSTR* argv) {
+    SetDllDirectory(TEXT(""));
+    SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32);
+    
+    typedef BOOL (WINAPI *pSetProcessMitigationPolicy_t)(PROCESS_MITIGATION_POLICY, PVOID, SIZE_T);
+    HMODULE hKernel32 = GetModuleHandleA("kernel32.dll");
+    if (hKernel32) {
+        pSetProcessMitigationPolicy_t pSetProcessMitigationPolicy = (pSetProcessMitigationPolicy_t)GetProcAddress(hKernel32, "SetProcessMitigationPolicy");
+        if (pSetProcessMitigationPolicy) {
+            PROCESS_MITIGATION_IMAGE_LOAD_POLICY policy = {};
+            policy.PreferSystem32Images = 1;
+            pSetProcessMitigationPolicy(ProcessImageLoadPolicy, &policy, sizeof(policy));
+        }
+    }
     /* initialise service status */
     serviceStatus.dwServiceType=SERVICE_WIN32;
     serviceStatus.dwCurrentState=SERVICE_STOPPED;
@@ -75,20 +158,42 @@ void WINAPI UltraVNCService::service_main(DWORD argc, LPTSTR* argv) {
 	}
 
 	char programdataPath[MAX_PATH]{};
-	char currentFolder[MAX_PATH]{};
-	HRESULT result = SHGetFolderPathA(NULL, CSIDL_COMMON_APPDATA, NULL, 0, programdataPath);
-	strcpy_s(inifile, "");
-	strcat_s(inifile, programdataPath);
-	strcat_s(inifile, "\\UltraVNC");
-	strcat_s(inifile, "\\");
-	strcat_s(inifile, configfilename);
-	std::ifstream file(inifile);
-	if (!file.good()) {
-		GetServiceExecutablePath(currentFolder, MAX_PATH);
-		strcpy_s(inifile, "");
-		strcat_s(inifile, currentFolder);
+	char programdataFolder[MAX_PATH]{};
+	char installFolder[MAX_PATH]{};
+	
+	// Get install folder
+	GetServiceExecutablePath(installFolder, MAX_PATH);
+	
+	// Check if running in portable mode
+	if (IsServicePortableMode(installFolder)) {
+		// Portable mode: Use install folder for config
+		strcpy_s(inifile, installFolder);
 		strcat_s(inifile, "\\");
-		strcat_s(inifile, "ultravnc.ini");
+		strcat_s(inifile, configfilename);
+	}
+	else {
+		// Standard mode: Use ProgramData for shared configuration
+		// Get ProgramData path
+		SHGetFolderPathA(NULL, CSIDL_COMMON_APPDATA, NULL, 0, programdataPath);
+		
+		// Attempt to migrate from install folder to ProgramData
+		MigrateServiceIniToProgramData(installFolder, programdataPath, configfilename);
+		
+		// Build ProgramData INI path
+		strcpy_s(programdataFolder, programdataPath);
+		strcat_s(programdataFolder, SERVICE_CONFIG_SUBFOLDER);
+		strcpy_s(inifile, programdataFolder);
+		strcat_s(inifile, "\\");
+		strcat_s(inifile, configfilename);
+		
+		// Check if config exists, create folder if needed
+		std::ifstream file(inifile);
+		if (!file.good()) {
+			// Config doesn't exist, ensure directory exists
+			if (_mkdir(programdataFolder) != 0 && errno != EEXIST) {
+				// Failed to create directory, continue anyway
+			}
+		}
 	}
 
 	iniFileService.setIniFile(inifile);
@@ -231,7 +336,7 @@ int UltraVNCService::install_service(void) {
 
     scm=OpenSCManager(0, 0, SC_MANAGER_CREATE_SERVICE);
     if(!scm) {
-        MessageBoxSecure(NULL, "Failed to open service control manager",
+        MessageBoxSecure(NULL, sz_ID_FAILED_OPEN_SVC_MGR,
             app_name, MB_ICONERROR);
         return 1;
     }
@@ -244,7 +349,7 @@ int UltraVNCService::install_service(void) {
 		DWORD myerror=GetLastError();
 		if (myerror==ERROR_ACCESS_DENIED)
 		{
-			MessageBoxSecure(NULL, "Failed: Permission denied",
+			MessageBoxSecure(NULL, sz_ID_FAILED_PERMISSION_DENIED,
             app_name, MB_ICONERROR);
 			CloseServiceHandle(scm);
 			return 1;
@@ -255,7 +360,7 @@ int UltraVNCService::install_service(void) {
 			return 1;
 		}
 
-        MessageBoxSecure(NULL, "Failed to create a new service",
+        MessageBoxSecure(NULL, sz_ID_FAILED_CREATE_SVC,
             app_name, MB_ICONERROR);
         CloseServiceHandle(scm);
         return 1;
@@ -273,7 +378,7 @@ int UltraVNCService::uninstall_service(void) {
 
     scm=OpenSCManager(0, 0, SC_MANAGER_CONNECT);
     if(!scm) {
-        MessageBoxSecure(NULL, "Failed to open service control manager",
+        MessageBoxSecure(NULL, sz_ID_FAILED_OPEN_SVC_MGR,
             app_name, MB_ICONERROR);
         return 1;
     }
@@ -284,7 +389,7 @@ int UltraVNCService::uninstall_service(void) {
 		DWORD myerror=GetLastError();
 		if (myerror==ERROR_ACCESS_DENIED)
 		{
-			MessageBoxSecure(NULL, "Failed: Permission denied",
+			MessageBoxSecure(NULL, sz_ID_FAILED_PERMISSION_DENIED,
             app_name, MB_ICONERROR);
 			CloseServiceHandle(scm);
 			return 1;
@@ -299,13 +404,13 @@ int UltraVNCService::uninstall_service(void) {
 			return 1;
 		}
 
-        MessageBoxSecure(NULL, "Failed to open the service",
+        MessageBoxSecure(NULL, sz_ID_FAILED_OPEN_SVC,
             app_name, MB_ICONERROR);
         CloseServiceHandle(scm);
         return 1;
     }
     if(!QueryServiceStatus(service, &serviceStatus)) {
-        MessageBoxSecure(NULL, "Failed to query service status",
+        MessageBoxSecure(NULL, sz_ID_FAILED_QUERY_SVC_STATUS,
             app_name, MB_ICONERROR);
         CloseServiceHandle(service);
         CloseServiceHandle(scm);
@@ -318,7 +423,7 @@ int UltraVNCService::uninstall_service(void) {
         return 1;
     }
     if(!DeleteService(service)) {
-        MessageBoxSecure(NULL, "Failed to delete the service",
+        MessageBoxSecure(NULL, sz_ID_FAILED_DELETE_SVC,
             app_name, MB_ICONERROR);
         CloseServiceHandle(service);
         CloseServiceHandle(scm);
@@ -747,7 +852,7 @@ void UltraVNCService::Restore_after_reboot()
 void UltraVNCService::disconnect_remote_sessions()
 {
 	typedef BOOLEAN(WINAPI* pWinStationConnect) (HANDLE, ULONG, ULONG, PCWSTR, ULONG);
-	HMODULE  hlibwinsta = LoadLibrary("winsta.dll");
+	HMODULE  hlibwinsta = LoadLibraryEx("winsta.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
 	pWinStationConnect WinStationConnectF = NULL;
 
 	// don't kick rdp off if there's still an active session
@@ -925,7 +1030,7 @@ void UltraVNCService::monitorSessions() {
 		case WAIT_OBJECT_0 + 1:
 		{
 			typedef VOID(WINAPI* SendSas)(BOOL asUser);
-			HINSTANCE Inst = LoadLibrary("sas.dll");
+			HINSTANCE Inst = LoadLibraryEx("sas.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
 			SendSas sendSas = (SendSas)GetProcAddress(Inst, "SendSAS");
 			if (sendSas)
 				sendSas(FALSE);
@@ -1135,7 +1240,7 @@ BOOL UltraVNCService::LaunchProcessWin(DWORD dwSessionId, bool preconnect, bool 
 					counter++;
 					if (counter > 3) {
 						typedef BOOLEAN(WINAPI* pWinStationConnect) (HANDLE, ULONG, ULONG, PCWSTR, ULONG);
-						HMODULE  hlibwinsta = LoadLibrary("winsta.dll");
+						HMODULE  hlibwinsta = LoadLibraryEx("winsta.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
 						pWinStationConnect WinStationConnectF = NULL;
 						if (hlibwinsta)
 							WinStationConnectF = (pWinStationConnect)GetProcAddress(hlibwinsta, "WinStationConnectW");
@@ -1186,7 +1291,7 @@ BOOL UltraVNCService::LaunchProcessWin(DWORD dwSessionId, bool preconnect, bool 
 					counter++;
 					if (counter > 3) {
 						typedef BOOLEAN(WINAPI* pWinStationConnect) (HANDLE, ULONG, ULONG, PCWSTR, ULONG);
-						HMODULE  hlibwinsta = LoadLibrary("winsta.dll");
+						HMODULE  hlibwinsta = LoadLibraryEx("winsta.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
 						pWinStationConnect WinStationConnectF = NULL;
 						if (hlibwinsta)
 							WinStationConnectF = (pWinStationConnect)GetProcAddress(hlibwinsta, "WinStationConnectW");

@@ -480,7 +480,6 @@ namespace desktopSelector {
 #ifndef ULTRAVNC_VEYON_SUPPORT
 namespace postHelper {
 	UINT MENU_ADD_CLIENT_MSG = RegisterWindowMessage("WinVNC.AddClient.Message");
-	UINT MENU_ADD_CLOUD_MSG = RegisterWindowMessage("WinVNC.AddCloud.Message");
 	UINT MENU_REPEATER_ID_MSG = RegisterWindowMessage("WinVNC.AddRepeaterID.Message");
 	UINT MENU_AUTO_RECONNECT_MSG = RegisterWindowMessage("WinVNC.AddAutoClient.Message");
 	UINT MENU_STOP_RECONNECT_MSG = RegisterWindowMessage("WinVNC.AddStopClient.Message");
@@ -504,14 +503,6 @@ namespace postHelper {
 		// assumes the -repeater command line set the repeater global variable.
 		// Post to the UltraVNC Server menu window (usually expected to fail at program startup)
 		if (!PostToWinVNC(MENU_ADD_CLIENT_MSG, (WPARAM)0xFFFFFFFF, (LPARAM)0xFFFFFFFF))
-			return FALSE;
-		return TRUE;
-	}
-
-	BOOL PostAddNewCloudClient() {
-		// assumes the -repeater command line set the repeater global variable.
-		// Post to the UltraVNC Server menu window (usually expected to fail at program startup)
-		if (!PostToWinVNC(MENU_ADD_CLOUD_MSG, (WPARAM)0xFFFFFFFF, (LPARAM)0xFFFFFFFF))
 			return FALSE;
 		return TRUE;
 	}
@@ -871,6 +862,12 @@ namespace processHelper {
 
 		// Original code does not work if running as a service... apparently no access to the desktop.
 		// Alternative is to check for a running LogonUI.exe (if present, system is either not logged in or locked)
+		// Only check LogonUI.exe in the same session as the current process to avoid false positives from:
+		// - other RDP sessions showing their login screen
+		// - Hyper-V Enhanced Session which keeps LogonUI.exe alive in the VM session
+		DWORD mySessionId = 0;
+		ProcessIdToSessionId(GetCurrentProcessId(), &mySessionId);
+
 		HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 
 		PROCESSENTRY32W procentry{};
@@ -879,11 +876,16 @@ namespace processHelper {
 		if (Process32FirstW(hSnap, &procentry)) {
 			do {
 				if (!_wcsicmp(procentry.szExeFile, L"LogonUI.exe")) {
-					bLocked = true;
-					break;
+					DWORD loguiSessionId = 0;
+					if (ProcessIdToSessionId(procentry.th32ProcessID, &loguiSessionId)
+						&& loguiSessionId == mySessionId) {
+						bLocked = true;
+						break;
+					}
 				}
 			} while (Process32NextW(hSnap, &procentry));
 		}
+		CloseHandle(hSnap);
 		return bLocked;
 	}
 #endif

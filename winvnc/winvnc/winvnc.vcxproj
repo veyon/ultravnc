@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -491,6 +491,8 @@
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -500,7 +502,9 @@
       <Command>cl /nologo /MTd /Fo..\Debug\ /Fd..\Debug\ /c buildtime.cpp</Command>
     </PreLinkEvent>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/DEPENDENTLOADFLAG:0x800 %(AdditionalOptions)</AdditionalOptions>
+      <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;bcrypt.lib;ncrypt.lib;crypt32.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>.\..\Debug/winvnc.pdb</ProgramDatabaseFile>
@@ -539,6 +543,8 @@
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;SC_20;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -548,7 +554,9 @@
       <Command>cl /nologo /MTd /Fo..\Debug\ /Fd..\Debug\ /c buildtime.cpp</Command>
     </PreLinkEvent>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DependentLoadFlags>0x800</DependentLoadFlags>
+      <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;bcrypt.lib;ncrypt.lib;crypt32.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>.\..\Debug/winvnc.pdb</ProgramDatabaseFile>
@@ -588,6 +596,8 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <ExceptionHandling>Sync</ExceptionHandling>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;_X64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -597,7 +607,9 @@
       <Command>cl /nologo /MTd /Fo..\x64\Debug\ /Fd..\x64\Debug\ /c buildtime.cpp</Command>
     </PreLinkEvent>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DependentLoadFlags>0x800</DependentLoadFlags>
+      <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;bcrypt.lib;ncrypt.lib;crypt32.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -635,6 +647,8 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <ExceptionHandling>Sync</ExceptionHandling>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;_X64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -644,7 +658,9 @@
       <Command>cl /nologo /MTd /Fo..\x64\Debug\ /Fd..\x64\Debug\ /c buildtime.cpp</Command>
     </PreLinkEvent>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DependentLoadFlags>0x800</DependentLoadFlags>
+      <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;bcrypt.lib;ncrypt.lib;crypt32.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
@@ -685,6 +701,8 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -695,7 +713,9 @@
     </PreLinkEvent>
     <Link>
       <AdditionalOptions>/LTCG %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DependentLoadFlags>0x800</DependentLoadFlags>
+      <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;bcrypt.lib;ncrypt.lib;crypt32.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateManifest>true</GenerateManifest>
       <SubSystem>Windows</SubSystem>
@@ -745,6 +765,8 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;SC_20;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -757,7 +779,9 @@
     </PreLinkEvent>
     <Link>
       <AdditionalOptions>/LTCG %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DependentLoadFlags>0x800</DependentLoadFlags>
+      <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;bcrypt.lib;ncrypt.lib;crypt32.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateManifest>true</GenerateManifest>
       <SubSystem>Windows</SubSystem>
@@ -806,6 +830,8 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
       <EnableEnhancedInstructionSet>NoExtensions</EnableEnhancedInstructionSet>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -816,7 +842,9 @@
     </PreLinkEvent>
     <Link>
       <AdditionalOptions>/LTCG %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DependentLoadFlags>0x800</DependentLoadFlags>
+      <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;bcrypt.lib;ncrypt.lib;crypt32.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateManifest>true</GenerateManifest>
       <SubSystem>Windows</SubSystem>
@@ -863,6 +891,8 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
       <EnableEnhancedInstructionSet>NoExtensions</EnableEnhancedInstructionSet>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -873,7 +903,9 @@
     </PreLinkEvent>
     <Link>
       <AdditionalOptions>/LTCG %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DependentLoadFlags>0x800</DependentLoadFlags>
+      <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;bcrypt.lib;ncrypt.lib;crypt32.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateManifest>true</GenerateManifest>
       <SubSystem>Windows</SubSystem>
@@ -919,6 +951,8 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -929,7 +963,9 @@
     </PreLinkEvent>
     <Link>
       <AdditionalOptions>/LTCG %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DependentLoadFlags>0x800</DependentLoadFlags>
+      <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;bcrypt.lib;ncrypt.lib;crypt32.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateManifest>true</GenerateManifest>
       <SubSystem>Windows</SubSystem>
@@ -978,6 +1014,8 @@
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -988,7 +1026,9 @@
     </PreLinkEvent>
     <Link>
       <AdditionalOptions>/LTCG %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DependentLoadFlags>0x800</DependentLoadFlags>
+      <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;bcrypt.lib;ncrypt.lib;crypt32.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateManifest>true</GenerateManifest>
       <SubSystem>Windows</SubSystem>
@@ -1040,6 +1080,8 @@
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <OmitFramePointers>true</OmitFramePointers>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;_X64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1049,7 +1091,9 @@
       <Command>cl /nologo /MT /Fo..\x64\Release\ /Fd..\x64\Release\ /c buildtime.cpp</Command>
     </PreLinkEvent>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DependentLoadFlags>0x800</DependentLoadFlags>
+      <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;bcrypt.lib;ncrypt.lib;crypt32.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>true</RandomizedBaseAddress>
@@ -1101,6 +1145,8 @@
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <OmitFramePointers>true</OmitFramePointers>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;_X64;SC_20;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1110,7 +1156,9 @@
       <Command>cl /nologo /MT /Fo..\x64\Release\ /Fd..\x64\Release\ /c buildtime.cpp</Command>
     </PreLinkEvent>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DependentLoadFlags>0x800</DependentLoadFlags>
+      <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;bcrypt.lib;ncrypt.lib;crypt32.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>true</RandomizedBaseAddress>
@@ -1157,6 +1205,8 @@ copy "$(OutDir)$(TargetName)$(TargetExt)" c:\uvnc\64\xp</Command>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <ProgramDataBaseFileName>$(IntDir)vc$(PlatformToolsetVersion).pdb</ProgramDataBaseFileName>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;_X64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1166,7 +1216,9 @@ copy "$(OutDir)$(TargetName)$(TargetExt)" c:\uvnc\64\xp</Command>
       <Command>cl /nologo /MT /Fo..\x64\Release\ /Fd..\x64\Release\ /c buildtime.cpp</Command>
     </PreLinkEvent>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DependentLoadFlags>0x800</DependentLoadFlags>
+      <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;bcrypt.lib;ncrypt.lib;crypt32.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>true</RandomizedBaseAddress>
@@ -1213,6 +1265,8 @@ copy "$(OutDir)$(TargetName)$(TargetExt)" c:\uvnc\64\xp</Command>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <ProgramDataBaseFileName>$(IntDir)vc$(PlatformToolsetVersion).pdb</ProgramDataBaseFileName>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;_X64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1222,7 +1276,9 @@ copy "$(OutDir)$(TargetName)$(TargetExt)" c:\uvnc\64\xp</Command>
       <Command>cl /nologo /MT /Fo..\x64\Release\ /Fd..\x64\Release\ /c buildtime.cpp</Command>
     </PreLinkEvent>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DependentLoadFlags>0x800</DependentLoadFlags>
+      <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;bcrypt.lib;ncrypt.lib;crypt32.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>true</RandomizedBaseAddress>
@@ -1269,6 +1325,8 @@ copy "$(OutDir)$(TargetName)$(TargetExt)" c:\uvnc\64\xp</Command>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <ProgramDataBaseFileName>$(IntDir)vc$(PlatformToolsetVersion).pdb</ProgramDataBaseFileName>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;_X64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1278,7 +1336,9 @@ copy "$(OutDir)$(TargetName)$(TargetExt)" c:\uvnc\64\xp</Command>
       <Command>cl /nologo /MT /Fo..\x64\Release\ /Fd..\x64\Release\ /c buildtime.cpp</Command>
     </PreLinkEvent>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DependentLoadFlags>0x800</DependentLoadFlags>
+      <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;bcrypt.lib;ncrypt.lib;crypt32.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>true</RandomizedBaseAddress>
@@ -1327,6 +1387,8 @@ copy "$(OutDir)$(TargetName)$(TargetExt)" c:\uvnc\64\xp</Command>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <ProgramDataBaseFileName>$(IntDir)vc$(PlatformToolsetVersion).pdb</ProgramDataBaseFileName>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;_X64;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -1336,7 +1398,9 @@ copy "$(OutDir)$(TargetName)$(TargetExt)" c:\uvnc\64\xp</Command>
       <Command>cl /nologo /MT /Fo..\x64\Release\ /Fd..\x64\Release\ /c buildtime.cpp</Command>
     </PreLinkEvent>
     <Link>
-      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DependentLoadFlags>0x800</DependentLoadFlags>
+      <DelayLoadDLLs>bcrypt.dll</DelayLoadDLLs>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;version.lib;wtsapi32.lib;userenv.lib;d3d11.lib;dxgi.lib;bcrypt.lib;ncrypt.lib;crypt32.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <SubSystem>Windows</SubSystem>
       <RandomizedBaseAddress>true</RandomizedBaseAddress>
@@ -1398,7 +1462,6 @@ copy "$(OutDir)$(TargetName)$(TargetExt)" c:\uvnc\64\xp</Command>
     </ClCompile>
     <ClCompile Include="cadthread.cpp" />
     <ClCompile Include="DlgChangePassword.cpp" />
-    <ClCompile Include="CloudDialog.cpp" />
     <ClCompile Include="CpuUsage.cpp" />
     <ClCompile Include="..\..\rfb\dh.cpp">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -3136,7 +3199,7 @@ copy "$(OutDir)$(TargetName)$(TargetExt)" c:\uvnc\64\xp</Command>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='IPV6|x64'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Vista|x64'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
-    <ClCompile Include="..\..\ZipUnZip32\ZipUnzip32.cpp" />
+    <ClCompile Include="..\..\common\ZipUnzip\MiniZipNG.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\common\d3des.h" />
@@ -3147,12 +3210,11 @@ copy "$(OutDir)$(TargetName)$(TargetExt)" c:\uvnc\64\xp</Command>
     <ClInclude Include="..\loadmemory\MemoryModule.h" />
     <ClInclude Include="cadthread.h" />
     <ClInclude Include="DlgChangePassword.h" />
-    <ClInclude Include="CloudDialog.h" />
     <ClInclude Include="CpuUsage.h" />
     <ClInclude Include="DeskdupEngine.h" />
     <ClInclude Include="Dtwinver.h" />
     <ClInclude Include="..\..\common\win32_helpers.h" />
-    <ClInclude Include="..\..\ZipUnZip32\ZipUnZip32.h" />
+    <ClInclude Include="..\..\common\ZipUnzip\MiniZipNG.h" />
     <ClInclude Include="..\..\rfb\dh.h" />
     <ClInclude Include="..\..\DSMPlugin\DSMPlugin.h" />
     <ClInclude Include="HelperFunctions.h" />
@@ -3314,12 +3376,6 @@ copy "$(OutDir)$(TargetName)$(TargetExt)" c:\uvnc\64\xp</Command>
     <ProjectReference Include="..\..\rdr\rdr.vcxproj">
       <Project>{f5244002-0fff-4f19-a941-fcce1861f132}</Project>
     </ProjectReference>
-    <ProjectReference Include="..\..\zipunzip_src\unzip\windll\vc6\lib\unz32lib.vcxproj">
-      <Project>{f9321962-fbed-4581-bf7d-d0ebc303d891}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\..\zipunzip_src\zip20\windll\visualc\lib\zip32.vcxproj">
-      <Project>{e8ba959f-b652-4bab-9ea7-8e9fc8d7f39c}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\..\omnithread\omnithread.vcxproj">
       <Project>{e52b9956-fe67-47f7-bc4f-67cc5a64b708}</Project>
     </ProjectReference>
@@ -3334,6 +3390,15 @@ copy "$(OutDir)$(TargetName)$(TargetExt)" c:\uvnc\64\xp</Command>
     <Image Include="res\world3a.bmp" />
     <Image Include="up.bmp" />
   </ItemGroup>
+  <ItemGroup>
+    <Manifest Include="winvnc.exe.manifest" />
+  </ItemGroup>
+  <ItemDefinitionGroup>
+    <PreBuildEvent>
+      <Command>cd /d "$(SolutionDir).." &amp;&amp; c:\vcpkg\vcpkg.exe x-update-baseline</Command>
+      <Message>Updating vcpkg baseline...</Message>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

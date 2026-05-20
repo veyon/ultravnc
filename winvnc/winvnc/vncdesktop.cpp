@@ -10,6 +10,7 @@
 // SPDX-FileCopyrightText: Copyright (C) 2002 RealVNC Ltd. All Rights Reserved.
 // SPDX-FileCopyrightText: Copyright (C) 1999 AT&T Laboratories Cambridge. All Rights Reserved.
 //
+#pragma warning(disable: 4996)
 
 
 // vncDesktop implementation
@@ -40,6 +41,7 @@
 #include <commctrl.h>
 #include "LayeredWindows.h"
 #include "SettingsManager.h"
+#include "Localization.h"
 
 extern bool PreConnect;
 int getinfo(char mytext[1024]);
@@ -440,6 +442,7 @@ vncDesktop::vncDesktop()
 	AviGen = NULL;
 #endif
 	m_Black_window_active = false;
+	m_captureROP = SRCCOPY;
 	m_hwnd = NULL;
 	//m_timerid = 0;
 	// adzm - 2010-07 - Fix clipboard hangs
@@ -487,7 +490,7 @@ vncDesktop::vncDesktop()
 
 	On_Off_hookdll = false;
 	g_Desktop_running = true;
-	hUser32 = LoadLibrary("USER32");
+	hUser32 = LoadLibraryEx("USER32", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
 	if (hUser32) pbi = (pBlockInput)GetProcAddress(hUser32, "BlockInput");
 	no_default_desktop = false;	
 	can_be_hooked = false;
@@ -707,6 +710,7 @@ vncDesktop::Startup()
 		vnclog.Print(LL_INTINFO, VNCLOG("InitDesktop Failed\n"));
 		return ERROR_DESKTOP_INIT_FAILED;
 	}
+	UpdateCaptureROP();
 
 	// Modif rdv@2002 - v1.1.x - VideoDriver
 	vnclog.Print(LL_INTINFO, VNCLOG("InitVideoDriver Called\n"));
@@ -1569,7 +1573,7 @@ vncDesktop::WriteMessageOnScreenPreConnect(BYTE *scrBuff, UINT scrBuffSize)
 		strcpy_s(sesmsg[0].name, 32, "Console");
 		memset(sesmsg[aantal_session].username, 0, 32);
 		strcpy_s(sesmsg[aantal_session].username, 32, "Current Console");
-		HMODULE handle = LoadLibrary("WTSAPI32.DLL");
+		HMODULE handle = LoadLibraryEx("WTSAPI32.DLL", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
 		_WTSQUERYSESSIONINFORMATION pFunc;
 		LPTSTR  ppBuffer = NULL;    DWORD   pBytesReturned = 0;
 		if (handle)
@@ -1598,7 +1602,7 @@ vncDesktop::WriteMessageOnScreenPreConnect(BYTE *scrBuff, UINT scrBuffSize)
 						memset(sesmsg[aantal_session].name, 0, 32);
 						strcpy_s(sesmsg[aantal_session].type, 32, "Active");
 						strcpy_s(sesmsg[aantal_session].name, 32, pSessions[i].pWinStationName);
-						HMODULE handle = LoadLibrary("WTSAPI32.DLL");
+						HMODULE handle = LoadLibraryEx("WTSAPI32.DLL", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
 						_WTSQUERYSESSIONINFORMATION pFunc;
 						LPTSTR  ppBuffer = NULL;    DWORD   pBytesReturned = 0;
 						if (handle)
@@ -1636,7 +1640,7 @@ vncDesktop::WriteMessageOnScreenPreConnect(BYTE *scrBuff, UINT scrBuffSize)
 						memset(sesmsg[aantal_session].name, 0, 32);
 						strcpy_s(sesmsg[aantal_session].type, 32, "Active");
 						strcpy_s(sesmsg[aantal_session].name, 32, pSessions[i].pWinStationName);
-						HMODULE handle = LoadLibrary("WTSAPI32.DLL");
+						HMODULE handle = LoadLibraryEx("WTSAPI32.DLL", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
 						_WTSQUERYSESSIONINFORMATION pFunc;
 						LPTSTR  ppBuffer = NULL;    DWORD   pBytesReturned = 0;
 						if (handle)
@@ -1730,6 +1734,15 @@ vncDesktop::WriteMessageOnScreenPreConnect(BYTE *scrBuff, UINT scrBuffSize)
 #define CAPTUREBLT  0x40000000
 #endif
 
+void
+vncDesktop::UpdateCaptureROP()
+{
+	bool useCaptureBlt = (VNC_OSVersion::getInstance()->CaptureAlphaBlending()
+		|| settings->getAutocapt() == 2)
+		&& !m_Black_window_active;
+	m_captureROP = useCaptureBlt ? (CAPTUREBLT | SRCCOPY) : SRCCOPY;
+}
+
 // Function to capture an area of the screen immediately prior to sending
 // an update.
 void
@@ -1761,7 +1774,7 @@ vncDesktop::CaptureScreen(const rfb::Rect &rect, BYTE *scrBuff, UINT scrBuffSize
 				m_hrootdc_Desktop,
 				rect.tl.x + m_ScreenOffsetx,
 				rect.tl.y + m_ScreenOffsety,
-				((VNC_OSVersion::getInstance()->CaptureAlphaBlending() || settings->getAutocapt() == 2) && !m_Black_window_active) ? (CAPTUREBLT | SRCCOPY) : SRCCOPY
+				m_captureROP
 			);
 		}
 		else
@@ -1775,7 +1788,7 @@ vncDesktop::CaptureScreen(const rfb::Rect &rect, BYTE *scrBuff, UINT scrBuffSize
 				rect.tl.y,
 				(rect.br.x - rect.tl.x),
 				(rect.br.y - rect.tl.y),
-				m_hrootdc_Desktop, rect.tl.x + xoffset, rect.tl.y + yoffset, ((VNC_OSVersion::getInstance()->CaptureAlphaBlending() || settings->getAutocapt() == 2) && !m_Black_window_active) ? (CAPTUREBLT | SRCCOPY) : SRCCOPY);
+				m_hrootdc_Desktop, rect.tl.x + xoffset, rect.tl.y + yoffset, m_captureROP);
 		}
 		/*#if defined(_DEBUG)
 			DWORD e = GetTimeFunction() - t;
@@ -1872,47 +1885,31 @@ vncDesktop::CaptureMouse(BYTE *scrBuff, UINT scrBuffSize)
 		// Copy the mouse cursor into the screen buffer, if any of it is visible
 		m_cursorpos = m_cursorpos.intersect(m_bmrect);
 
-		if (IconInfo.hbmMask && IconInfo.hbmColor)
+		// Select the memory bitmap into the memory DC
+		HBITMAP oldbitmap;
+		if ((oldbitmap = (HBITMAP)SelectObject(m_hmemdc, m_membitmap)) == NULL)
 		{
-			HBITMAP oldbitmap;
-			if ((oldbitmap = (HBITMAP)SelectObject(m_hmemdc, m_membitmap)) == NULL)
-				return;
-			HDC mdc1, mdc2;
-			mdc1 = CreateCompatibleDC(m_hmemdc);
-			mdc2 = CreateCompatibleDC(m_hmemdc);
-			HBITMAP oldbmp1 = (HBITMAP)SelectObject(mdc1, IconInfo.hbmMask);
-			HBITMAP oldbmp2 = (HBITMAP)SelectObject(mdc2, IconInfo.hbmColor);
-			BitBlt(m_hmemdc, m_cursorpos.tl.x, m_cursorpos.tl.y, m_cursorpos.br.x - m_cursorpos.tl.x, m_cursorpos.br.y - m_cursorpos.tl.y, mdc1, 0, 0, SRCAND);
-			BitBlt(m_hmemdc, m_cursorpos.tl.x, m_cursorpos.tl.y, m_cursorpos.br.x - m_cursorpos.tl.x, m_cursorpos.br.y - m_cursorpos.tl.y, mdc2, 0, 0, SRCINVERT);
-
-			SelectObject(m_hmemdc, oldbitmap);
-			SelectObject(mdc1, oldbmp1);
-			SelectObject(mdc2, oldbmp2);
-			DeleteDC(mdc1);
-			DeleteDC(mdc2);
+			if (IconInfo.hbmMask != NULL)
+				DeleteObject(IconInfo.hbmMask);
+			if (IconInfo.hbmColor != NULL)
+				DeleteObject(IconInfo.hbmColor);
+			return;
 		}
-		else
-		{
 
-			// Select the memory bitmap into the memory DC
-			HBITMAP oldbitmap;
-			if ((oldbitmap = (HBITMAP)SelectObject(m_hmemdc, m_membitmap)) == NULL)
-				return;
+		// Draw the cursor using DrawIconEx for both color and monochrome cursors
+		// This properly handles alpha blending and avoids artifacts from SRCAND/SRCINVERT
+		DrawIconEx(
+			m_hmemdc,
+			CursorPos.x, CursorPos.y,
+			m_hcursor,
+			0, 0,
+			0,
+			NULL,
+			DI_NORMAL
+		);
 
-			// Draw the cursor
-			DrawIconEx(
-				m_hmemdc,									// handle to device context 
-				CursorPos.x, CursorPos.y,
-				m_hcursor,									// handle to icon to draw 
-				0, 0,										// width of the icon 
-				0,											// index of frame in animated cursor 
-				NULL,										// handle to background brush 
-				DI_NORMAL | DI_COMPAT						// icon-drawing flags 
-			);
-
-			// Select the old bitmap back into the memory DC
-			SelectObject(m_hmemdc, oldbitmap);
-		}
+		// Select the old bitmap back into the memory DC
+		SelectObject(m_hmemdc, oldbitmap);
 
 		if (IconInfo.hbmMask != NULL)
 			DeleteObject(IconInfo.hbmMask);
@@ -1931,7 +1928,7 @@ vncDesktop::CaptureMouse(BYTE *scrBuff, UINT scrBuffSize)
 // Obtain cursor image data in server's local format.
 // The length of databuf[] should be at least (width * height * 4).
 BOOL
-vncDesktop::GetRichCursorData(BYTE *databuf, HCURSOR hcursor, int width, int height)
+vncDesktop::GetRichCursorData(BYTE *databuf, HCURSOR hcursor, int width, int height, BOOL isColorCursor)
 {
 	// Protect the memory bitmap (is it really necessary here?)
 	omni_mutex_lock l(m_update_lock, 278);
@@ -1945,6 +1942,19 @@ vncDesktop::GetRichCursorData(BYTE *databuf, HCURSOR hcursor, int width, int hei
 	if (oldbitmap == NULL) {
 		DeleteObject(membitmap);
 		return FALSE;
+	}
+
+	// For color cursors, fill background with magenta (RGB 255,0,255) as transparency key
+	// This allows distinguishing transparent pixels from actual black cursor pixels
+	// For monochrome cursors, use black background (they use XOR blending)
+	if (isColorCursor) {
+		HBRUSH magentaBrush = CreateSolidBrush(RGB(255, 0, 255));
+		RECT rect = { 0, 0, width, height };
+		FillRect(m_hmemdc, &rect, magentaBrush);
+		DeleteObject(magentaBrush);
+	} else {
+		RECT rect = { 0, 0, width, height };
+		FillRect(m_hmemdc, &rect, (HBRUSH)GetStockObject(BLACK_BRUSH));
 	}
 
 	// Draw the cursor at the specified size
@@ -1963,7 +1973,12 @@ vncDesktop::GetRichCursorData(BYTE *databuf, HCURSOR hcursor, int width, int hei
 		bmi->bmiHeader.biHeight = -height;
 
 		// Clear data buffer and extract RGB data
-		memset(databuf, 0x00, width * height * 4);
+		// Calculate row size with DWORD alignment
+		int bytes_pixel = bmi->bmiHeader.biBitCount / 8;
+		int row_bytes = width * bytes_pixel;
+		while (row_bytes % sizeof(DWORD))
+			row_bytes++;
+		memset(databuf, 0x00, row_bytes * height);
 		lines = GetDIBits(m_hmemdc, membitmap, 0, height, databuf, bmi, DIB_RGB_COLORS);
 
 		// Cleanup
@@ -2302,7 +2317,7 @@ BOOL vncDesktop::VideoBuffer()
 
 DWORD WINAPI Warningbox_non_locked(LPVOID lpParam)
 {
-	MessageBoxSecure(NULL, "Current driver is too old for this version\nUpdate driver or disable Video hook driver\n in the Server Settings", "", 0);
+	MessageBoxSecure(NULL, sz_ID_CURRENT_DRIVER_OLD, "", 0);
 	return 0;
 }
 
@@ -2518,11 +2533,13 @@ void vncDesktop::SetBlockInputState(bool newstate)
 			if ((blankmonitorstate == newstate) && (newstate == 1))
 			{
 				m_Black_window_active = layeredWindows->SetBlankMonitor(0, settings->getBlankInputsOnly(), m_Black_window_active, m_screen_in_powersave, m_hwnd);
+				UpdateCaptureROP();
 				blankmonitorstate = 0;
 			}
 			else
 			{
 				m_Black_window_active = layeredWindows->SetBlankMonitor(newstate, settings->getEnableBlankMonitor(), m_Black_window_active, m_screen_in_powersave, m_hwnd);
+				UpdateCaptureROP();
 				blankmonitorstate = newstate;
 			}
 #endif

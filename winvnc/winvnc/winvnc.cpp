@@ -45,6 +45,7 @@
 #include <shlobj.h>
 #include <fstream>
 #include <direct.h>
+#include <errno.h>
 #include "credentials.h"
 
 #pragma comment (lib, "comctl32")
@@ -64,6 +65,10 @@ int configfileskip = 0;
 bool showSettings = false;
 char winvncFolder[MAX_PATH];
 
+// Constants for portable mode and configuration
+const char* PORTABLE_MARKER_FILE = "ultravnc.portable";
+const char* CONFIG_SUBFOLDER = "\\UltraVNC";
+
 //adzm 2009-06-20
 char* g_szRepeaterHost = NULL;
 
@@ -82,7 +87,6 @@ bool PostAddAutoConnectClient_bool_null=false;
 bool PostAddConnectClient_bool=false;
 bool PostAddConnectClient_bool_null=false;
 bool PostAddNewRepeaterClient_bool=false;
-bool PostAddNewCloudClient_bool = false;
 
 char pszId_char[20];
 VCard32 address_vcard4;
@@ -133,28 +137,7 @@ Myinit(HINSTANCE hInstance)
 {
 	setbuf(stderr, 0);
 
-	// [v1.0.2-jp1 fix] Load resouce from dll
-
-	hInstResDLL = NULL;
-
-	 //limit the vnclang.dll searchpath to avoid	
-	char szCurrentDir_vnclangdll[MAX_PATH];
-	char szCurrentDir[MAX_PATH];
-	strcpy_s(szCurrentDir, winvncFolder);
-	strcpy_s(szCurrentDir_vnclangdll,szCurrentDir);
-	strcat_s(szCurrentDir_vnclangdll,"\\");
-	strcat_s(szCurrentDir_vnclangdll,"vnclang_server.dll");
-
-	hInstResDLL = LoadLibrary(szCurrentDir_vnclangdll);
-
-	if (hInstResDLL == NULL)
-	{
-		hInstResDLL = hInstance;
-	}
-//	RegisterLinkLabel(hInstResDLL);
-
-    //Load all messages from ressource file
-    Load_Localization(hInstResDLL) ;
+	// Note: Language DLL and localization already loaded early in WinMain
 
 #ifdef _DEBUG
 	{
@@ -208,16 +191,93 @@ void replaceFilename(char* path, const char* newFilename) {
 	char* lastSlash = strrchr(path, '\\'); // Find the last '/'
 	if (lastSlash) {
 		*(lastSlash + 1) = '\0'; // Truncate after the last '/'
-		strcat(path, newFilename); // Append the new filename
+		strcat_s(path, MAX_PATH, newFilename); // Append the new filename
 	}
 	else {
 		// No '/' found, replace the whole string
-		strcpy(path, newFilename);
+		strcpy_s(path, MAX_PATH, newFilename);
+	}
+}
+
+// Check if running in portable mode
+// Portable mode is detected by the presence of "ultravnc.portable" file in the application folder
+bool IsPortableMode(const char* appFolder) {
+	char portableMarker[MAX_PATH]{};
+	strcpy_s(portableMarker, appFolder);
+	strcat_s(portableMarker, "\\");
+	strcat_s(portableMarker, PORTABLE_MARKER_FILE);
+	
+	// Check if marker file exists
+	std::ifstream markerFile(portableMarker);
+	bool isPortable = markerFile.good();
+	markerFile.close();
+	
+	if (isPortable) {
+		vnclog.Print(LL_LOGSCREEN, "Portable mode detected (marker file: %s)", portableMarker);
+	}
+	
+	return isPortable;
+}
+
+// Migrate INI file from install folder to ProgramData
+// Returns true if migration was performed or file already exists in target
+bool MigrateIniToProgramData(const char* installFolderPath, const char* programDataPath) {
+	char sourceIni[MAX_PATH]{};
+	char targetIni[MAX_PATH]{};
+	char targetFolder[MAX_PATH]{};
+
+	// Build paths
+	strcpy_s(sourceIni, installFolderPath);
+	strcat_s(sourceIni, "\\");
+	strcat_s(sourceIni, INIFILE_NAME);
+
+	strcpy_s(targetIni, programDataPath);
+	strcat_s(targetIni, CONFIG_SUBFOLDER);
+	strcpy_s(targetFolder, targetIni);
+	strcat_s(targetIni, "\\");
+	strcat_s(targetIni, INIFILE_NAME);
+
+	// Check if target already exists
+	std::ifstream targetFile(targetIni);
+	if (targetFile.good()) {
+		targetFile.close();
+		vnclog.Print(LL_LOGSCREEN, "Config already exists in ProgramData: %s", targetIni);
+		return true;
+	}
+	targetFile.close();
+
+	// Check if source exists
+	std::ifstream sourceFile(sourceIni);
+	if (!sourceFile.good()) {
+		sourceFile.close();
+		vnclog.Print(LL_LOGSCREEN, "No config to migrate from install folder: %s", sourceIni);
+		return false;
+	}
+	sourceFile.close();
+
+	// Create target directory if it doesn't exist
+	if (_mkdir(targetFolder) != 0 && errno != EEXIST) {
+		vnclog.Print(LL_LOGSCREEN, "Failed to create target directory: %s (errno: %d)", targetFolder, errno);
+		return false;
+	}
+
+	// Copy the file
+	if (CopyFileA(sourceIni, targetIni, FALSE)) {
+		vnclog.Print(LL_LOGSCREEN, "Migrated config from %s to %s", sourceIni, targetIni);
+		return true;
+	}
+	else {
+		DWORD error = GetLastError();
+		vnclog.Print(LL_LOGSCREEN, "Failed to migrate config (error %d): %s -> %s", error, sourceIni, targetIni);
+		return false;
 	}
 }
 
 void extractConfig(char* szCmdLine)
 {
+	// Check if running as service - check for -service in command line
+	bool isServiceMode = strstr(szCmdLine, winvncRunService) != NULL;
+
 	size_t i = 0;
 	while (szCmdLine[i] != '\0') {
 		if (strncmp(&szCmdLine[i], winvncConfig, strlen(winvncConfig)) == 0) {
@@ -238,7 +298,7 @@ void extractConfig(char* szCmdLine)
 				const char* end = strchr(start, '"'); // Find the closing quote
 				if (end) {
 					pathLength = end - start; // Calculate the length of the path
-					strncpy(configFile, start, pathLength); // Copy the path into the char array
+					strncpy_s(configFile, start, pathLength); // Copy the path into the char array
 					configFile[pathLength] = '\0'; // Null-terminate the path
 					i += pathLength + 1; // Move i past the closing quote
 					configfileskip += pathLength + 1;
@@ -250,14 +310,14 @@ void extractConfig(char* szCmdLine)
 				const char* end = strchr(start, ' '); // Find the next space
 				if (end) {
 					pathLength = end - start; // Calculate the length of the path
-					strncpy(configFile, start, pathLength); // Copy the path into the char array
+					strncpy_s(configFile, start, pathLength); // Copy the path into the char array
 					configFile[pathLength] = '\0'; // Null-terminate the path
 					i += pathLength; // Move i past the path
 					configfileskip += pathLength;
 				}
 				else {
 					// Path is the rest of the string
-					strcpy(configFile, &szCmdLine[i]); // Copy the rest of the string into the path
+					strcpy_s(configFile, &szCmdLine[i]); // Copy the rest of the string into the path
 					pathLength = strlen(&szCmdLine[i]);
 					i += pathLength; // Move i past the path
 					configfileskip += pathLength;
@@ -268,70 +328,123 @@ void extractConfig(char* szCmdLine)
 		i++;
 	}
 	if (strlen(configFile) == 0) {
+		char programdataPath[MAX_PATH]{};
+		char programdataFolder[MAX_PATH]{};
+		char programdataIni[MAX_PATH]{};
 		char appdataPath[MAX_PATH]{};
 		char appdataFolder[MAX_PATH]{};
-		char programdataPath[MAX_PATH]{};
-		char szCurrentDir[MAX_PATH]{};
-		strcpy_s(szCurrentDir, winvncFolder);		
-		strcat_s(szCurrentDir, "\\");
-		strcat_s(szCurrentDir, INIFILE_NAME);
+		char appdataIni[MAX_PATH]{};
 #ifndef SC_20
-		SHGetFolderPathA(NULL, CSIDL_COMMON_APPDATA, NULL, 0, programdataPath);
-		SHGetFolderPathA(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, appdataPath);
-		SHGetFolderPathA(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, appdataFolder);
-		strcat_s(programdataPath, "\\UltraVNC");
-		strcat_s(programdataPath, "\\");
-		strcat_s(programdataPath, INIFILE_NAME);
-		strcat_s(appdataPath, "\\UltraVNC");
-		strcat_s(appdataPath, "\\");
-		strcat_s(appdataPath, INIFILE_NAME);
-
-
-		std::ifstream file;
-		file.open(appdataPath);
-		if (file.good()) {
-			strcpy_s(configFile, appdataPath);
+		// Check if running in portable mode
+		if (IsPortableMode(winvncFolder)) {
+			// Portable mode: Use install folder for config
+			strcpy_s(configFile, winvncFolder);
+			strcat_s(configFile, "\\");
+			strcat_s(configFile, INIFILE_NAME);
 			showSettings = true;
-			vnclog.Print(LL_LOGSCREEN, "using config file %s", configFile);
+			vnclog.Print(LL_LOGSCREEN, "Portable mode: Using config file: %s", configFile);
 		}
 		else {
-			file.clear();
-			vnclog.Print(LL_LOGSCREEN, "config file not found %s", appdataPath);
-			file.open(programdataPath);
-			if (file.good()) {
-				strcpy_s(configFile, programdataPath);
-				//only admins can edit programdata
-				showSettings = Credentials::RunningAsAdministrator(false);
-				vnclog.Print(LL_LOGSCREEN, "using config file %s", configFile);
-			}
-			else {
-				file.clear();
-				vnclog.Print(LL_LOGSCREEN, "config file not found %s", programdataPath);
-				file.open(szCurrentDir);
+			// Admin mode: Always use ProgramData (system-wide shared config)
+			// Non-admin: Hybrid mode - LocalAppData (user-specific) → ProgramData (shared fallback)
+			
+			// Get ProgramData path (system-wide) - always needed
+			SHGetFolderPathA(NULL, CSIDL_COMMON_APPDATA, NULL, 0, programdataPath);
+			strcpy_s(programdataFolder, programdataPath);
+			strcat_s(programdataFolder, CONFIG_SUBFOLDER);
+			strcpy_s(programdataIni, programdataFolder);
+			strcat_s(programdataIni, "\\");
+			strcat_s(programdataIni, INIFILE_NAME);
+
+			// Check if running as administrator or service
+			bool isAdmin = Credentials::RunningAsAdministrator(false);
+			
+			if (isAdmin || isServiceMode) {
+				// Admin or service always uses ProgramData, skip LocalAppData entirely
+				if (isServiceMode)
+					vnclog.Print(LL_LOGSCREEN, "Running as service: Using ProgramData config");
+				else
+					vnclog.Print(LL_LOGSCREEN, "Running as admin: Using ProgramData config");
+				
+				// Attempt to migrate from install folder to ProgramData (one-time)
+				MigrateIniToProgramData(winvncFolder, programdataPath);
+				
+				// Check if ProgramData config exists
+				std::ifstream file(programdataIni);
 				if (file.good()) {
-					strcpy_s(configFile, szCurrentDir);
-					showSettings = true;
-					vnclog.Print(LL_LOGSCREEN, "using config file %s", configFile);
+					strcpy_s(configFile, programdataIni);
+					vnclog.Print(LL_LOGSCREEN, "Using shared config: %s", configFile);
 				}
 				else {
-					//nothing found, default to appdata
-					vnclog.Print(LL_LOGSCREEN, "config file not found %s", szCurrentDir);
-					strcpy_s(configFile, appdataPath);
-					_mkdir(appdataFolder);
-					vnclog.Print(LL_LOGSCREEN, "creating config file %s", configFile);
-					showSettings = true;
+					// No config found, create in ProgramData
+					vnclog.Print(LL_LOGSCREEN, "No config found, creating shared config: %s", programdataIni);
+					if (_mkdir(programdataFolder) != 0 && errno != EEXIST) {
+						vnclog.Print(LL_LOGSCREEN, "Warning: Failed to create ProgramData folder: %s (errno: %d)", programdataFolder, errno);
+					}
+					strcpy_s(configFile, programdataIni);
+				}
+				showSettings = true;  // Admin can always edit
+			}
+			else {
+				// Non-admin: Hybrid mode - LocalAppData (user-specific) → ProgramData (shared fallback)
+				
+				// Get LocalAppData path (user-specific)
+				SHGetFolderPathA(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, appdataPath);
+				strcpy_s(appdataFolder, appdataPath);
+				strcat_s(appdataFolder, CONFIG_SUBFOLDER);
+				strcpy_s(appdataIni, appdataFolder);
+				strcat_s(appdataIni, "\\");
+				strcat_s(appdataIni, INIFILE_NAME);
+
+				// Attempt to migrate from install folder to ProgramData (one-time)
+				MigrateIniToProgramData(winvncFolder, programdataPath);
+
+				// Priority: LocalAppData → ProgramData
+				// Check for user-specific config first
+				{
+					std::ifstream file(appdataIni);
+					if (file.good()) {
+						// User has personal config in LocalAppData
+						strcpy_s(configFile, appdataIni);
+						showSettings = true;  // Users can always edit their own AppData
+						vnclog.Print(LL_LOGSCREEN, "Using user config: %s", configFile);
+					}
+				}
+				
+				// If no user config, check for shared ProgramData config
+				if (strlen(configFile) == 0) {
+					std::ifstream file(programdataIni);
+					if (file.good()) {
+						// Fallback to ProgramData (shared config)
+						strcpy_s(configFile, programdataIni);
+						// Admins can edit ProgramData, non-admins cannot
+						showSettings = isAdmin;
+						vnclog.Print(LL_LOGSCREEN, "Using shared config: %s (%s)", configFile, isAdmin ? "editable" : "read-only");
+					}
+					else {
+						// No config found - non-admin cannot create in ProgramData
+						// This shouldn't happen as admin should have created it
+						vnclog.Print(LL_LOGSCREEN, "No config found in ProgramData - admin must run winvnc first");
+						strcpy_s(configFile, programdataIni);
+						showSettings = isAdmin;
+					}
 				}
 			}
 		}
 #else
-		strcpy_s(configFile, szCurrentDir);
+		// SC_20 mode: Use install folder
+		strcpy_s(configFile, winvncFolder);
+		strcat_s(configFile, "\\");
+		strcat_s(configFile, INIFILE_NAME);
+		showSettings = true;
 #endif
 	}
 	else {
-		showSettings = true; // service
+		// Explicit config file specified via command line
+		showSettings = true;
 	}
 	char logFile[MAX_PATH];
-	strcpy(logFile, configFile);
+	strcpy_s(logFile, configFile);
 	replaceFilename(logFile, "mslogon.log");
 	settings->setLogFile(logFile);
 	settings->setShowSettings(showSettings);
@@ -342,12 +455,66 @@ void extractConfig(char* szCmdLine)
 // routine or, under NT, the main service routine.
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine2, int iCmdShow)
 {
+	SetDllDirectory(TEXT(""));
+	SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32);
+	settings = SettingsManager::getInstance();
+
+	typedef BOOL (WINAPI *pSetProcessMitigationPolicy_t)(PROCESS_MITIGATION_POLICY, PVOID, SIZE_T);
+	HMODULE hKernel32 = GetModuleHandleA("kernel32.dll");
+	if (hKernel32) {
+		pSetProcessMitigationPolicy_t pSetProcessMitigationPolicy = (pSetProcessMitigationPolicy_t)GetProcAddress(hKernel32, "SetProcessMitigationPolicy");
+		if (pSetProcessMitigationPolicy) {
+			PROCESS_MITIGATION_IMAGE_LOAD_POLICY policy = {};
+			policy.PreferSystem32Images = 1;
+			pSetProcessMitigationPolicy(ProcessImageLoadPolicy, &policy, sizeof(policy));
+		}
+	}
 	if (GetModuleFileName(NULL, winvncFolder, MAX_PATH))
 	{
 		char* p = strrchr(winvncFolder, '\\');
-		*p = '\0';
+		if (p) *p = '\0';
 	}
 	extractConfig(szCmdLine2);
+
+	// Load language DLL early - before any localization strings are used
+	{
+		char szCurrentDir_vnclangdll[MAX_PATH];
+		char savedLanguage[16] = "en";  // Default to English
+		
+		// Try to read language from the config file (already determined by extractConfig)
+		GetPrivateProfileStringA("admin", "Language", "en", savedLanguage, sizeof(savedLanguage), configFile);
+		
+		// Load appropriate language DLL based on saved preference
+		hInstResDLL = hInstance;  // Default to English (embedded resources)
+		
+		if (_stricmp(savedLanguage, "en") != 0) {
+			// Try to load language DLL from languages subfolder first
+			sprintf_s(szCurrentDir_vnclangdll, "%s\\languages\\winvnclang_%s.dll", winvncFolder, savedLanguage);
+			HMODULE hLangDLL = LoadLibrary(szCurrentDir_vnclangdll);
+			
+			if (hLangDLL) {
+				hInstResDLL = hLangDLL;
+			} else {
+				// Fallback: try root folder
+				sprintf_s(szCurrentDir_vnclangdll, "%s\\winvnclang_%s.dll", winvncFolder, savedLanguage);
+				hLangDLL = LoadLibrary(szCurrentDir_vnclangdll);
+				if (hLangDLL) {
+					hInstResDLL = hLangDLL;
+				} else {
+					// Fallback: try old single language DLL (vnclang_server.dll)
+					sprintf_s(szCurrentDir_vnclangdll, "%s\\vnclang_server.dll", winvncFolder);
+					hLangDLL = LoadLibrary(szCurrentDir_vnclangdll);
+					if (hLangDLL) {
+						hInstResDLL = hLangDLL;
+					}
+				}
+			}
+		}
+		
+		// Load all messages from resource file
+		Load_Localization(hInstResDLL);
+	}
+
 	InitCommonControls();
 	INITCOMMONCONTROLSEX icex;
 	memset(&icex, 0x0, sizeof(INITCOMMONCONTROLSEX));
@@ -356,11 +523,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine2
 	InitCommonControlsEx(&icex);
 	try {
 		if (VNC_OSVersion::getInstance()->OS_XP == true)
-			MessageBoxSecure(NULL, "Windows XP requires special build", "Warning", MB_ICONERROR);
+			MessageBoxSecure(NULL, sz_ID_WINDOWS_XP_SPECIAL_BUILD, sz_ID_WARNING_CAPTION, MB_ICONERROR);
 
 		if (VNC_OSVersion::getInstance()->OS_NOTSUPPORTED == true)
 		{
-			MessageBoxSecure(NULL, "Error OS not supported", "Unsupported OS", MB_ICONERROR);
+			MessageBoxSecure(NULL, sz_ID_ERROR_OS_NOT_SUPPORTED, sz_ID_UNSUPPORTED_OS_CAPTION, MB_ICONERROR);
 			return return2(true);
 		}
 		// make vnc last service to stop
@@ -390,29 +557,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine2
 		settings->setScExit(false);
 		settings->setScPrompt(false);
 	#endif // SC_20
+		// Update mslogon.log path to use path= setting from INI
+		char* debugPath = settings->getDebugPath();
+		if (debugPath && strlen(debugPath) > 0) {
+			char logFile[MAX_PATH];
+			strcpy_s(logFile, debugPath);
+			size_t len = strlen(logFile);
+			if (len > 0 && logFile[len-1] != '\\') {
+				strcat_s(logFile, "\\");
+			}
+			strcat_s(logFile, "mslogon.log");
+			settings->setLogFile(logFile);
+		}
 		setbuf(stderr, 0);
 
-		// [v1.0.2-jp1 fix] Load resouce from dll
-		hInstResDLL = NULL;
-
-		//limit the vnclang.dll searchpath to avoid
-		char szCurrentDir[MAX_PATH];
-		char szCurrentDir_vnclangdll[MAX_PATH];
-		strcpy_s(szCurrentDir, winvncFolder);
-		strcpy_s(szCurrentDir_vnclangdll, szCurrentDir);
-		strcat_s(szCurrentDir_vnclangdll, "\\");
-		strcat_s(szCurrentDir_vnclangdll, "vnclang_server.dll");
-
-		hInstResDLL = LoadLibrary(szCurrentDir_vnclangdll);
-
-		if (hInstResDLL == NULL)
-		{
-			hInstResDLL = hInstance;
-		}
-		//	RegisterLinkLabel(hInstResDLL);
-
-			//Load all messages from ressource file
-		Load_Localization(hInstResDLL);
+		// Note: Language DLL and localization already loaded early in WinMain
 
 	#ifdef _DEBUG
 		{
@@ -1271,12 +1430,6 @@ DWORD WINAPI imp_desktop_thread(LPVOID lpParam)
 		vnclog.Print(LL_INTERR, VNCLOG("PostAddNewRepeaterClient II\n"));
 		postHelper::PostAddNewRepeaterClient();
 	}
-	if (PostAddNewCloudClient_bool)
-	{
-		PostAddNewCloudClient_bool = false;
-		vnclog.Print(LL_INTERR, VNCLOG("PostAddNewCloudClient II\n"));
-		postHelper::PostAddNewCloudClient();
-	}
 	bool Runonce=false;
 	MSG msg;
 	while (GetMessage(&msg,0,0,0) != 0)
@@ -1317,9 +1470,12 @@ DWORD WINAPI imp_desktop_thread(LPVOID lpParam)
 
 int WinVNCAppMain()
 {
-	vnclog.SetMode(settings->getDebugMode());
 	vnclog.SetPath(settings->getDebugPath());
 	vnclog.SetLevel(settings->getDebugLevel());
+	vnclog.SetMode(settings->getDebugMode());
+#ifndef ULTRAVNC_VEYON_SUPPORT
+	vnclog.SetFile();
+#endif
 	vnclog.SetVideo(settings->getAvilog());
 
 	vnclog.Print(LL_INTINFO, VNCLOG("WinVNCAPPMain-----Application started\n"));

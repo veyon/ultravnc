@@ -52,7 +52,9 @@ void VNCLog::Print(int level, const char* format, ...) {
     if (level == -1 || (settings && settings->getShowAllLogs())) {
         va_list ap;
         va_start(ap, format);
-        ReallyPrintScreen(removeNewlineAndCopy(format), ap);
+        char* cleaned = removeNewlineAndCopy(format);
+        ReallyPrintScreen(cleaned, ap);
+        delete[] cleaned;
         va_end(ap);
         return;
     }
@@ -139,7 +141,7 @@ void VNCLog::SetFile()
 	strcat_s(m_filename,"\\");
 	strcat_s(m_filename,"WinVNC.log");
 	m_append = true;
-	if (m_tofile)
+	if (m_tofile || (m_mode & ToFile))
 		OpenFile();
 }
 

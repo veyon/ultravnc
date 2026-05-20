@@ -17,14 +17,14 @@
 using namespace helper;
 extern HINSTANCE m_hInstResDLL;
 
-extern char sz_A1[64];
-extern char sz_A2[64];
-extern char sz_A3[64];
-extern char sz_A4[64];
-extern char sz_A5[64];
+extern wchar_t sz_A1[64];
+extern wchar_t sz_A2[64];
+extern wchar_t sz_A3[64];
+extern wchar_t sz_A4[64];
+extern wchar_t sz_A5[64];
 
 // --------------------------------------------------------------------------
-VNCviewerApp32::VNCviewerApp32(HINSTANCE hInstance, PSTR szCmdLine) :
+VNCviewerApp32::VNCviewerApp32(HINSTANCE hInstance, LPTSTR szCmdLine) :
 	VNCviewerApp(hInstance, szCmdLine)
 {
 
@@ -49,9 +49,8 @@ VNCviewerApp32::VNCviewerApp32(HINSTANCE hInstance, PSTR szCmdLine) :
 		try {
 			m_pdaemon = new Daemon(m_options.m_listenPort, m_options.m_ipv6);
 		} catch (WarningException &e) {
-			char msg[1024];
-			sprintf_s(msg,"%s (%s)\n\r%s",sz_A3,
-				e.m_info, sz_A4);
+			wchar_t msg[1024];
+			swprintf_s(msg, 1024, L"%s (%s)\n\r%s", sz_A3, e.GetInfo(), sz_A4);
 			yesUVNCMessageBox(m_hInstResDLL, NULL, msg, sz_A5, MB_ICONSTOP);
 			exit(1);
 		}
@@ -68,7 +67,8 @@ VNCviewerApp32::VNCviewerApp32(HINSTANCE hInstance, PSTR szCmdLine) :
 void VNCviewerApp32::NewConnection(bool Is_Listening) {
 	ClientConnection *pcc = new ClientConnection(this);
 	try {
-		pcc->m_opts = &m_options;
+		pcc->m_optsCopy = m_options;
+		pcc->m_opts = &pcc->m_optsCopy;
 		pcc->m_Is_Listening=Is_Listening;
 		pcc->Run();
 	} catch (Exception &e) {
@@ -81,7 +81,8 @@ void VNCviewerApp32::NewConnection(bool Is_Listening) {
 void VNCviewerApp32::NewConnection(bool Is_Listening,TCHAR *host, int port) {
 	ClientConnection *pcc = new ClientConnection(this, host,port);
 	try {
-		pcc->m_opts = &m_options;
+		pcc->m_optsCopy = m_options;
+		pcc->m_opts = &pcc->m_optsCopy;
 		pcc->m_Is_Listening=Is_Listening;
 		pcc->Run();
 	} catch (Exception &e) {
@@ -94,7 +95,8 @@ void VNCviewerApp32::NewConnection(bool Is_Listening,TCHAR *host, int port) {
 void VNCviewerApp32::NewConnection(bool Is_Listening,SOCKET sock) {
 	ClientConnection *pcc = new ClientConnection(this, sock);
 	try {
-		pcc->m_opts = &m_options;
+		pcc->m_optsCopy = m_options;
+		pcc->m_opts = &pcc->m_optsCopy;
 		pcc->m_Is_Listening=Is_Listening;
 		pcc->Run();
 	} catch (Exception &e) { 

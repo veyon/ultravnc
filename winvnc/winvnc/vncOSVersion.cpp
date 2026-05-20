@@ -6,9 +6,9 @@
 //
 // SPDX-FileCopyrightText: Copyright (C) 2002-2025 UltraVNC Team Members. All Rights Reserved.
 // SPDX-FileCopyrightText: Copyright (C) 1999-2002 Vdacc-VNC & eSVNC Projects. All Rights Reserved.
-//
 
 
+#pragma warning(disable: 4996 4995)
 #include <winsock2.h>
 #include <windows.h>
 #include "vncOSVersion.h"
@@ -61,12 +61,13 @@ VNC_OSVersion::VNC_OSVersion()
 	OS_NOTSUPPORTED=false;
 	OS_BEFOREVISTA = false;
 	OS_WIN10_TRANS = false;
-	OSVERSIONINFO OSversion;	
-	OSversion.dwOSVersionInfoSize=sizeof(OSVERSIONINFO);
-	GetVersionEx(&OSversion);
 #ifndef ULTRAVNC_VEYON_SUPPORT
 	OS_WINPE = isWINPE();
 #endif
+
+	OSVERSIONINFO OSversion;	
+	OSversion.dwOSVersionInfoSize=sizeof(OSVERSIONINFO);
+	GetVersionEx(&OSversion);
 
 	switch(OSversion.dwPlatformId)
 	{

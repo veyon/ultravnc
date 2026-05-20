@@ -82,10 +82,7 @@
 #define IDD_SAVEIMAGE                   216
 #define IDB_EXPAND                      218
 #define IDB_COLLAPS                     219
-#define IDB_GREEN                       229
-#define IDB_RED                         230
 #define IDB_BITMAP1                     231
-#define IDB_YELLOW                      231
 #define IDB_CHAT                        238
 #define IDB_BITMAP8                     240
 #define IDB_FT                          240
@@ -156,6 +153,8 @@
 #define IDC_REMOTE_STATUS               1073
 #define IDC_GLOBAL_STATUS               1075
 #define IDC_HISTORY_CB                  1077
+#define IDC_REFRESH               1078
+#define IDC_REFRESH_REMOTE              1079
 #define IDC_PLUGIN_CHECK                1090
 #define IDC_COMBO1                      1091
 #define IDC_IMAGEFORMAT                 1091
@@ -270,6 +269,7 @@
 #define IDC_PREFIX                      1184
 #define IDC_RADIO3                      1185
 #define IDC_RADIO_NOVIRT                1185
+#define IDC_RADIOBRIDGE                 1185
 #define IDC_HIDEENDOFSTREAMERROR        1186
 #define IDC_ENCODING_BASE               1199
 #define IDC_RAWRADIO                    2000
@@ -320,6 +320,7 @@
 #define IDC_SAVEASDEFAULT               2047
 #define IDC_BUTTON_EXPAND               2048
 #define IDC_ZSTD                        2049
+#define IDC_LANGUAGE_COMBO              2050
 #define IDC_LINE1                       2053
 #define IDC_LINE2                       2054
 #define IDC_SLIDERRES                   2054
@@ -333,6 +334,8 @@
 #define IDC_RED                         2065
 #define IDC_YELLOW                      2066
 #define IDC_GNOME                       2067
+#define IDC_GREEN2                      2067
+#define IDC_ORANGE                      2067
 #define IDC_CATCHPHRASE                 2068
 #define IDC_SIGNATURE                   2069
 #define IDC_ABOUT                       2070
@@ -664,13 +667,48 @@
 #define IDS_STRING50296                 50296
 #define IDS_STRING107                   50297
 #define IDS_STRING50297                 50297
+#define IDS_TLS1                        50298
+#define IDS_TLS2                        50299
+#define IDS_TLS3                        50300
+#define IDS_TLS4                        50301
+#define IDS_TLS5                        50302
+#define IDS_TLS6                        50303
+#define IDS_TLS7                        50304
+#define IDS_TLS8                        50305
+#define IDS_TLS9                        50306
+#define IDS_TLS10                       50307
+#define IDS_TLS11                       50308
+#define IDS_N1                          50309
+#define IDS_N2                          50310
+#define IDS_N3                          50311
+#define IDS_N4                          50312
+#define IDS_N5                          50313
+#define IDS_N6                          50314
+#define IDS_N7                          50315
+#define IDS_N8                          50316
+#define IDS_N9                          50317
+#define IDS_N10                         50318
+#define IDS_N11                         50319
+#define IDS_N12                         50320
+#define IDS_N13                         50321
+#define IDS_N14                         50322
+#define IDS_LANGUAGE_NAME               50323
+#define IDS_I4                          50324
+#define IDS_TAB_ENCODERS                50400
+#define IDS_TAB_INPUT                   50401
+#define IDS_TAB_DISPLAY                 50402
+#define IDS_TAB_MISC                    50403
+#define IDS_TAB_SECURITY                50404
+#define IDS_TAB_QUICKENC                50405
+#define IDS_TAB_LISTEN                  50406
+#define IDS_TAB_CONF                    50407
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NO_MFC                     1
-#define _APS_NEXT_RESOURCE_VALUE        241
+#define _APS_NEXT_RESOURCE_VALUE        242
 #define _APS_NEXT_COMMAND_VALUE         50025
 #define _APS_NEXT_CONTROL_VALUE         2083
 #define _APS_NEXT_SYMED_VALUE           154

@@ -36,10 +36,6 @@
 #include "Localization.h" // ACT : Add localization on messages
 #include "ScSelect.h"
 
-#ifdef _CLOUD
-#include "./UdtCloudlib/proxy/Cloudthread.h"
-#endif
-
 #pragma comment(lib, "iphlpapi.lib")
 
 extern bool g_Desktop_running;
@@ -190,16 +186,14 @@ vncServer::vncServer()
 	char* generatedcode = generateCode();
 	strcpy_s(code, generatedcode);
 	free(generatedcode);
-	cloudThread = new CloudThread();
 #endif
+
 }
 
 vncServer::~vncServer()
 {
-	// Stop bridge before other cleanup
-	//StopBridge();
-	ShutdownServer();
-}
+	
+	ShutdownServer();}
 
 void
 vncServer::ShutdownServer()
@@ -343,6 +337,7 @@ vncClientId vncServer::AddClient(VSocket* socket, BOOL auth, BOOL shared, int ca
 	client->EnablePointer(settings->getEnableRemoteInputs());
 	client->EnableGii(settings->getEnableRemoteInputs());
 	client->EnableJap(settings->getEnableJapInput() ? true : false);
+	client->ForceCursorShape(settings->getForceCursorShape() ? true : false);
 	client->EnableUnicode(settings->getEnableUnicodeInput() ? true : false);
 
 	// adzm 2009-07-05 - repeater IDs
@@ -1220,6 +1215,18 @@ vncServer::EnableJapInput(BOOL enable)
 	}
 }
 
+
+void
+vncServer::ForceCursorShape(BOOL enable)
+{
+	settings->setForceCursorShape(enable);
+	vncClientList::iterator i;
+	omni_mutex_lock l(m_clientsLock, 55);
+	for (i = m_authClients.begin(); i != m_authClients.end(); i++) {
+		GetClient(*i)->ForceCursorShape(settings->getForceCursorShape() ? true : false);
+	}
+}
+
 void
 vncServer::EnableUnicodeInput(BOOL enable)
 {
@@ -1570,7 +1577,11 @@ vncServer::VerifyHost(const char* hostname) {
 	enum vh_Mode { vh_ExpectDelimiter, vh_ExpectIncludeExclude, vh_ExpectPattern };
 	vh_Mode machineMode = vh_ExpectIncludeExclude;
 
-	vncServer::AcceptQueryReject verifiedHost = vncServer::aqrAccept;
+	// If QuerySetting=4 and authhost is empty, default to query instead of accept
+	vncServer::AcceptQueryReject verifiedHost = 
+		(settings->getQuerySetting() == 4 && (settings->getAuthhosts()[0] == '\0')) 
+		? vncServer::aqrQuery 
+		: vncServer::aqrAccept;
 
 	vncServer::AcceptQueryReject patternType = vncServer::aqrReject;
 	UINT authHostsPos = 0;
@@ -1645,12 +1656,6 @@ vncServer::VerifyHost(const char* hostname) {
 	//QuerySetting == 4 popup, 2 no poup
 
 	switch (verifiedHost) {
-	/*case vncServer::aqrAccept:
-		if (settings->getQuerySetting() >= 3)
-			verifiedHost = autoAccept
-			? vncServer::aqrAccept
-			: vncServer::aqrQuery;
-		break;*/
 	case vncServer::aqrQuery:
 		if (settings->getQuerySetting() == 2)
 			verifiedHost = vncServer::aqrReject;
@@ -1660,12 +1665,6 @@ vncServer::VerifyHost(const char* hostname) {
 				: vncServer::aqrQuery;
 		}
 		break;
-	/*case vncServer::aqrReject:
-		if (settings->getQuerySetting() == 0)
-			verifiedHost = autoAccept
-			? vncServer::aqrAccept
-			: vncServer::aqrQuery;
-		break;*/
 	default:
 		break;
 	};
@@ -1848,7 +1847,7 @@ BOOL vncServer::SetDSMPlugin(BOOL bForceReload)
 		char szParams[MAXPWLEN + 64];
 		// Does the plugin need the VNC password to do its job ?
 		if (!_stricmp(m_pDSMPlugin->GetPluginParams(), "VNCPasswordNeeded"))
-			strcpy_s(szParams, vncDecryptPasswd((char*)password, settings->getSecure()));
+			strcpy_s(szParams, vncDecryptPasswd((char*)settings->getPasswd(), settings->getSecure()));
 		else
 			strcpy_s(szParams, "NoPassword");
 
@@ -2160,46 +2159,3 @@ void vncServer::SetAutoPortSelect(const BOOL autoport)
 		EnableConnections(SockConnected());
 };
 
-void vncServer::cloudConnect(bool start, char *cloudServer)
-{
-#ifdef _CLOUD
-	if (start)
-		cloudThread->startThread(5352, cloudServer, code, ctSERVER);
-	else
-		cloudThread->stopThread();
-#endif
-}
-
-bool vncServer::isCloudThreadRunning()
-{
-#ifdef _CLOUD
-	return cloudThread->isThreadRunning();
-#else
-	return false;
-#endif
-}
-
-char *vncServer::getExternalIpAddress()
-{
-#ifdef _CLOUD
-	return cloudThread->getExternalIpAddress();
-#else
-	return "";
-#endif
-}
-
-int vncServer::getStatus()
-{
-#ifdef _CLOUD
-	return cloudThread->getStatus();
-#else
-	return 0;
-#endif
-}
-
-void vncServer::setVNcPort()
-{
-#ifdef _CLOUD
-	cloudThread->setVNcPort(m_port);
-#endif
-}

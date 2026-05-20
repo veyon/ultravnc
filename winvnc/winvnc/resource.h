@@ -74,7 +74,7 @@
 #define IDC_CHECKIP                     1020
 #define IDC_CAPTION_STATIC              1021
 #define IDC_CHATAREA_EDIT               1022
-#define IDC_CHECK1                      1023
+#define IDC_CHECKBRIDGE                 1023
 #define IDC_PRIM                        1024
 #define IDC_ALLOWUSERSSETTINGS          1025
 #define IDC_CHECK2                      1026
@@ -298,7 +298,7 @@
 #define IDC_IDLETIMEINPUT               1252
 #define IDC_KINTERVAL                   1253
 #define IDD_FORM_NETWORK                1256
-#define IDD_FORM_Reverse                1257
+#define IDD_FORM_Network                1257
 #define IDD_FORM_Clients                1258
 #define IDD_FORM_Misc                   1261
 #define IDD_FORM_input                  1262
@@ -329,6 +329,9 @@
 #define IDC_SERVICE_STATUS              1289
 #define IDC_INSTALL_SERVICE             1290
 #define IDC_STOP_SERVICE                1291
+#define IDC_LANGUAGE_COMBO              1292
+#define IDC_LANGUAGE_LABEL              1293
+#define IDC_FORCE_SHAPE                 1294
 #define IDE_CUSTOM1                     4377
 #define ID_ABOUT                        32771
 #define ID_ADMIN_PROPERTIES             32772
@@ -419,6 +422,52 @@
 #define ID_WINVNC_WARNIN                32857
 #define ID_WVNC                         32858
 #define ID_CLOSE_SILENT                 32859
+#define ID_COPY_BRIDGE_CODE             32860
+#define ID_TRAY_COPYBRIDGECODE          32861
+#define ID_Menu                         32862
+#define IDS_WINDOWS_XP_SPECIAL_BUILD    32863
+#define IDS_WARNING_CAPTION             32864
+#define IDS_ERROR_OS_NOT_SUPPORTED      32865
+#define IDS_UNSUPPORTED_OS_CAPTION      32866
+#define IDS_AUTHADMIN_DLL_NOT_FOUND     32867
+#define IDS_WORKGRPDOMNT4_DLL_NOT_FOUND 32868
+#define IDS_LDAPAUTH_DLL_NOT_FOUND      32869
+#define IDS_LDAPAUTHNT4_DLL_NOT_FOUND   32870
+#define IDS_LDAPAUTH9X_DLL_NOT_FOUND    32871
+#define IDS_KILL_VIEWERS_QUESTION       32872
+#define IDS_RESTART_SERVER_QUESTION     32873
+#define IDS_CLOSE_SERVER_QUESTION       32874
+#define IDS_REBOOT_SYSTEM_QUESTION      32875
+#define IDS_FORCE_REBOOT_QUESTION       32876
+#define IDS_UNINSTALL_SERVICE_QUESTION  32877
+#define IDS_INSTALL_SERVICE_QUESTION    32878
+#define IDS_STOP_SERVICE_QUESTION       32879
+#define IDS_START_SERVICE_QUESTION      32880
+#define IDS_SYSTEM_CAPTION              32881
+#define IDS_SERVICE_CAPTION             32882
+#define IDS_CURRENT_DRIVER_OLD          32883
+#define IDS_DRIVER_NOT_FOUND_REBOOT     32884
+#define IDS_DRIVER_INFO_REQUIRED_VERSION 32885
+#define IDS_FAILED_OPEN_SVC_MGR         32886
+#define IDS_FAILED_PERMISSION_DENIED    32887
+#define IDS_FAILED_CREATE_SVC           32888
+#define IDS_FAILED_SVC_NOT_INSTALLED    32889
+#define IDS_FAILED_OPEN_SVC             32890
+#define IDS_FAILED_QUERY_SVC_STATUS     32891
+#define IDS_FAILED_DELETE_SVC           32892
+#define IDS_WRONG_PASSWORD_RETRY        32893
+#define IDS_ERROR_CAPTION               32894
+#define IDS_UAC_DISABLED_REGISTRY       32895
+#define IDS_VERIFY_SAME_FOLDER          32896
+#define IDS_DRIVER_FOUND                32897
+#define IDS_DRIVER_VERSION_OK           32898
+#define IDS_DRIVER_VERSION_NOT_OK       32899
+#define IDS_DRIVER_NOT_ACTIVATED        32900
+#define IDS_DRIVER_ONLY_SERVICE_ADMIN   32901
+#define IDS_DRIVER_ACTIVE               32902
+#define IDS_DRIVER_ACCESS_OK            32903
+#define IDS_DRIVER_ACCESS_DENIED        32904
+#define IDS_LANGUAGE_NAME               32905
 
 // Next default values for new objects
 // 
@@ -426,8 +475,8 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_3D_CONTROLS                     1
 #define _APS_NEXT_RESOURCE_VALUE        211
-#define _APS_NEXT_COMMAND_VALUE         32860
-#define _APS_NEXT_CONTROL_VALUE         1292
+#define _APS_NEXT_COMMAND_VALUE         32906
+#define _APS_NEXT_CONTROL_VALUE         1294
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

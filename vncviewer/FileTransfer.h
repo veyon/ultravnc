@@ -15,7 +15,7 @@
 
 #include <list>
 #include <string>
-#include "ZipUnZip32/ZipUnZip32.h"
+#include "common/ZipUnzip/MiniZipNG.h"
 
 #define CONFIRM_YES 1
 #define CONFIRM_YESALL 2
@@ -25,6 +25,7 @@
 #define FT_PROTO_VERSION_OLD 1  // <= RC18 UltraVNC Server "fOldFTPRotocole" version
 #define FT_PROTO_VERSION_2   2  // base File Transfer Protocol
 #define FT_PROTO_VERSION_3   3  // new File Transfer Protocol session messages
+#define FT_PROTO_VERSION_4   4  // Adds: rfbADirInaccessible, rfbRDirContentUnicode/rfbADirUnicode
 
 typedef std::list<int> FilesList; // List of files indexes to be sent or received
 
@@ -38,6 +39,10 @@ public:
 	VNCviewerApp		*m_pApp; 
 	ClientConnection	*m_pCC;
 	HWND				hWnd;
+	enum : LPARAM
+	{
+		FT_LPARAM_UNREADABLE = 0x00000001
+	};
 	bool				m_fAbort;
     bool                m_fUserAbortedFileTransfer; // 21 April 2008 jdp 
 	bool                m_fUserForcedAbortedFileTransfer; // 21 April 2008 jdp 
@@ -54,21 +59,31 @@ public:
 	bool				m_fFTAllowed;
 	int                 m_timer;
 	bool				m_fFocusLocal;
-	char                m_szFTParamTitle[128];
-	char                m_szFTParamComment[64];
-	char                m_szFTParam[256];
-	char                m_szFTConfirmTitle[128];
-	char                m_szFTConfirmComment[364];
+	wchar_t             m_szFTParamTitle[128];
+	wchar_t             m_szFTParamComment[64];
+	wchar_t             m_szFTParam[256];
+	WCHAR               m_szFTParamW[256];
+	wchar_t             m_szFTConfirmTitle[128];
+	wchar_t             m_szFTConfirmComment[364];
 	int					m_nConfirmAnswer;
-	CZipUnZip32			*m_pZipUnZip;
+	CMiniZipNG			*m_pMiniZipNG;     // Unicode-aware zip
 	bool				m_fApplyToAll;
 	bool				m_fShowApplyToAll;
-	char				m_szDeleteButtonLabel[64];
-	char				m_szNewFolderButtonLabel[64];
-	char				m_szRenameButtonLabel[64];
+	wchar_t				m_szDeleteButtonLabel[64];
+	wchar_t				m_szNewFolderButtonLabel[64];
+	wchar_t				m_szRenameButtonLabel[64];
+	wchar_t				m_szRefreshButtonLabel[64];
 
 	// adzm 2009-08-02
 	char				m_szLastLocalPath[_MAX_PATH];
+	char				m_szLastRemotePath[_MAX_PATH];
+	WCHAR				m_szLastRemotePathW[_MAX_PATH];
+	int                 m_nLastLocalAttemptItem;
+	char                m_szLastLocalAttemptName[MAX_PATH + 2];
+	WCHAR               m_szLastLocalAttemptNameW[MAX_PATH + 2];
+	int                 m_nLastRemoteAttemptItem;
+	char                m_szLastRemoteAttemptName[MAX_PATH + 2];
+	WCHAR               m_szLastRemoteAttemptNameW[MAX_PATH + 2];
 
 	__int64				m_nnFileSize;
 	DWORD				m_dwCurrentValue;
@@ -78,7 +93,7 @@ public:
 
 	// File Sending (upload)
 	HANDLE				m_hSrcFile;
-	char				m_szSrcFileName[MAX_PATH + 32];
+	char				m_szSrcFileName[MAX_PATH * 4];
 	DWORD				m_dwNbBytesRead;
 	__int64				m_dwTotalNbBytesRead;
 	bool				m_fEof;
@@ -95,10 +110,11 @@ public:
 	int					m_nFileCount;
 	bool				m_fDirectoryReceptionRunning;
 	char				m_szFileSpec[MAX_PATH + 64];
-
-
+	
 	// File reception (download)
-	char				m_szDestFileName[MAX_PATH + 32];
+	WCHAR				m_szSrcFileNameW[MAX_PATH * 4];    // Unicode local src path for upload
+	char				m_szDestFileName[MAX_PATH * 4];
+	WCHAR				m_szDestFileNameW[MAX_PATH * 4]; // Unicode version for correct rename on all locales
 	HANDLE				m_hDestFile;
 	DWORD				m_dwNbReceivedPackets;
 	DWORD				m_dwNbBytesWritten;
@@ -110,7 +126,8 @@ public:
 	bool				m_fFileDownloadError;
 	char				m_szIncomingFileTime[18];
 
-    int                 m_ServerFTProtocolVersion; // 8/6/2008 jdp 
+    int                 m_ServerFTProtocolVersion;
+    bool                m_fServerSupportsUnicode; // true when server sent FT_PROTO_VERSION_4+
 	UINT					m_nBlockSize;
 
 	int					m_nNotSent;
@@ -132,9 +149,9 @@ public:
 	static BOOL CALLBACK FileTransferDlgProc(HWND hwndDlg,UINT uMsg,WPARAM wParam,LPARAM lParam);
 	static BOOL CALLBACK LFBWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	static BOOL CALLBACK RFBWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
-	int DoFTParamDialog(LPSTR szTitle, LPSTR szComment);
+	int DoFTParamDialog(LPWSTR szTitle, LPWSTR szComment);
 	static BOOL CALLBACK FTParamDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
-	int DoFTConfirmDialog(LPSTR szTitle, LPSTR szComment);
+	int DoFTConfirmDialog(LPWSTR szTitle, LPWSTR szComment);
 	static BOOL CALLBACK FTConfirmDlgProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam );
 	static int CALLBACK ListViewLocalCompareProc(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort); /*TAW*/
 	static int CALLBACK ListViewRemoteCompareProc(LPARAM lParam1, LPARAM lParam2, LPARAM lParamSort); /*TAW*/
@@ -146,17 +163,18 @@ public:
 	bool SendFile(long lSize, UINT nLen);
 	bool SendFileChunk();
 	bool FinishFileReception();
-	bool UnzipPossibleDirectory(LPSTR szFileName);
+	bool UnzipPossibleDirectory(LPCWSTR szFileName);
 	bool SendFiles(long lSize, UINT nLen);
 	bool OfferNextFile();
 	void ListRemoteDrives(HWND hWnd, UINT nLen);
 	void ProcessFileTransferMsg(void);
 	void RequestPermission();
 	bool TestPermission(long lSize, int nVersion);
-	void AddFileToFileList(HWND hWnd, int nListId, WIN32_FIND_DATA& fd, bool fLocalSide);
-	void RequestRemoteDirectoryContent(HWND hWnd, LPSTR szPath);
+	void AddFileToFileList(HWND hWnd, int nListId, WIN32_FIND_DATA& fd, bool fLocalSide, const WCHAR* pszUnicodeFileName = NULL);
+	void RequestRemoteDirectoryContent(HWND hWnd, LPCWSTR szPath);
 	void RequestRemoteDrives();
 	void RequestRemoteFile(LPSTR szRemoteFileName);
+	bool OfferLocalFileW(LPCWSTR szSrcFileNameW);
 	bool OfferLocalFile(LPSTR szSrcFileName);
 	int  ZipPossibleDirectory(LPSTR szSrcFileName);
 	bool ReceiveFile(unsigned long lSize, UINT nLen);
@@ -167,33 +185,39 @@ public:
 	bool RequestNextFile();
 	bool ReceiveDestinationFileChecksums(int nSize, UINT nLen);
 	void HighlightTransferedFiles(HWND hSrcList, HWND hDstList);
-	void PopulateRemoteListBox(HWND hWnd, UINT nLen);
-	void ReceiveDirectoryItem(HWND hWnd, UINT nLen);
+	void PopulateRemoteListBox(HWND hWnd, UINT nLen, bool fUnicodeEntry = false);
+	void ReceiveDirectoryItem(HWND hWnd, UINT nLen, bool fUnicodeEntry = false);
 	void FinishDirectoryReception();
-	bool IsShortcutFolder(LPSTR szPath);
+	bool IsShortcutFolder(LPCWSTR szPath);
 	bool ResolvePossibleShortcutFolder(HWND hWnd, LPSTR szFolder);
 	void PopulateLocalListBox(HWND hWnd, LPSTR szPath);
+	void PopulateLocalListBoxW(HWND hWnd, LPCWSTR szPathW); // Unicode wrapper
 	void ListDrives(HWND hWnd);
+	void RequestRemoteDirectoryContentW(HWND hWnd, LPCWSTR szPathW); // Unicode wrapper
 	void CreateRemoteDirectory(LPSTR szDir);
+	void CreateRemoteDirectoryW(LPCWSTR szDirW); // Unicode wrapper
     void DeleteRemoteFile(std::string szFile);
 	bool CreateRemoteDirectoryFeedback(long lSize, UINT nLen);
 	bool DeleteRemoteFileFeedback(long lSize, UINT nLen);
 	void RenameRemoteFileOrDirectory(LPSTR szCurrentName, LPSTR szNewName);
+	void RenameRemoteFileOrDirectoryW(LPCWSTR szCurrentNameW, LPCWSTR szNewNameW); // Unicode wrapper
 	bool RenameRemoteFileOrDirectoryFeedback(long lSize, UINT nLen);
 	int  GenerateFileChecksums(HANDLE hFile, char* lpCSBuffer, int nCSBufferSize);
 
 	void SetTotalSize(HWND hwnd,DWORD dwTotalSize);
 	void SetGauge(HWND hwnd,__int64 dwCount);
 	void SetGlobalCount();
-	void SetStatus(LPSTR szStatus);
+	void SetStatus(LPWSTR szStatus);
 	void ShowFileTransferWindow(bool fVisible);
+	bool IsDirectoryGetItW(WCHAR* szName, int size);
 	bool IsDirectoryGetIt(char* szName, int size);
+	bool GetSpecialFolderPathW(int nId, WCHAR* szPathW);
 	bool GetSpecialFolderPath(int nId, char* szPath);
 	void GetFriendlyFileSizeString(__int64 Size, char* szText, int size);
-	bool MyGetFileSize(char* szFilePath, ULARGE_INTEGER* n2FileSize);
+	bool MyGetFileSize(LPCWSTR szFilePath, ULARGE_INTEGER* n2FileSize);
 	void InitListViewImagesList(HWND hListView);
-    bool DeleteFileOrDirectory(TCHAR *srcpath); // 14 April 2008 jdp
-	bool FileOrFolderExists(HWND fileListWnd, std::string fileOrFolder);
+    bool DeleteFileOrDirectory(WCHAR *srcpath); // Unicode path support
+	bool FileOrFolderExists(HWND fileListWnd, std::wstring fileOrFolder);
     bool UsingOldProtocol() { return m_ServerFTProtocolVersion == FT_PROTO_VERSION_OLD; }
     void StartFTSession();
     void EndFTSession();
@@ -204,13 +228,15 @@ public:
 	static void CALLBACK fpTimerProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime);
 	static void TimerCallback(FileTransfer* ft);
 
+	static __int64 GetFileSizeFromStringW(WCHAR* szSize);
 	static __int64 GetFileSizeFromString(char* szSize);
+	static FILETIME GetFileTimeFromStringW(WCHAR* szFileSystemTime);
 	static FILETIME GetFileTimeFromString(char* szFileSystemTime);
 private:
 	int nDirZipRet;
 	bool rfbFileHeaderRequested;
 	bool rfbFileTransferOfferRequested;
-	char szRemoteFileNameRequested[MAX_PATH];
+	char szRemoteFileNameRequested[MAX_PATH * 3];
 
 };
 
