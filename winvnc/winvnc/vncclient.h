@@ -705,6 +705,8 @@ public:
 #endif
 #ifdef AUTH_MS_LOGON_SUPPORT
 	BOOL AuthMsLogon(std::string& auth_message);
+	BOOL AuthMsLogonIII(std::string& auth_message);  // X25519 + AES-256-GCM
+	BOOL AuthMsLogonReject(std::string& auth_message);  // Reject old viewers with upgrade message
 #endif
 	BOOL AuthVnc(std::string& auth_message);
 #ifdef AUTH_SC_PROMP_SUPPORT

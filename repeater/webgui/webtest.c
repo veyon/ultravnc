@@ -114,7 +114,10 @@ DWORD WINAPI ThreadStartWeb(LPVOID lpParam)
 
 
 
+		wi_localhost = 1;   /* admin interface is local-only */
 		error = wi_init();
+
+		/* Password is displayed in MessageBox on first run (settings.c) */
 		old_port=saved_portHTTP;
 		while (error<0)
 		{
@@ -126,7 +129,7 @@ DWORD WINAPI ThreadStartWeb(LPVOID lpParam)
 		if (old_port!=saved_portHTTP)
 		{
 			char text[200];
-			sprintf_s(text, 200, "The defined web port is already in use. \nChanged to http://localhost:%i \nVerify settings!\n Default user and password is admin.",saved_portHTTP);
+			sprintf_s(text, 200, "The defined web port is already in use.\nChanged to http://localhost:%i\n\nVerify settings!\nUser: admin, Password set on first run.",saved_portHTTP);
 			MessageBox(NULL,text,"UltraVNC Repeater: Warning",MB_ICONEXCLAMATION);
 		}
 		/* Install our port-local authentication routine */
