@@ -23,6 +23,16 @@ static void JpegSetDstManager(j_compress_ptr cinfo, JOCTET *buf, size_t buflen);
 static bool jpegError;
 static int jpegDstDataLen;
 
+// Custom error_exit: Instead of exit(EXIT_FAILURE) (the default behavior of jpeg_std_error,
+// which would terminate the entire process), we report the error and perform a longjmp to
+// the setjmp set in SendJpegRect so that only this rectangle is abandoned.
+static void UltraJpegErrorExit(j_common_ptr cinfo)
+{
+	jpegError = true;
+	auto* err = reinterpret_cast<UltraJpegErrorMgr*>(cinfo->err);
+	longjmp(err->setjmp_buffer, 1);
+}
+
 #define IN_LEN		(128*1024)
 #define OUT_LEN		(IN_LEN + IN_LEN / 64 + 16 + 3)
 #define HEAP_ALLOC(var,size) \
@@ -38,7 +48,8 @@ vncEncodeUltra2::vncEncodeUltra2()
 	m_quality = 0;
 	m_rowPointer = NULL;
 	m_rowPointerSize = 0;
-	cinfo.err = jpeg_std_error(&jerr);
+	cinfo.err = jpeg_std_error(&jerr.pub);
+	jerr.pub.error_exit = UltraJpegErrorExit;
 	jpeg_create_compress(&cinfo);
 }
 
@@ -185,6 +196,11 @@ vncEncodeUltra2::SendJpegRect(BYTE *src,BYTE *dst, int dst_size, int w, int h, i
       blueShift = m_remoteformat.blueShift;
     }
 
+#ifdef JCS_EXTENSIONS
+    // JCS_EXT_* is only available with libjpeg-turbo. Without it (libjpeg IJG),
+    // setting in_color_space to one of these values would result in a libjpeg
+    // ERREXIT at runtime; therefore, we keep this path under #ifdef (as in
+    // vncEncodeTight.cpp) and fall back to JCS_RGB (3 components) otherwise.
     if(redShift == 0 && greenShift == 8 && blueShift == 16)
       cinfo.in_color_space = JCS_EXT_RGBX;
     if(redShift == 16 && greenShift == 8 && blueShift == 0)
@@ -198,6 +214,7 @@ vncEncodeUltra2::SendJpegRect(BYTE *src,BYTE *dst, int dst_size, int w, int h, i
       srcBuf = src;
       cinfo.input_components = 4;
     }
+#endif
   }
 
   if (w *h < 2500)
@@ -228,6 +245,18 @@ vncEncodeUltra2::SendJpegRect(BYTE *src,BYTE *dst, int dst_size, int w, int h, i
   for (int dy = 0; dy < h; dy++)
     m_rowPointer[dy] = (JSAMPROW)(&srcBuf[dy * w * 4]);
 
+  // Resume point in case of a fatal libjpeg error (UltraJpegErrorExit longjm here):
+  // we discard this rectangle and reset the compressor, instead of letting libjpeg
+  // call exit() and terminate veyon-server.
+  if (setjmp(jerr.setjmp_buffer)) {
+    jpeg_destroy_compress(&cinfo);
+    cinfo.err = jpeg_std_error(&jerr.pub);
+    jerr.pub.error_exit = UltraJpegErrorExit;
+    jpeg_create_compress(&cinfo);
+    m_quality = 0;
+    return 0;
+  }
+
   jpeg_start_compress(&cinfo, TRUE);
   while (cinfo.next_scanline < cinfo.image_height)
   {
@@ -242,7 +271,8 @@ vncEncodeUltra2::SendJpegRect(BYTE *src,BYTE *dst, int dst_size, int w, int h, i
 
   if (jpegError) {
 	jpeg_destroy_compress(&cinfo);
-	cinfo.err = jpeg_std_error(&jerr);
+	cinfo.err = jpeg_std_error(&jerr.pub);
+	jerr.pub.error_exit = UltraJpegErrorExit;
 	jpeg_create_compress(&cinfo);
 	m_quality = 0;
 	return 0;

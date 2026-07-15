@@ -15,6 +15,7 @@ class vncEncodeUltra2;
 #define _WINVNC_EncodeULTRA2
 #pragma once
 #include "vncencoder.h"
+#include <csetjmp>
 #ifdef ULTRAVNC_VEYON_SUPPORT
 #include <lzo/lzo1x.h>
 #include <jpeglib.h>
@@ -29,6 +30,15 @@ class vncEncodeUltra2;
 
 
 // Class definition
+
+// libjpeg error handler with setjmp/longjmp fallback: By default, libjpeg calls
+// error_exit -> exit() on any error (unsupported color space, version/ABI mismatch, etc.),
+// which KILLS the entire veyon-server. We use longjmp instead to abort only the current rectangle.
+struct UltraJpegErrorMgr
+{
+	struct jpeg_error_mgr pub;
+	jmp_buf setjmp_buffer;
+};
 
 class vncEncodeUltra2 : public vncEncoder
 {
@@ -62,7 +72,7 @@ private:
 	void checkRowPointer(int h);
 	int m_quality;
 	struct jpeg_compress_struct cinfo;
-	struct jpeg_error_mgr jerr;
+	UltraJpegErrorMgr jerr;
 };
 
 #endif // _WINVNC_EncodeUltra

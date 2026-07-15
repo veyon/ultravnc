@@ -28,6 +28,7 @@
 // while the server CPU performs the compression algorithms.
 #include "stdhdrs.h"
 #include "vncEncodeTight.h"
+#include <csetjmp>
 
 // Compression level stuff. The following array contains various
 // encoder parameters for each of 10 compression levels (0..9).
@@ -1169,6 +1170,22 @@ static int jpegDstDataLen;
 
 static void JpegSetDstManager(j_compress_ptr cinfo, JOCTET *buf, size_t buflen);
 
+// libjpeg error handler with setjmp/longjmp fallback: By default, libjpeg calls
+// error_exit -> exit() on any error, which would terminate the entire
+// veyon-server. We use longjmp instead to terminate only the current rectangle.
+struct TightJpegErrorMgr
+{
+	struct jpeg_error_mgr pub;
+	jmp_buf setjmp_buffer;
+};
+
+static void TightJpegErrorExit(j_common_ptr cinfo)
+{
+	jpegError = true;
+	auto* err = reinterpret_cast<TightJpegErrorMgr*>(cinfo->err);
+	longjmp(err->setjmp_buffer, 1);
+}
+
 int
 vncEncodeTight::SendJpegRect(BYTE *source, BYTE *dst, int x, int y, int w,
 							 int h)
@@ -1177,12 +1194,13 @@ vncEncodeTight::SendJpegRect(BYTE *source, BYTE *dst, int x, int y, int w,
 	const int v_samp_factor[NUM_SUBSAMPOPT] = { 1, 2, 1, 1, 2, 4 };
 
 	struct jpeg_compress_struct cinfo;
-	struct jpeg_error_mgr jerr;
+	TightJpegErrorMgr jerr;
 
 	if (m_localformat.bitsPerPixel == 8)
 		return SendFullColorRect(dst, w, h);
 
-	cinfo.err = jpeg_std_error(&jerr);
+	cinfo.err = jpeg_std_error(&jerr.pub);
+	jerr.pub.error_exit = TightJpegErrorExit;
 	sizeof(cinfo);
 	jpeg_create_compress(&cinfo);
 
@@ -1221,9 +1239,21 @@ vncEncodeTight::SendJpegRect(BYTE *source, BYTE *dst, int x, int y, int w,
 
 	JpegSetDstManager (&cinfo, (JOCTET*)dst, w * h * (m_localformat.bitsPerPixel / 8));
 
+	BYTE *srcBuf = NULL;
+	JSAMPROW *rowPointerHeap = NULL;
+
+	// Resume point in case of a fatal libjpeg error (TightJpegErrorExit longjmp here):
+	// we free the buffers, destroy the compressor, and fall back to an uncompressed
+	// rectangle, instead of letting libjpeg call exit().
+	if (setjmp(jerr.setjmp_buffer)) {
+		jpeg_destroy_compress(&cinfo);
+		if (srcBuf) delete[] srcBuf;
+		if (rowPointerHeap) delete[] rowPointerHeap;
+		return SendFullColorRect(dst, w, h);
+	}
+
 	jpeg_start_compress(&cinfo, TRUE);
 
-	BYTE *srcBuf = NULL;
 	if (cinfo.in_color_space == JCS_RGB) {
 		srcBuf = new BYTE[w * 3];
 		JSAMPROW rowPointer[1];
@@ -1236,18 +1266,18 @@ vncEncodeTight::SendJpegRect(BYTE *source, BYTE *dst, int x, int y, int w,
 				break;
 		}
 	} else {
-		JSAMPROW *rowPointer;
-		rowPointer = new JSAMPROW[h];
+		rowPointerHeap = new JSAMPROW[h];
 		for (int dy = 0; dy < h; dy++)
-			rowPointer[dy] = &source[(y + dy) * m_bytesPerRow +
+			rowPointerHeap[dy] = &source[(y + dy) * m_bytesPerRow +
 									 x * (m_localformat.bitsPerPixel / 8)];
 		while (cinfo.next_scanline < cinfo.image_height) {
-			jpeg_write_scanlines(&cinfo, &rowPointer[cinfo.next_scanline],
+			jpeg_write_scanlines(&cinfo, &rowPointerHeap[cinfo.next_scanline],
 								 cinfo.image_height - cinfo.next_scanline);
 			if (jpegError)
 				break;
 		}
-		delete [] rowPointer;
+		delete [] rowPointerHeap;
+		rowPointerHeap = NULL;
 	}
 
 	if (!jpegError)
