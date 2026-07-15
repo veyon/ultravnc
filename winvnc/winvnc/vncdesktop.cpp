@@ -1754,6 +1754,17 @@ vncDesktop::CaptureScreen(const rfb::Rect &rect, BYTE *scrBuff, UINT scrBuffSize
 	//Beep(100, 100);
 	if (capture)
 	{
+		if (m_screenCapture == NULL)
+		{
+			HDC freshdc = GetDC(NULL);
+			if (freshdc != NULL)
+			{
+				if (m_hrootdc_Desktop != NULL)
+					ReleaseDC(NULL, m_hrootdc_Desktop);
+				m_hrootdc_Desktop = freshdc;
+			}
+		}
+
 		// Select the memory bitmap into the memory DC
 		HBITMAP oldbitmap;
 		if ((oldbitmap = (HBITMAP)SelectObject(m_hmemdc, m_membitmap)) == NULL)
